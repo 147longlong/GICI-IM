@@ -9,6 +9,7 @@
 #pragma once
 
 #include "gici/utility/svo.h"
+#include "gici/vision/visual_ism_gen.h"
 
 namespace gici {
 
@@ -59,6 +60,9 @@ private:
 
 protected: 
   FeatureTrackerOptions options_;
+
+public:
+  VisualISMGeneratorPtr visual_ism_gen_;
 };
 
 using FeatureTrackerPtr = std::shared_ptr<FeatureTracker>;

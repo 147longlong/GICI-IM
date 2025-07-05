@@ -7,6 +7,7 @@
 * Copyright (C) 2023 by Cheng Chi, All rights reserved.
 **/
 #include "gici/vision/feature_handler.h"
+#include "gici/vision/visual_ism_gen.h"
 
 #include "gici/utility/common.h"
 #include "gici/estimate/graph.h"
@@ -30,6 +31,7 @@ FeatureHandler::FeatureHandler(const FeatureHandlerOptions& options,
   detector_ = feature_detection_utils::makeDetector(
     options.detector, cams_->getCameraShared(0));
   tracker_ = std::make_shared<FeatureTracker>(options.tracker);
+  tracker_->visual_ism_gen_ = std::make_shared<VisualISMGenerator>(options.detector, cams_->getCameraShared(0));
   initializer_ = makeVisualInitializer(options.initialization, detector_, tracker_);
 
   frame_bundles_.push_back(std::make_shared<FrameBundle>(std::vector<FramePtr>()));
@@ -286,7 +288,7 @@ void FeatureHandler::trackFeatures()
     Transformation T_WC_cur = curFrame()->T_world_cam();
     q_cur_ref = (T_WC_cur.inverse() * T_WC_ref).getEigenQuaternion();
     has_rotation_prior = true;
-  }
+      }
 
   if (has_rotation_prior) {
     tracker_->track(getLast(frame_bundles_)->at(0), 
