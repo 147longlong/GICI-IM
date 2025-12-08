@@ -66,6 +66,8 @@ MultiSensorEstimating::MultiSensorEstimating(
   if (estimatorTypeContains(SensorType::Camera, type_) && 
       feature_handler_node.IsDefined()) {
     option_tools::loadOptions(feature_handler_node, feature_handler_options_);
+    feature_handler_options_.tracker.ism_gen_flag = nodes->integrity_node_->ism_gen_flag;
+    feature_handler_options_.tracker.save_ism_image = nodes->integrity_node_->save_ism_image;
   }
 
   // Instantiate estimators
@@ -593,6 +595,18 @@ bool MultiSensorEstimating::updateSolution()
     }
     else {
       LOG(FATAL) << "Unable to cast estimaotr to GNSS estimator!";
+    }
+  }
+
+  // if we have Visual Integrity, get Integrity variables
+  if (type_ == EstimatorType::GnssImuCameraSrr) {
+    if (std::shared_ptr<GnssImuCameraSrrEstimator> srr_estimator = 
+      std::dynamic_pointer_cast<GnssImuCameraSrrEstimator>(estimator_)) {
+      solution_.protection_level_h = srr_estimator->getHPL();
+      solution_.protection_level_x = srr_estimator->getXPL();
+      solution_.protection_level_y = srr_estimator->getYPL();
+      solution_.protection_level_v = srr_estimator->getVPL();
+      solution_.integrity_risk = srr_estimator->getIR();
     }
   }
 

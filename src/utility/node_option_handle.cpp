@@ -65,6 +65,13 @@ NodeOptionHandle::NodeOptionHandle(const YAML::Node& yaml_node) :
     }
   }
 
+  if (yaml_node["integrity"].IsDefined()){
+    const YAML::Node& integrity_node = yaml_node["integrity"];
+    IntegrityNodePtr integrity = 
+      std::make_shared<IntegrityNode>(integrity_node);
+      integrity_node_ = integrity;
+  }
+
   // Check all nodes
   if (!checkAllNodeOptions()) { valid = false; return; }
 
@@ -319,6 +326,24 @@ NodeOptionHandle::EstimatorNodeBase::EstimatorNodeBase(const YAML::Node& yaml_no
       valid = false; return;
     }
     input_tag_roles.push_back(roles);
+  }
+}
+
+NodeOptionHandle::IntegrityNode::IntegrityNode(const YAML::Node& yaml_node)
+{
+  if (!option_tools::safeGet(yaml_node, "enable", &enable)) {
+    LOG(ERROR) << "Unable to load integrity enable option!";
+    enable = false;
+  }
+  if (enable) {
+    if (!option_tools::safeGet(yaml_node, "ism_gen_flag", &ism_gen_flag)) {
+      LOG(ERROR) << "Unable to load integrity method option!";
+      ism_gen_flag = false;
+    }
+    if (!option_tools::safeGet(yaml_node, "save_ism_image", &save_ism_image)) {
+      LOG(ERROR) << "Unable to load save_ism_image option!";
+      save_ism_image = false;
+    }
   }
 }
 

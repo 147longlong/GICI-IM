@@ -7,7 +7,7 @@
 * Copyright (C) 2025 by Yulong Sun, All rights reserved.
 **/
 
-#include "gici/vision/visual_ism_gen.h"
+#include "gici/integrity/visual_ism_gen.h"
 #include "gici/utility/transform.h"
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -64,7 +64,7 @@ bool VisualISMGenerator::getGTFundamentalMat(Eigen::Quaterniond& q_cur_ref, Eige
             break;
         }
     }
-    std::cout << "*********************************************************" << std::endl;
+    std::cout << "*********************get GT fundamentalMat************************" << std::endl;
     std::cout << "Cur Frame Time: " << cur_frame_->getTimestampSec() << std::endl;
     std::cout << "Time: " << cur_time << std::endl;
     std::cout << "Position: " << cur_pos.transpose() << std::endl;
@@ -90,7 +90,7 @@ bool VisualISMGenerator::getGTFundamentalMat(Eigen::Quaterniond& q_cur_ref, Eige
     }
     if (!std::isfinite(cur_q.squaredNorm()) || !std::isfinite(ref_q.squaredNorm())) {
       return false;
-  }
+    }
     Transformation T_cur_gt = Transformation(cur_pos, cur_q); // tum is body to world
     Transformation T_ref_gt = Transformation(ref_pos, ref_q); 
     Transformation T_WS_cam_cur = (T_cur_gt * cur_frame_->T_imu_cam()); 
@@ -162,6 +162,8 @@ void VisualISMGenerator::saveRawTrackedImage() {
 
   cv::imwrite(file, img);
   cv::imwrite(file_combined, img_combined);
+  LOG(INFO) << "Saved raw tracked image: " << file;
+  LOG(INFO) << "Saved combined image: " << file_combined;
 
 }
 
@@ -209,6 +211,7 @@ void VisualISMGenerator::saveOutliers() {
   grid_.reset();
 
   cv::imwrite(img_file, img_exclude);
+  LOG(INFO) << "Saved outliers image: " << img_file;
 }
 
 
@@ -253,6 +256,7 @@ void VisualISMGenerator::saveInliers() {
 
   cv::imwrite(file_ransac, img_combined_ransac);
   is_drawInliers = true;
+  LOG(INFO) << "Saved inliers image: " << file_ransac;
 
 }
 
@@ -346,6 +350,7 @@ void VisualISMGenerator::saveSDImage() {
   // save outlier_count and all_couts to saved_file
   std::ofstream out(saved_file, std::ios::app);
   out << img_count << " " << sampson_errors_map.size() << " " << outlier_count<< " mean_sd: " <<  mean_sampson  << " max_std: " << max_sd << " couts_fault: " << couts_fault << std::endl;
+  LOG(INFO) << "Saved Sampson distance image: " << file_ransac;
 }
 
 void VisualISMGenerator::addImageCount() {

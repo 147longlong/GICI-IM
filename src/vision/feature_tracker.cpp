@@ -90,8 +90,14 @@ void FeatureTracker::track(const FramePtr& ref_frame,
   }
   status.clear();
 
-  visual_ism_gen_->setFrames(cur_frame, ref_frame, index_map, cur_points, ref_points);
-  visual_ism_gen_->saveRawTrackedImage();  
+  if (options_.ism_gen_flag){
+    LOG(INFO) << "Visual ISM Generator is enabled during feature tracking.";
+    visual_ism_gen_->setFrames(cur_frame, ref_frame, index_map, cur_points, ref_points);
+    if (options_.save_ism_image){
+      visual_ism_gen_->saveRawTrackedImage();
+    }
+  }
+
   // Apply ransac to reject error matches
   cv::findFundamentalMat(ref_bearings, cur_bearings, 
     cv::FM_RANSAC, options_.ransac_threshold / cur_frame->cam()->errorMultiplier(), 
@@ -126,12 +132,18 @@ void FeatureTracker::track(const FramePtr& ref_frame,
     }
   }
 
-  visual_ism_gen_->setRANSACStatus(status);
-  visual_ism_gen_->saveOutliers();
-  visual_ism_gen_->saveInliers();
-  visual_ism_gen_->computeSampsonDistance();
-  visual_ism_gen_->saveSDImage();
-  visual_ism_gen_->addImageCount();
+  if(options_.ism_gen_flag){
+    visual_ism_gen_->setRANSACStatus(status);
+    if (options_.save_ism_image){
+      visual_ism_gen_->saveOutliers();
+      visual_ism_gen_->saveInliers();
+    }
+    visual_ism_gen_->computeSampsonDistance();
+    if (options_.save_ism_image){
+      visual_ism_gen_->saveSDImage();
+    }
+    visual_ism_gen_->addImageCount();
+  }
 
   frame_utils::computeBearingVectors(
     cur_frame->px_vec_, *cur_frame->cam(), &cur_frame->f_vec_);

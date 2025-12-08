@@ -365,6 +365,7 @@ public:
     bool use_rmc = true;  // Use GxRMC message
     bool use_esa = false; // Use GxESA message (see encodeESA)
     bool use_esd = false; // Use GxESD message (see encodeESD)
+    bool use_im = false;  // Use GxIM message (Integrity Monitoring)
     std::string talker_id = "GN";
   };
 
@@ -394,6 +395,10 @@ protected:
   // Format: $GNESD,tod,STD_Pe,STD_Pn,STD_Pu,STD_Ve,STD_Vn,STD_Vu,
   //         STD_Ar,STD_Ap,STD_Py*checksum
   int encodeESD(const Solution& solution, uint8_t* buf);
+
+  // Encode GNIM (self-defined Integrity Monitoring) message
+  // Format: $GNIM,tod,XPL,YPL,VPL,IR*checksum
+  int encodeIM(const Solution& solution, uint8_t* buf);
 
   // Convert Solution to sol_t
   void convertSolution(const Solution& solution, sol_t& sol);

@@ -26,6 +26,7 @@
 
 #include "gici/utility/svo.h"
 #include "gici/stream/formator.h"
+#include "gici/imu/imu_types.h"
 
 namespace gici {
 
@@ -98,6 +99,11 @@ protected:
 void publishError3d(ros::Publisher& pub, 
   const Eigen::Vector3d& error, const ros::Time time, 
   std::string frame_id);
+
+// Publish Protection Level
+void publishProtectionLevel(ros::Publisher& pub, 
+  const Transformation& pose, double xpl, double ypl, double vpl, 
+  const ros::Time time, std::string frame_id);
 
 // Publish IMU message
 void publishImu(ros::Publisher& pub, const DataCluster::IMU& imu);

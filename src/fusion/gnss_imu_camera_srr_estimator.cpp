@@ -7,6 +7,7 @@
 * Copyright (C) 2023 by Cheng Chi, All rights reserved.
 **/
 #include "gici/fusion/gnss_imu_camera_srr_estimator.h"
+#include "gici/integrity/visual_integrity.h"
 
 namespace gici {
 
@@ -259,6 +260,22 @@ bool GnssImuCameraSrrEstimator::estimate()
     updateLandmarks();
     // update states to frontend
     updateFrameStateToFrontend(states_[latest_state_index_], curFrame());
+
+
+    // Visual Integrity Monitoring
+    VisualIntegrityOptions integrity_options;
+    integrity_options.sigma_pixel = visual_base_options_.feature_error_std;
+    VisualIntegrity visual_integrity(integrity_options);
+    visual_integrity.monitor(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
+
+    hpl_ = visual_integrity.getHPL();
+    xpl_ = visual_integrity.getXPL();
+    ypl_ = visual_integrity.getYPL();
+    vpl_ = visual_integrity.getVPL();
+    ir_ = visual_integrity.getIR();
+
+
+
     // reject landmark outliers
     size_t n_reprojection = numReprojectionError(curFrame());
     rejectReprojectionErrorOutlier(curFrame());

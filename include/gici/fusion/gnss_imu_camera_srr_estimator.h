@@ -96,6 +96,20 @@ protected:
 
   // Status control
   int num_cotinuous_reject_visual_ = 0;
+
+  // Integrity results
+  double hpl_ = 0.0;
+  double xpl_ = 0.0;
+  double ypl_ = 0.0;
+  double vpl_ = 0.0;
+  double ir_ = 0.0;
+
+public:
+  double getHPL() const { return hpl_; }
+  double getXPL() const { return xpl_; }
+  double getYPL() const { return ypl_; }
+  double getVPL() const { return vpl_; }
+  double getIR() const { return ir_; }
 };
 
 }

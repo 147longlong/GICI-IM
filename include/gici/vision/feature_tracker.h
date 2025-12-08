@@ -9,7 +9,7 @@
 #pragma once
 
 #include "gici/utility/svo.h"
-#include "gici/vision/visual_ism_gen.h"
+#include "gici/integrity/visual_ism_gen.h"
 
 namespace gici {
 
@@ -38,6 +38,12 @@ struct FeatureTrackerOptions {
   // specifies a desirable level of confidence (probability) that the estimated 
   // matrix is correct
   double ransac_confidence = 0.99;
+
+  // Enable visual ISM generator during feature tracking
+  bool ism_gen_flag = false;
+
+  // Save ISM images during feature tracking, including raw tracked image, inliers, outliers, Sampson distance image
+  bool save_ism_image = false;
 };
 
 class FeatureTracker {

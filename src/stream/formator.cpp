@@ -954,6 +954,7 @@ NmeaFormator::NmeaFormator(YAML::Node& node)
   LOAD_COMMON(use_rmc);
   LOAD_COMMON(use_esa);
   LOAD_COMMON(use_esd);
+  LOAD_COMMON(use_im);
   LOAD_COMMON(talker_id);
   option_ = option;
 }
@@ -989,6 +990,9 @@ int NmeaFormator::encode(const std::shared_ptr<DataCluster>& data, uint8_t *buf)
   }
   if (option_.use_esd) {
     p += encodeESD(*data->solution, p);
+  }
+  if (option_.use_im) {
+    p += encodeIM(*data->solution, p);
   }
 
   return p - buf;
@@ -1153,6 +1157,33 @@ int NmeaFormator::encodeESD(const Solution& solution, uint8_t* buf)
   p+=sprintf(p,"$%sESD,%02.0f%02.0f%06.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
              option_.talker_id.data(),ep[3],ep[4],ep[5],std_p[0],std_p[1],std_p[2],
              std_v[0],std_v[1],std_v[2],std_a[0],std_a[1],std_a[2]);
+  for (q=(char *)buf+1,sum=0;*q;q++) sum^=*q; /* check-sum */
+  p+=sprintf(p,"*%02X\r\n",sum);
+  return p-(char *)buf;
+}
+
+// Encode GNIM (self-defined Integrity Monitoring) message
+// Format: $GNIM,tod,XPL,YPL,VPL,IR*checksum
+int NmeaFormator::encodeIM(const Solution& solution, uint8_t* buf)
+{
+  sol_t sol;
+  convertSolution(solution, sol);
+
+  gtime_t time;
+  double ep[6];
+  char *p=(char *)buf,*q,sum;
+  
+  if (sol.stat<=SOLQ_NONE) {
+    p+=sprintf(p,"$%sIM,,,,,",option_.talker_id.data());
+    for (q=(char *)buf+1,sum=0;*q;q++) sum^=*q;
+    p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+    return p-(char *)buf;
+  }
+  time=gpst2utc(sol.time);
+  time2epoch(time,ep);
+  p+=sprintf(p,"$%sIM,%02.0f%02.0f%06.3f,%.3f,%.3f,%.3f,%.3e",
+             option_.talker_id.data(),ep[3],ep[4],ep[5],
+             solution.protection_level_x, solution.protection_level_y, solution.protection_level_v, solution.integrity_risk);
   for (q=(char *)buf+1,sum=0;*q;q++) sum^=*q; /* check-sum */
   p+=sprintf(p,"*%02X\r\n",sum);
   return p-(char *)buf;

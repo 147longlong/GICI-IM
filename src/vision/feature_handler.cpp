@@ -7,7 +7,7 @@
 * Copyright (C) 2023 by Cheng Chi, All rights reserved.
 **/
 #include "gici/vision/feature_handler.h"
-#include "gici/vision/visual_ism_gen.h"
+#include "gici/integrity/visual_ism_gen.h"
 
 #include "gici/utility/common.h"
 #include "gici/estimate/graph.h"

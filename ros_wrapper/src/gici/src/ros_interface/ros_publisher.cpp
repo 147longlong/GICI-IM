@@ -658,4 +658,39 @@ void publishGnssSsrEphemerides(
   pub.publish(msg);
 }
 
+// Publish Protection Level
+void publishProtectionLevel(ros::Publisher& pub, 
+  const Transformation& pose, double xpl, double ypl, double vpl, 
+  const ros::Time time, std::string frame_id)
+{
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = frame_id;
+  marker.header.stamp = time;
+  marker.ns = "protection_level";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::CUBE;
+  marker.action = visualization_msgs::Marker::ADD;
+  
+  Eigen::Vector3d p = pose.getPosition();
+  marker.pose.position.x = p(0);
+  marker.pose.position.y = p(1);
+  marker.pose.position.z = p(2);
+  marker.pose.orientation.x = pose.getRotation().x();
+  marker.pose.orientation.y = pose.getRotation().y();
+  marker.pose.orientation.z = pose.getRotation().z();
+  marker.pose.orientation.w = pose.getRotation().w();
+  
+  // the 10 is for better visualization
+  marker.scale.x = xpl * 2.0 * 10.0; // Diameter
+  marker.scale.y = ypl * 2.0 * 10.0; // Diameter
+  marker.scale.z = vpl * 2.0 * 10.0; // Diameter
+  
+  marker.color.a = 0.5; // Semi-transparent
+  marker.color.r = 0.0;
+  marker.color.g = 1.0;
+  marker.color.b = 0.0;
+  
+  pub.publish(marker);
+}
+
 }

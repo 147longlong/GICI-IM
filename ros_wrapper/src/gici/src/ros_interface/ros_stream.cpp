@@ -284,6 +284,16 @@ RosStream::RosStream(
     }
     path_publisher_ = std::make_unique<PathPublisher>();
   }
+  else if (data_format == "protection_level") {
+    data_format_ = RosDataFormat::ProtectionLevel;
+    if (io_type_ == StreamIOType::Input) {
+      LOG(ERROR) << "Setting protection level topic as input is disabled!";
+      return;
+    }
+    else {
+      publishers_.push_back(nh_.advertise<visualization_msgs::Marker>(topic_name_, queue_size_));
+    }
+  }
 
   // Set valid
   valid_ = true;
@@ -388,6 +398,11 @@ void RosStream::solutionOutputCallback(std::string tag, Solution& solution)
   else if (data_format_ == RosDataFormat::Path) {
     CHECK_NOTNULL(path_publisher_);
     path_publisher_->addPoseAndPublish(publishers_[0], solution.pose, 
+      ros::Time(solution.timestamp), frame_id_);
+  }
+  else if (data_format_ == RosDataFormat::ProtectionLevel) {
+    publishProtectionLevel(publishers_[0], solution.pose, 
+      solution.protection_level_x, solution.protection_level_y, solution.protection_level_v,
       ros::Time(solution.timestamp), frame_id_);
   }
 }

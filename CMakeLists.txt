@@ -47,13 +47,15 @@ aux_source_directory(src/imu DIR_imu)
 aux_source_directory(src/vision DIR_vision)
 aux_source_directory(src/estimate DIR_estimate)
 aux_source_directory(src/fusion DIR_fusion)
+aux_source_directory(src/integrity DIR_integrity)
 list(APPEND DIR_ALL ${DIR_utility}
                     ${DIR_stream}
                     ${DIR_gnss}
                     ${DIR_imu}
                     ${DIR_vision}
                     ${DIR_estimate}
-                    ${DIR_fusion})
+                    ${DIR_fusion}
+                    ${DIR_integrity})
 
 # library
 add_library(${PROJECT_NAME} SHARED ${DIR_ALL})
@@ -62,6 +64,7 @@ target_link_libraries(${PROJECT_NAME}
                       vikit_common
                       svo
                       glog
+                      yaml-cpp
                       ${OpenCV_LIBS})
 target_include_directories(${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include

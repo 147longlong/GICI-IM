@@ -86,6 +86,19 @@ public:
   std::vector<EstimatorNodeBasePtr> estimators;
   std::map<std::string, NodeBasePtr> tag_to_node;
 
+  class IntegrityNode{
+    public:
+      IntegrityNode(const YAML::Node& yaml_node);
+      ~IntegrityNode() { }
+
+      bool enable = false;
+      bool ism_gen_flag = false;
+      bool save_ism_image = false;
+  };
+  using IntegrityNodePtr = std::shared_ptr<IntegrityNode>;
+
+  IntegrityNodePtr integrity_node_;
+
 private:
   // Check if the options of all nodes valid
   bool checkAllNodeOptions();

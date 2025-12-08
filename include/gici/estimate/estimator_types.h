@@ -337,7 +337,7 @@ inline BackendId changeIdType(BackendId id, IdType type, size_t cam_index = 0)
   CHECK(cam_index == 0 || type == IdType::cExtrinsics || type == IdType::gVelocity ||
         type == IdType::gExtrinsics || type == IdType::gTroposphere);
   CHECK((BackendId::sensorType(id.type()) == BackendId::sensorType(type)) || 
-        (BackendId::sensorType(type) == SensorType::IMU));
+        (BackendId::sensorType(type) == SensorType::IMU) || (BackendId::sensorType(id.type()) == SensorType::IMU));
   uint64_t out = id.asInteger();
   out = BackendId::resetBits(out, cam_index, BITS_CAMERA_IDX);
   out = BackendId::resetBits(out, type, BITS_IDTYPE);
@@ -510,6 +510,13 @@ struct Solution {
   SpeedAndBias speed_and_bias;
   Eigen::Matrix<double, 15, 15> covariance;
   GeoCoordinatePtr coordinate;
+  
+  // Integrity monitoring results
+  double protection_level_h = 0.0;
+  double protection_level_x = 0.0;
+  double protection_level_y = 0.0;
+  double protection_level_v = 0.0;
+  double integrity_risk = 0.0;
 };
 
 // Role of solution when it behaves as measurement (for loosely couple)

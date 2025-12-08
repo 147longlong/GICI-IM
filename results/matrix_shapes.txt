@@ -1,0 +1,783 @@
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+chi2_: 15475
+
+--- Monitor State Index: 11 ---
+J_all: 576x372
+r_all: 576
+subsets: 18868
+sigma_: 18868x3
+bias_: 18868x3
+sigma_ss_: 18868x3
+bias_ss_: 18868x3
+s1vec_: 18868x576
+s2vec_: 18868x576
+s3vec_: 18868x576
+x_: 18868x3
+chi2_: 18868
+
+--- Monitor State Index: 12 ---
+J_all: 675x387
+r_all: 675
+subsets: 11593
+sigma_: 11593x3
+bias_: 11593x3
+sigma_ss_: 11593x3
+bias_ss_: 11593x3
+s1vec_: 11593x675
+s2vec_: 11593x675
+s3vec_: 11593x675
+x_: 11593x3
+chi2_: 11593
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 11 ---
+J_all: 576x372
+r_all: 576
+subsets: 18868
+sigma_: 18868x3
+bias_: 18868x3
+sigma_ss_: 18868x3
+bias_ss_: 18868x3
+s1vec_: 18868x576
+s2vec_: 18868x576
+s3vec_: 18868x576
+x_: 18868x3
+
+--- Monitor State Index: 12 ---
+J_all: 675x387
+r_all: 675
+subsets: 11593
+sigma_: 11593x3
+bias_: 11593x3
+sigma_ss_: 11593x3
+bias_ss_: 11593x3
+s1vec_: 11593x675
+s2vec_: 11593x675
+s3vec_: 11593x675
+x_: 11593x3
+
+--- Monitor State Index: 13 ---
+J_all: 766x402
+r_all: 766
+subsets: 8383
+sigma_: 8383x3
+bias_: 8383x3
+sigma_ss_: 8383x3
+bias_ss_: 8383x3
+s1vec_: 8383x766
+s2vec_: 8383x766
+s3vec_: 8383x766
+x_: 8383x3
+
+--- Monitor State Index: 14 ---
+J_all: 851x417
+r_all: 851
+subsets: 6379
+sigma_: 6379x3
+bias_: 6379x3
+sigma_ss_: 6379x3
+bias_ss_: 6379x3
+s1vec_: 6379x851
+s2vec_: 6379x851
+s3vec_: 6379x851
+x_: 6379x3
+
+--- Monitor State Index: 15 ---
+J_all: 920x429
+r_all: 920
+subsets: 4691
+sigma_: 4691x3
+bias_: 4691x3
+sigma_ss_: 4691x3
+bias_ss_: 4691x3
+s1vec_: 4691x920
+s2vec_: 4691x920
+s3vec_: 4691x920
+x_: 4691x3
+
+--- Monitor State Index: 16 ---
+J_all: 973x441
+r_all: 973
+subsets: 2152
+sigma_: 2152x3
+bias_: 2152x3
+sigma_ss_: 2152x3
+bias_ss_: 2152x3
+s1vec_: 2152x973
+s2vec_: 2152x973
+s3vec_: 2152x973
+x_: 2152x3
+
+--- Monitor State Index: 17 ---
+J_all: 1020x453
+r_all: 1020
+subsets: 1525
+sigma_: 1525x3
+bias_: 1525x3
+sigma_ss_: 1525x3
+bias_ss_: 1525x3
+s1vec_: 1525x1020
+s2vec_: 1525x1020
+s3vec_: 1525x1020
+x_: 1525x3
+
+--- Monitor State Index: 18 ---
+J_all: 1035x462
+r_all: 1035
+subsets: 188
+sigma_: 188x3
+bias_: 188x3
+sigma_ss_: 188x3
+bias_ss_: 188x3
+s1vec_: 188x1035
+s2vec_: 188x1035
+s3vec_: 188x1035
+x_: 188x3
+
+--- Monitor State Index: 19 ---
+J_all: 1082x477
+r_all: 1082
+subsets: 137
+sigma_: 137x3
+bias_: 137x3
+sigma_ss_: 137x3
+bias_ss_: 137x3
+s1vec_: 137x1082
+s2vec_: 137x1082
+s3vec_: 137x1082
+x_: 137x3
+
+--- Monitor State Index: 10 ---
+J_all: 866x297
+r_all: 866
+subsets: 121
+sigma_: 121x3
+bias_: 121x3
+sigma_ss_: 121x3
+bias_ss_: 121x3
+s1vec_: 121x866
+s2vec_: 121x866
+s3vec_: 121x866
+x_: 121x3
+
+--- Monitor State Index: 10 ---
+J_all: 816x276
+r_all: 816
+subsets: 92
+sigma_: 92x3
+bias_: 92x3
+sigma_ss_: 92x3
+bias_ss_: 92x3
+s1vec_: 92x816
+s2vec_: 92x816
+s3vec_: 92x816
+x_: 92x3
+
+--- Monitor State Index: 10 ---
+J_all: 742x264
+r_all: 742
+subsets: 67
+sigma_: 67x3
+bias_: 67x3
+sigma_ss_: 67x3
+bias_ss_: 67x3
+s1vec_: 67x742
+s2vec_: 67x742
+s3vec_: 67x742
+x_: 67x3
+
+--- Monitor State Index: 10 ---
+J_all: 679x255
+r_all: 679
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x679
+s2vec_: 56x679
+s3vec_: 56x679
+x_: 56x3
+
+--- Monitor State Index: 10 ---
+J_all: 623x249
+r_all: 623
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x623
+s2vec_: 56x623
+s3vec_: 56x623
+x_: 56x3
+
+--- Monitor State Index: 10 ---
+J_all: 552x234
+r_all: 552
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x552
+s2vec_: 29x552
+s3vec_: 29x552
+x_: 29x3
+
+--- Monitor State Index: 10 ---
+J_all: 505x231
+r_all: 505
+subsets: 22
+sigma_: 22x3
+bias_: 22x3
+sigma_ss_: 22x3
+bias_ss_: 22x3
+s1vec_: 22x505
+s2vec_: 22x505
+s3vec_: 22x505
+x_: 22x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 11 ---
+J_all: 576x372
+r_all: 576
+subsets: 18868
+sigma_: 18868x3
+bias_: 18868x3
+sigma_ss_: 18868x3
+bias_ss_: 18868x3
+s1vec_: 18868x576
+s2vec_: 18868x576
+s3vec_: 18868x576
+x_: 18868x3
+
+--- Monitor State Index: 12 ---
+J_all: 675x387
+r_all: 675
+subsets: 11593
+sigma_: 11593x3
+bias_: 11593x3
+sigma_ss_: 11593x3
+bias_ss_: 11593x3
+s1vec_: 11593x675
+s2vec_: 11593x675
+s3vec_: 11593x675
+x_: 11593x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 11 ---
+J_all: 576x372
+r_all: 576
+subsets: 18868
+sigma_: 18868x3
+bias_: 18868x3
+sigma_ss_: 18868x3
+bias_ss_: 18868x3
+s1vec_: 18868x576
+s2vec_: 18868x576
+s3vec_: 18868x576
+x_: 18868x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 11 ---
+J_all: 504x318
+r_all: 504
+subsets: 4193
+sigma_: 4193x3
+bias_: 4193x3
+sigma_ss_: 4193x3
+bias_ss_: 4193x3
+s1vec_: 4193x504
+s2vec_: 4193x504
+s3vec_: 4193x504
+x_: 4193x3
+
+--- Monitor State Index: 12 ---
+J_all: 573x333
+r_all: 573
+subsets: 2504
+sigma_: 2504x3
+bias_: 2504x3
+sigma_ss_: 2504x3
+bias_ss_: 2504x3
+s1vec_: 2504x573
+s2vec_: 2504x573
+s3vec_: 2504x573
+x_: 2504x3
+
+--- Monitor State Index: 13 ---
+J_all: 636x348
+r_all: 636
+subsets: 1525
+sigma_: 1525x3
+bias_: 1525x3
+sigma_ss_: 1525x3
+bias_ss_: 1525x3
+s1vec_: 1525x636
+s2vec_: 1525x636
+s3vec_: 1525x636
+x_: 1525x3
+
+--- Monitor State Index: 14 ---
+J_all: 697x363
+r_all: 697
+subsets: 1248
+sigma_: 1248x3
+bias_: 1248x3
+sigma_ss_: 1248x3
+bias_ss_: 1248x3
+s1vec_: 1248x697
+s2vec_: 1248x697
+s3vec_: 1248x697
+x_: 1248x3
+
+--- Monitor State Index: 15 ---
+J_all: 754x378
+r_all: 754
+subsets: 762
+sigma_: 762x3
+bias_: 762x3
+sigma_ss_: 762x3
+bias_ss_: 762x3
+s1vec_: 762x754
+s2vec_: 762x754
+s3vec_: 762x754
+x_: 762x3
+
+--- Monitor State Index: 16 ---
+J_all: 789x390
+r_all: 789
+subsets: 154
+sigma_: 154x3
+bias_: 154x3
+sigma_ss_: 154x3
+bias_ss_: 154x3
+s1vec_: 154x789
+s2vec_: 154x789
+s3vec_: 154x789
+x_: 154x3
+
+--- Monitor State Index: 17 ---
+J_all: 818x402
+r_all: 818
+subsets: 121
+sigma_: 121x3
+bias_: 121x3
+sigma_ss_: 121x3
+bias_ss_: 121x3
+s1vec_: 121x818
+s2vec_: 121x818
+s3vec_: 121x818
+x_: 121x3
+
+--- Monitor State Index: 18 ---
+J_all: 817x411
+r_all: 817
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x817
+s2vec_: 56x817
+s3vec_: 56x817
+x_: 56x3
+
+--- Monitor State Index: 19 ---
+J_all: 852x426
+r_all: 852
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x852
+s2vec_: 56x852
+s3vec_: 56x852
+x_: 56x3
+
+--- Monitor State Index: 10 ---
+J_all: 626x246
+r_all: 626
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x626
+s2vec_: 56x626
+s3vec_: 56x626
+x_: 56x3
+
+--- Monitor State Index: 10 ---
+J_all: 564x234
+r_all: 564
+subsets: 37
+sigma_: 37x3
+bias_: 37x3
+sigma_ss_: 37x3
+bias_ss_: 37x3
+s1vec_: 37x564
+s2vec_: 37x564
+s3vec_: 37x564
+x_: 37x3
+
+--- Monitor State Index: 10 ---
+J_all: 515x225
+r_all: 515
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x515
+s2vec_: 29x515
+s3vec_: 29x515
+x_: 29x3
+
+--- Monitor State Index: 10 ---
+J_all: 484x222
+r_all: 484
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x484
+s2vec_: 29x484
+s3vec_: 29x484
+x_: 29x3
+
+--- Monitor State Index: 10 ---
+J_all: 448x216
+r_all: 448
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x448
+s2vec_: 29x448
+s3vec_: 29x448
+x_: 29x3
+
+--- Monitor State Index: 15 ---
+J_all: 397x324
+r_all: 397
+subsets: 2884
+sigma_: 2884x3
+bias_: 2884x3
+sigma_ss_: 2884x3
+bias_ss_: 2884x3
+s1vec_: 2884x397
+s2vec_: 2884x397
+s3vec_: 2884x397
+x_: 2884x3
+
+--- Monitor State Index: 15 ---
+J_all: 427x324
+r_all: 427
+subsets: 121
+sigma_: 121x3
+bias_: 121x3
+sigma_ss_: 121x3
+bias_ss_: 121x3
+s1vec_: 121x427
+s2vec_: 121x427
+s3vec_: 121x427
+x_: 121x3
+
+--- Monitor State Index: 10 ---
+J_all: 427x303
+r_all: 427
+subsets: 15475
+sigma_: 15475x3
+bias_: 15475x3
+sigma_ss_: 15475x3
+bias_ss_: 15475x3
+s1vec_: 15475x427
+s2vec_: 15475x427
+s3vec_: 15475x427
+x_: 15475x3
+
+--- Monitor State Index: 11 ---
+J_all: 504x318
+r_all: 504
+subsets: 4193
+sigma_: 4193x3
+bias_: 4193x3
+sigma_ss_: 4193x3
+bias_ss_: 4193x3
+s1vec_: 4193x504
+s2vec_: 4193x504
+s3vec_: 4193x504
+x_: 4193x3
+
+--- Monitor State Index: 12 ---
+J_all: 573x333
+r_all: 573
+subsets: 2504
+sigma_: 2504x3
+bias_: 2504x3
+sigma_ss_: 2504x3
+bias_ss_: 2504x3
+s1vec_: 2504x573
+s2vec_: 2504x573
+s3vec_: 2504x573
+x_: 2504x3
+
+--- Monitor State Index: 13 ---
+J_all: 636x348
+r_all: 636
+subsets: 1525
+sigma_: 1525x3
+bias_: 1525x3
+sigma_ss_: 1525x3
+bias_ss_: 1525x3
+s1vec_: 1525x636
+s2vec_: 1525x636
+s3vec_: 1525x636
+x_: 1525x3
+
+--- Monitor State Index: 14 ---
+J_all: 697x363
+r_all: 697
+subsets: 1248
+sigma_: 1248x3
+bias_: 1248x3
+sigma_ss_: 1248x3
+bias_ss_: 1248x3
+s1vec_: 1248x697
+s2vec_: 1248x697
+s3vec_: 1248x697
+x_: 1248x3
+
+--- Monitor State Index: 15 ---
+J_all: 754x378
+r_all: 754
+subsets: 762
+sigma_: 762x3
+bias_: 762x3
+sigma_ss_: 762x3
+bias_ss_: 762x3
+s1vec_: 762x754
+s2vec_: 762x754
+s3vec_: 762x754
+x_: 762x3
+
+--- Monitor State Index: 16 ---
+J_all: 789x390
+r_all: 789
+subsets: 154
+sigma_: 154x3
+bias_: 154x3
+sigma_ss_: 154x3
+bias_ss_: 154x3
+s1vec_: 154x789
+s2vec_: 154x789
+s3vec_: 154x789
+x_: 154x3
+
+--- Monitor State Index: 17 ---
+J_all: 818x402
+r_all: 818
+subsets: 121
+sigma_: 121x3
+bias_: 121x3
+sigma_ss_: 121x3
+bias_ss_: 121x3
+s1vec_: 121x818
+s2vec_: 121x818
+s3vec_: 121x818
+x_: 121x3
+
+--- Monitor State Index: 18 ---
+J_all: 817x411
+r_all: 817
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x817
+s2vec_: 56x817
+s3vec_: 56x817
+x_: 56x3
+
+--- Monitor State Index: 19 ---
+J_all: 852x426
+r_all: 852
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x852
+s2vec_: 56x852
+s3vec_: 56x852
+x_: 56x3
+
+--- Monitor State Index: 10 ---
+J_all: 626x246
+r_all: 626
+subsets: 56
+sigma_: 56x3
+bias_: 56x3
+sigma_ss_: 56x3
+bias_ss_: 56x3
+s1vec_: 56x626
+s2vec_: 56x626
+s3vec_: 56x626
+x_: 56x3
+
+--- Monitor State Index: 10 ---
+J_all: 564x234
+r_all: 564
+subsets: 37
+sigma_: 37x3
+bias_: 37x3
+sigma_ss_: 37x3
+bias_ss_: 37x3
+s1vec_: 37x564
+s2vec_: 37x564
+s3vec_: 37x564
+x_: 37x3
+
+--- Monitor State Index: 10 ---
+J_all: 515x225
+r_all: 515
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x515
+s2vec_: 29x515
+s3vec_: 29x515
+x_: 29x3
+
+--- Monitor State Index: 10 ---
+J_all: 484x222
+r_all: 484
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x484
+s2vec_: 29x484
+s3vec_: 29x484
+x_: 29x3
+
+--- Monitor State Index: 10 ---
+J_all: 448x216
+r_all: 448
+subsets: 29
+sigma_: 29x3
+bias_: 29x3
+sigma_ss_: 29x3
+bias_ss_: 29x3
+s1vec_: 29x448
+s2vec_: 29x448
+s3vec_: 29x448
+x_: 29x3
+
