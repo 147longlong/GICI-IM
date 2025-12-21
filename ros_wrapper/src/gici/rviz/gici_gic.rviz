@@ -158,7 +158,15 @@ Visualization Manager:
       Marker Topic: /gici/landmarks
       Name: Marker
       Namespaces:
-        {}
+        landmarks: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /gici/integrity/pl_replay_marker
+      Name: Marker
+      Namespaces:
+        protection_level: true
       Queue Size: 100
       Value: true
   Enabled: true

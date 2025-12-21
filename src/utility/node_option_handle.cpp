@@ -331,20 +331,67 @@ NodeOptionHandle::EstimatorNodeBase::EstimatorNodeBase(const YAML::Node& yaml_no
 
 NodeOptionHandle::IntegrityNode::IntegrityNode(const YAML::Node& yaml_node)
 {
-  if (!option_tools::safeGet(yaml_node, "enable", &enable)) {
-    LOG(ERROR) << "Unable to load integrity enable option!";
-    enable = false;
+
+  // visual_ism_gen
+  if (yaml_node["visual_ism_gen"].IsDefined()) {
+    const YAML::Node& ism_node = yaml_node["visual_ism_gen"];
+    option_tools::safeGet(ism_node, "ism_gen_flag", &ism_options.ism_gen_flag);
+    option_tools::safeGet(ism_node, "save_ism_image", &ism_options.save_ism_image);
+    option_tools::safeGet(ism_node, "saved_folder", &ism_options.saved_folder);
+    option_tools::safeGet(ism_node, "saved_file", &ism_options.saved_file);
+    option_tools::safeGet(ism_node, "gt_file", &ism_options.gt_file);
+    option_tools::safeGet(ism_node, "sd_errors_file", &ism_options.sd_errors_file);
+    option_tools::safeGet(ism_node, "pairwise_file", &ism_options.pairwise_file);
+    option_tools::safeGet(ism_node, "pairwise_file_mode", &ism_options.pairwise_file_mode);
   }
-  if (enable) {
-    if (!option_tools::safeGet(yaml_node, "ism_gen_flag", &ism_gen_flag)) {
-      LOG(ERROR) << "Unable to load integrity method option!";
-      ism_gen_flag = false;
-    }
-    if (!option_tools::safeGet(yaml_node, "save_ism_image", &save_ism_image)) {
-      LOG(ERROR) << "Unable to load save_ism_image option!";
-      save_ism_image = false;
-    }
+
+  VisualIntegrityOptions& i_opts = integrity_options;
+
+  // integrity_options
+  if (yaml_node["integrity_options"].IsDefined()) {
+    const YAML::Node& int_opt_node = yaml_node["integrity_options"];
+    option_tools::safeGet(int_opt_node, "enable", &i_opts.enable);
+    option_tools::safeGet(int_opt_node, "post_processing", &i_opts.post_processing);
+    option_tools::safeGet(int_opt_node, "snapshot_file", &i_opts.snapshot_file);
   }
+
+  // integrity_support_message
+  if (yaml_node["integrity_support_message"].IsDefined()) {
+    const YAML::Node& ism_msg_node = yaml_node["integrity_support_message"];
+    option_tools::safeGet(ism_msg_node, "sigma_pixel", &i_opts.sigma_pixel);
+    option_tools::safeGet(ism_msg_node, "p_feature_fault", &i_opts.p_feature_fault);
+    option_tools::safeGet(ism_msg_node, "meas_dim", &i_opts.meas_dim);
+  }
+
+  // navigation_requirements
+  if (yaml_node["navigation_requirements"].IsDefined()) {
+    const YAML::Node& nav_req_node = yaml_node["navigation_requirements"];
+    #define LOAD_NAV_REQ(opt) \
+      if (!option_tools::safeGet(nav_req_node, #opt, &i_opts.opt)) { \
+      LOG(INFO) << "Unable to load integrity option " << #opt \
+              << ". Using default instead."; }
+
+    LOAD_NAV_REQ(PHMI);
+    LOAD_NAV_REQ(PHMI_X);
+    LOAD_NAV_REQ(PHMI_Y);
+    LOAD_NAV_REQ(PHMI_V);
+    
+    LOAD_NAV_REQ(PFA);
+    LOAD_NAV_REQ(PFA_X);
+    LOAD_NAV_REQ(PFA_Y);
+    LOAD_NAV_REQ(PFA_V);
+
+    LOAD_NAV_REQ(HAL);
+    LOAD_NAV_REQ(XAL);
+    LOAD_NAV_REQ(YAL);
+    LOAD_NAV_REQ(VAL);
+
+    LOAD_NAV_REQ(P_THRES);
+    LOAD_NAV_REQ(Fc_THRES);
+    LOAD_NAV_REQ(PL_TOL);
+    #undef LOAD_NAV_REQ
+  }
+  
 }
 
 // Check if all nodes valid

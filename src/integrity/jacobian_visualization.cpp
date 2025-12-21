@@ -163,7 +163,7 @@ void saveFactorGraphDot(const Graph* graph, uint64_t current_pose_id, const std:
     // --- Draw Landmarks ---
     out << "  // Landmarks\n";
     for (uint64_t l_id : landmarks) {
-        out << "    l_" << l_id << " [label=\"\", tooltip=\"ID:" << l_id << "\", shape=circle, style=filled, fillcolor=\"#32CD32\", width=0.1, height=0.1];\n";
+        out << "    l_" << l_id << " [label=\"\", tooltip=\"ID:" << l_id << "\", shape=circle, style=filled, fillcolor=\"#32CD32\", width=0.2, height=0.2];\n";
     }
 
     // --- Draw Other Factors & Edges ---
@@ -193,7 +193,7 @@ void saveFactorGraphDot(const Graph* graph, uint64_t current_pose_id, const std:
             
             if (pose_id != 0 && lm_id != 0) {
                 // Edge
-                out << "    v_" << pose_id << ":n -> l_" << lm_id << " [color=\"#228B22\", penwidth=0.5, dir=none, weight=1, minlen=3];\n";
+                out << "    v_" << pose_id << ":n -> l_" << lm_id << " [color=\"#228B22\", penwidth=1.5, dir=none, weight=1, minlen=3];\n";
             }
         } else {
             // Other factors (Priors, etc.)

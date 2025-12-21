@@ -42,11 +42,23 @@ typedef struct {
   double std_att[3];
 } esd_t;
 
+// Integrity informations
+typedef struct {
+  gtime_t time;
+  double xpl;
+  double ypl;
+  double vpl;
+  double ir;
+} im_t;
+
 // Decode GNESA message
 int decodeESA(char *buff, sol_t *sol, esa_t *esa);
 
 // Decode GNESD message
 int decodeESD(char *buff, sol_t *sol, esd_t *esd);
+
+// Decode GNIM message
+int decodeIM(char *buff, sol_t *sol, im_t *im);
 
 // Encode GNRMC message
 int encodeRMC(const sol_t *sol, char *buff);
@@ -71,6 +83,7 @@ typedef struct {
   sol_t sol;
   esa_t esa;
   esd_t esd;
+  im_t im;
 } NmeaEpoch;
 
 // Load and decode NMEA file

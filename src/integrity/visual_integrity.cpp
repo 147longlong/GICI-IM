@@ -9,41 +9,290 @@
 
 #include "gici/integrity/visual_integrity.h"
 #include "gici/integrity/jacobian_visualization.h"
+#include "gici/gnss/gnss_common.h"
+#include "gici/utility/rtklib_safe.h"
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <numeric>
 #include <cmath>
+#include <thread>
+#include <chrono>
 #include <glog/logging.h>
 #include <iomanip>
+#include <cstdio>
 #include "gici/estimate/pose_parameter_block.h"
 #include "gici/estimate/speed_and_bias_parameter_block.h"
+#include <omp.h>
 
 namespace gici {
 
 
 VisualIntegrity::VisualIntegrity(const VisualIntegrityOptions& options)
-    : options_(options), HPL_(0), VPL_(0), IR_(0)
+    : options_(options), XPL_(std::numeric_limits<double>::quiet_NaN()), YPL_(std::numeric_limits<double>::quiet_NaN()), VPL_(std::numeric_limits<double>::quiet_NaN()), IR_(std::numeric_limits<double>::quiet_NaN())
 {
 }
+
 
 VisualIntegrity::~VisualIntegrity()
 {
 }
 
 
-
+// The monitor function for real-time integrity monitoring
 bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index)
 {
-
-
     State state = states[state_index];
     timestamp_ = state.timestamp;
     if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return false;
 
-
     Eigen::MatrixXd J_all;
     Eigen::VectorXd r_all;
     Eigen::VectorXd sig2_all;
+    std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
+    std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
+    std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
+    std::vector<int> curr_pose_J_cols;
+
+    if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, 
+                             J_all, r_all, sig2_all, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_pose_to_J_cols, curr_pose_J_cols)) {
+        return false;
+    }
+    
+
+    computeIntegrityMetrics(J_all, r_all, sig2_all, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_pose_J_cols);
+
+    // Log results
+    LOG(INFO) << std::scientific << std::setprecision(4)
+              << "[VisualIntegrity] timestamp: " << timestamp_
+              << ", XPL: " << XPL_ << " m"
+              << ", YPL: " << YPL_ << " m"
+              << ", VPL: " << VPL_ << " m";
+
+    return (XPL_ < options_.XAL && YPL_ < options_.YAL && VPL_ < options_.VAL);
+}
+
+// Function to save integrity input information for post-processing
+void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index)
+{
+    State state = states[state_index];
+    if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return;
+
+    IntegritySnapshot snapshot;
+    snapshot.timestamp = state.timestamp;
+    snapshot.options = options_;
+
+    if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, 
+                             snapshot.J_all, snapshot.r_all, snapshot.sig2_all, 
+                             snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, 
+                             snapshot.curr_pose_to_J_cols, snapshot.curr_pose_J_cols)) {
+        return;
+    }
+
+    if (!options_.snapshot_file.empty()) {
+        std::ofstream ofs(options_.snapshot_file, std::ios::binary | std::ios::app);
+        if (ofs.is_open()) {
+            serializeSnapshot(snapshot, ofs);
+            ofs.close();
+            LOG(INFO) << std::fixed << std::setprecision(6) << "[VisualIntegrity] Snapshot serialized to " << options_.snapshot_file << " for timestamp " << snapshot.timestamp;
+        } else {
+            LOG(ERROR) << "[VisualIntegrity] Failed to open snapshot file: " << options_.snapshot_file;
+        }
+    } else {
+        LOG(WARNING) << "[VisualIntegrity] Snapshot file not set, skipping save.";
+    }
+}
+
+
+void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
+{
+    LOG(INFO) << "[VisualIntegrity] Processing snapshots from file: " << filename;
+    
+    struct IntegrityResult {
+        double sod; // Seconds of day
+        double timestamp;
+        double hpl, vpl, xpl, ypl, ir;
+    };
+    std::vector<IntegrityResult> results_list;
+
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs.is_open()) {
+        LOG(ERROR) << "[VisualIntegrity] Failed to open snapshot file: " << filename;
+        return;
+    }
+    std::ofstream csv_out;
+    if (!csv_output_file_.empty()) {
+        csv_out.open(csv_output_file_, std::ios::trunc);
+        csv_out << "Timestamp,HPL,VPL,XPL,YPL,IR" << std::endl;
+    }
+
+    double last_processed_timestamp = -1.0;
+    while (ifs.peek() != EOF) {
+        IntegritySnapshot snapshot;
+        deserializeSnapshot(snapshot, ifs);
+        if (ifs.fail()) break;
+
+        options_ = snapshot.options;
+        timestamp_ = snapshot.timestamp;
+
+
+        if (last_processed_timestamp > 0 && (timestamp_ - last_processed_timestamp) < 1.0) {
+            continue;
+        }
+        last_processed_timestamp = timestamp_;
+
+        VPL_ = std::numeric_limits<double>::quiet_NaN();
+        XPL_ = std::numeric_limits<double>::quiet_NaN();
+        YPL_ = std::numeric_limits<double>::quiet_NaN();
+        HPL_ = std::numeric_limits<double>::quiet_NaN();
+        IR_ = 0;
+        
+        
+        computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_all, snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_pose_J_cols);
+
+        LOG(INFO) << std::fixed << std::setprecision(6) 
+                  << "[VisualIntegrity] timestamp: " << timestamp_
+                  << ", XPL: " << XPL_ << " m"
+                  << ", YPL: " << YPL_ << " m"
+                  << ", VPL: " << VPL_ << " m";
+
+        if (csv_out.is_open()) {
+            csv_out << std::fixed << std::setprecision(6) << timestamp_ << "," 
+                << HPL_ << "," << VPL_ << "," << XPL_ << "," << YPL_ << "," << IR_ << std::endl;
+        }
+
+        if (XPL_ > 1e4) {
+            LOG(WARNING) << "[VisualIntegrity] Abnormally large VPL detected";
+            std::string debug_file = "/home/syl/GICI-Dataset/2.1/debug_vpl_dump.txt";
+            std::ofstream debug_out(debug_file, std::ios::app);
+            if (debug_out.is_open()) {
+                debug_out << "Timestamp: " << std::fixed << std::setprecision(6) << timestamp_ << "\n";
+                debug_out << "VPL: " << VPL_ << "\n";
+                debug_out << "p_not_monitored: " << p_not_monitored_ << "\n";
+                debug_out << "phmi: " << options_.PHMI << "\n";
+                
+                debug_out << "Index\tSigma_1\tSigma_2\tSigma_3\tBias\tT_1\tT_2\tT_3\tP_fault\n";
+                for (int i = 0; i < sigma_.rows(); ++i) {
+                    debug_out << i << "\t" 
+                            << sigma_(i, 0) << "\t" << sigma_(i, 1) << "\t" << sigma_(i, 2) << "\t"
+                            << bias_(i) << "\t" 
+                            << T_(i, 0) << "\t" << T_(i, 1) << "\t" << T_(i, 2) << "\t"
+                            << pap_subset_[i] << "\n";
+                }
+                debug_out << "--------------------------------------------------\n";
+                debug_out.close();
+                LOG(INFO) << "[VisualIntegrity] Debug info dumped to " << debug_file;
+            }
+        }
+
+        // Free memory for the processed snapshot to avoid OOM
+        snapshot.J_all.resize(0, 0);
+        snapshot.r_all.resize(0);
+        snapshot.sig2_all.resize(0);
+        snapshot.curr_lm_to_J_rows.clear();
+        snapshot.curr_lm_to_J_cols.clear();
+        snapshot.curr_pose_to_J_cols.clear();
+        snapshot.curr_pose_J_cols.clear();
+
+        // Generate timestamp for NMEA matching
+        gtime_t t = gici::gnss_common::doubleToGtime(timestamp_);
+        t = utc2gpst(t);
+        t = gpst2utc(t);
+        double ep[6];
+        time2epoch(t, ep);
+        
+        double sod = ep[3] * 3600.0 + ep[4] * 60.0 + ep[5];
+        results_list.push_back({sod, snapshot.timestamp, HPL_, VPL_, XPL_, YPL_, IR_});
+    }
+
+    if (csv_out.is_open()) csv_out.close();
+
+    // Update NMEA file
+    if (output_file_.empty()) return;
+    
+    LOG(INFO) << "[VisualIntegrity] Updating NMEA file: " << output_file_;
+    std::ifstream in(output_file_);
+    if (!in.is_open()) {
+        LOG(ERROR) << "Cannot open output file for reading: " << output_file_;
+        return;
+    }
+    
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(in, line)) {
+        lines.push_back(line);
+    }
+    in.close();
+
+    std::ofstream out(output_file_, std::ios::trunc);
+    if (!out.is_open()) {
+        LOG(ERROR) << "Cannot open output file for writing: " << output_file_;
+        return;
+    }
+
+    for (auto& l : lines) {
+        // Check if line is $..IM and contains timestamp
+        if (l.size() > 6 && l.substr(3, 3) == "IM,") {
+            // Extract timestamp
+            size_t first_comma = l.find(',');
+            size_t second_comma = l.find(',', first_comma + 1);
+            if (first_comma != std::string::npos && second_comma != std::string::npos) {
+                std::string ts_str = l.substr(first_comma + 1, second_comma - first_comma - 1);
+                
+                try {
+                    if (ts_str.size() >= 6) {
+                        double h = std::stod(ts_str.substr(0, 2));
+                        double m = std::stod(ts_str.substr(2, 2));
+                        double s = std::stod(ts_str.substr(4));
+                        double nmea_sod = h * 3600.0 + m * 60.0 + s;
+
+                        for (const auto& item : results_list) {
+                            if (std::abs(item.sod - nmea_sod) < 0.1) {
+                                // Found match! Replace line
+                                std::string talker = l.substr(1, 2);
+                                char buf[256];
+                                char* p = buf;
+                                p += sprintf(p, "$%sIM,%s,%.4e,%.4e,%.4e,%.4e", 
+                                    talker.c_str(), ts_str.c_str(), item.xpl, item.ypl, item.vpl, item.ir);
+                                
+                                // Calculate checksum
+                                char sum = 0;
+                                for (char* q = buf + 1; *q; q++) sum ^= *q;
+                                sprintf(p, "*%02X", sum);
+                                
+                                l = std::string(buf);
+                                LOG(INFO) << "Updated NMEA line for timestamp " << ts_str;
+                                break; // Stop searching for this line
+                            }
+                        }
+                    }
+                } catch (...) {
+                    // Ignore parsing errors
+                }
+            }
+        }
+        out << l << "\n"; 
+    }
+    out.close();
+    
+    LOG(INFO) << "[VisualIntegrity] Finished processing snapshots and updating file.";
+}
+
+bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame, 
+                             const std::deque<State>& states, 
+                             size_t state_index, 
+                             const Graph* graph, 
+                             const PointMap& landmarks_map,
+                             Eigen::MatrixXd& J_all, 
+                             Eigen::VectorXd& r_all, 
+                             Eigen::VectorXd& sig2_all,
+                             std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
+                             std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                             std::map<uint64_t, std::vector<int>>& curr_pose_to_J_cols,
+                             std::vector<int>& curr_pose_J_cols)
+{
+    State state = states[state_index];
+    if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return false;
 
     std::vector<std::pair<uint64_t, std::string>> row_ids_all;
     std::vector<std::pair<uint64_t, std::string>> col_ids_all;
@@ -51,33 +300,42 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
     std::vector<std::pair<uint64_t, int>> rows_curr;
     std::vector<std::pair<uint64_t, int>> cols_curr;   
 
-
-    // 1. Extract Linear System (J * dx = r)
     if (!extractFullLinearSystem(frame, states, state_index, graph,
                              J_all, r_all, sig2_all, row_ids_all, col_ids_all, pose_timestamps, rows_curr, cols_curr)) {
         LOG(ERROR) << "[VisualIntegrity] Failed to extract linear system.";
         return false;
     }
-    
 
-    saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, "/home/syl/GICI-IM/factor_graph.dot");
-    
-    printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, "/home/syl/GICI-IM/jacobian_visualization.txt");
+    // saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, "/home/syl/GICI-IM/factor_graph.dot");
+    // printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, "/home/syl/GICI-IM/jacobian_visualization.txt");
 
-    std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
-    std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
     extractLandmarkRelatedRowsCols(landmarks_map, row_ids_all, cols_curr, curr_lm_to_J_rows, curr_lm_to_J_cols);
-    std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
-    extractPoseRelatedRowsCols(state.id.asInteger(), cols_curr, curr_pose_to_J_cols); 
-
+    extractPoseRelatedRowsCols(state.id.asInteger(), cols_curr, curr_pose_to_J_cols, curr_pose_J_cols); 
     
+    return true;
+}
+
+bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
+                                 const Eigen::VectorXd& r_all,
+                                 const Eigen::VectorXd& sig2_all,
+                                 const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
+                                 const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                                 const std::vector<int>& curr_pose_J_cols)
+{
+    subsets_.clear();
+    pap_subset_.clear();
+    p_not_monitored_ = 0;
+
+    std::vector<uint64_t> curr_lm_ids;
+
     int N_meas = curr_lm_to_J_rows.size();
-    if (N_meas < 6) { // Need at least 6 measurements for 6DOF pose (actually depends on configuration)
+    if (N_meas < 6) {
         LOG(ERROR) << "[VisualIntegrity] Not enough measurements: " << N_meas;
         return false;
     }
+
     for (const auto& lm_rows : curr_lm_to_J_rows) {
-        curr_lm_ids_.push_back(lm_rows.first);
+        curr_lm_ids.push_back(lm_rows.first);
     }
 
     // 2. Define Prior Probabilities
@@ -90,7 +348,7 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
     CHECK_EQ(N_meas, subsets_[0].size());
 
     // 4. Compute Subset Solutions
-    computeSubsetSolution(J_all, r_all, sig2_all, subsets_, curr_lm_to_J_rows, sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_);
+    computeSubsetSolution(J_all, r_all, sig2_all, subsets_, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_ids, curr_pose_J_cols, sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_);
 
     // 5. Filter out unmonitorable subsets
     filteroutSubsets(sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_, subsets_, pap_subset_, p_not_monitored_);
@@ -98,11 +356,11 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
     // 6. Compute Test Thresholds
     T_ = computeTestThresholds(sigma_ss_, bias_ss_);
 
-    // 7. Fault Detection (Check if test statistic > threshold)
+    // 7. Fault Detection
     bool fault_detected = false;
     for (int i = 0; i < T_.rows(); ++i) {
-        for (int q = 0; q < 3; ++q) { // x, y, z
-            double test_stat = std::abs(x_(i, q) - x_(0, q)); // Difference from all-in-view
+        for (int q = 0; q < 3; ++q) {
+            double test_stat = std::abs(x_(i, q) - x_(0, q));
             if (test_stat > T_(i, q)) {
                 fault_detected = true;
                 LOG(ERROR) << "[VisualIntegrity] Fault detected in subset " << i << " axis " << q << std::endl;
@@ -114,18 +372,7 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
     computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, HPL_, XPL_, YPL_);
     IR_ = computeIR(sigma_, bias_, T_, pap_subset_, p_not_monitored_);
 
-    // Log results
-    LOG(INFO) << "[VisualIntegrity] timestamp: " << timestamp_
-              << ", XPL: " << XPL_ << " m"
-              << ", YPL: " << YPL_ << " m"
-              << ", VPL: " << VPL_ << " m";
-
-    if (fault_detected) {
-        // TODO: Implement Fault Exclusion if needed
-        return false; 
-    }
-
-    return (XPL_ < options_.XAL && YPL_ < options_.YAL && VPL_ < options_.VAL);
+    return fault_detected;
 }
 
 
@@ -436,16 +683,17 @@ void VisualIntegrity::extractLandmarkRelatedRowsCols(const PointMap& landmarks_m
 
 void VisualIntegrity::extractPoseRelatedRowsCols(uint64_t current_pose_id,
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
-                                                  std::map<uint64_t, std::vector<int>>& pose_related_cols)
+                                                  std::map<uint64_t, std::vector<int>>& pose_related_cols,
+                                                  std::vector<int>& curr_pose_J_cols)
 {
 
 
     for (size_t i = 0; i < cols_curr.size(); ++i) {
         BackendId pb_id(cols_curr[i].first);
         if (pb_id.type() == IdType::cPose && pb_id.asInteger() == current_pose_id) {
-            curr_pose_J_cols_.push_back(cols_curr[i].second);
+            curr_pose_J_cols.push_back(cols_curr[i].second);
             pose_related_cols[cols_curr[i].first].push_back(cols_curr[i].second);
-            if (curr_pose_J_cols_.size() == 6) break; // Early exit if all expected columns are found
+            if (curr_pose_J_cols.size() == 6) break; // Early exit if all expected columns are found
             
         }
     }
@@ -455,15 +703,15 @@ void VisualIntegrity::extractPoseRelatedRowsCols(uint64_t current_pose_id,
         if (pb_id.type() == IdType::ImuStates) {
             pb_id = changeIdType(pb_id, IdType::cPose);
             if (pb_id.asInteger() == current_pose_id) {
-                curr_pose_J_cols_.push_back(cols_curr[i].second);
+                curr_pose_J_cols.push_back(cols_curr[i].second);
                 pose_related_cols[cols_curr[i].first].push_back(cols_curr[i].second);
-                if (curr_pose_J_cols_.size() == 15) break; // Early exit if all expected columns are found
+                if (curr_pose_J_cols.size() == 15) break; // Early exit if all expected columns are found
             }
         } 
     }
 
     CHECK_EQ(pose_related_cols.size(), 2);
-    CHECK_EQ(curr_pose_J_cols_.size(), 15);
+    CHECK_EQ(curr_pose_J_cols.size(), 15);
 }
 
 // --- MHSS Implementation ---
@@ -483,7 +731,7 @@ void VisualIntegrity::determineSubsets(const std::vector<double>& p_prior,
     //Deterimine the maximum simultanous faults need to monitor.
     std::vector<double> p_sum = p_prior;
     int N_fault_max = determineNfaultmax(p_sum, P_THRES);
-    LOG(INFO) << "Info: The maximum simultanous faults need to monitor = " << N_fault_max;
+    LOG(INFO) << "[VisualIntegrity] Info: The maximum simultanous faults need to monitor = " << N_fault_max;
 
     //Calculate the number of subsets.
     int N_used = N;
@@ -600,6 +848,9 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                                             const Eigen::VectorXd& sig2,
                                             const std::vector<std::vector<int>>& subsets,
                                             const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
+                                            const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
+                                            const std::vector<uint64_t>& curr_lm_ids,
+                                            const std::vector<int>& curr_pose_J_cols,
                                             Eigen::MatrixXd& sigma,
                                             Eigen::MatrixXd& bias,
                                             Eigen::MatrixXd& sigma_ss,
@@ -649,7 +900,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     //     std::cerr << "[DEBUG] Unable to open file for writing JtWJ debug info." << std::endl;
     // }
     // Compute solutions for each subset
-    compute_S_coefficients(J, W, JtWJ, subsets, curr_lm_to_J_rows, residual, s1vec, s2vec, s3vec, x);
+    compute_S_coefficients(J, W, JtWJ, subsets, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_ids, curr_pose_J_cols, residual, s1vec, s2vec, s3vec, x);
     
     // Compute sigma, bias, etc.
     Eigen::MatrixXd s1vec_2 = s1vec.array().square();
@@ -717,6 +968,9 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
                                             const Eigen::MatrixXd& JtWJ,
                                             const std::vector<std::vector<int>>& subsets,
                                             const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
+                                            const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
+                                            const std::vector<uint64_t>& curr_lm_ids,
+                                            const std::vector<int>& curr_pose_J_cols,
                                             const Eigen::VectorXd& residual,
                                             Eigen::MatrixXd& s1vec,
                                             Eigen::MatrixXd& s2vec,
@@ -749,7 +1003,7 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
     // Precompute b_all = J'W * r
     Eigen::VectorXd b_all = JtW_all * residual;
 
-
+    #pragma omp parallel for
     for (int i = 0; i < N_sets; ++i) {
 
         // auto subset_start_time = std::chrono::high_resolution_clock::now();
@@ -757,7 +1011,7 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
         // int sum_i_nouse = 0;
         // for (int j = 0; j < N_meas_curr; ++j) {
         //     if (subsets[i][j] == 0) {
-        //         uint64_t lm_id = curr_lm_ids_[j];
+        //         uint64_t lm_id = curr_lm_ids[j];
         //         std::vector<int> rows_to_zero = curr_lm_to_J_rows.at(lm_id);
         //         for (int jj : rows_to_zero) {
         //             W_sub(jj, jj) = 0.0;
@@ -783,15 +1037,15 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
         //     S_sub = Sred;
         // }
         
-        // s1vec.row(i) = S_sub.row(curr_pose_J_cols_[0]);
-        // s2vec.row(i) = S_sub.row(curr_pose_J_cols_[1]);
-        // s3vec.row(i) = S_sub.row(curr_pose_J_cols_[2]);
+        // s1vec.row(i) = S_sub.row(curr_pose_J_cols[0]);
+        // s2vec.row(i) = S_sub.row(curr_pose_J_cols[1]);
+        // s3vec.row(i) = S_sub.row(curr_pose_J_cols[2]);
 
        
         // Eigen::VectorXd x_full = (S_sub * residual).transpose();
-        // x(i, 0) = x_full(curr_pose_J_cols_[0]);
-        // x(i, 1) = x_full(curr_pose_J_cols_[1]);
-        // x(i, 2) = x_full(curr_pose_J_cols_[2]);
+        // x(i, 0) = x_full(curr_pose_J_cols[0]);
+        // x(i, 1) = x_full(curr_pose_J_cols[1]);
+        // x(i, 2) = x_full(curr_pose_J_cols[2]);
 
         // Identify rows to remove based on current subset
         std::vector<int> rows_to_remove;
@@ -799,7 +1053,7 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
 
         for (int j = 0; j < N_meas_curr; ++j) {
             if (subsets[i][j] == 0) { // 0 means fault/exclude
-                uint64_t lm_id = curr_lm_ids_[j];
+                uint64_t lm_id = curr_lm_ids[j];
                 const std::vector<int>& rows = curr_lm_to_J_rows.at(lm_id);
                 rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
             }
@@ -832,9 +1086,9 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
 
         // Solve for x: (L'L'^T) x = b_sub
         Eigen::VectorXd x_full = llt_sub.solve(b_sub);
-        x(i, 0) = x_full(curr_pose_J_cols_[0]);
-        x(i, 1) = x_full(curr_pose_J_cols_[1]);
-        x(i, 2) = x_full(curr_pose_J_cols_[2]);
+        x(i, 0) = x_full(curr_pose_J_cols[0]);
+        x(i, 1) = x_full(curr_pose_J_cols[1]);
+        x(i, 2) = x_full(curr_pose_J_cols[2]);
 
         // Compute S vectors
         // We need specific rows of S_sub = (J^T W_sub J)^-1 * J^T * W_sub
@@ -861,9 +1115,9 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
             return s_row;
         };
 
-        s1vec.row(i) = compute_S_row(curr_pose_J_cols_[0]);
-        s2vec.row(i) = compute_S_row(curr_pose_J_cols_[1]);
-        s3vec.row(i) = compute_S_row(curr_pose_J_cols_[2]);
+        s1vec.row(i) = compute_S_row(curr_pose_J_cols[0]);
+        s2vec.row(i) = compute_S_row(curr_pose_J_cols[1]);
+        s3vec.row(i) = compute_S_row(curr_pose_J_cols[2]);
         
         
 
@@ -875,8 +1129,8 @@ void VisualIntegrity::compute_S_coefficients(const Eigen::MatrixXd& J,
     //整个耗时约500秒， 改进后大概12秒左右
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
-    LOG(INFO) << "Info: Time taken to compute S coefficients for all subsets: " << elapsed.count() << " seconds.";
-    LOG(INFO) << "Info: Number of subsets processed: " << N_sets;
+    LOG(INFO) << "[VisualIntegrity] Info: Time taken to compute S coefficients for all subsets: " << elapsed.count() << " seconds.";
+    LOG(INFO) << "[VisualIntegrity] Info: Number of subsets processed: " << N_sets;
     
 
 
@@ -900,7 +1154,8 @@ std::vector<int> VisualIntegrity::filteroutSubsets(Eigen::MatrixXd& sigma,
     for(int i = 0; i < sigma.rows(); ++i)
     {
         double sigma_min = sigma.row(i).minCoeff();
-        if (sigma_min < INFINITY)
+        double sigma_max = sigma.row(i).maxCoeff();
+        if (sigma_min < INFINITY && sigma_max < 10)
         {
             idx.push_back(i);
         }
@@ -941,8 +1196,8 @@ std::vector<int> VisualIntegrity::filteroutSubsets(Eigen::MatrixXd& sigma,
     x = x_new;
     chi2 = chi2_new;
     subsets = subsets_new;
-    p_not_monitored = p_not_monitored + std::accumulate(pap_subsets.begin(), pap_subsets.end(), 0.0)
-                    - std::accumulate(pap_subsets_new.begin(), pap_subsets_new.end(), 0.0);
+    // p_not_monitored = p_not_monitored + std::accumulate(pap_subsets.begin(), pap_subsets.end(), 0.0)
+    //                 - std::accumulate(pap_subsets_new.begin(), pap_subsets_new.end(), 0.0);
     pap_subsets = pap_subsets_new;
 
     return idx;
@@ -952,16 +1207,21 @@ Eigen::MatrixXd VisualIntegrity::computeTestThresholds(const Eigen::MatrixXd& si
                                                        const Eigen::MatrixXd& bias_ss)
 {
     int N_sets = sigma_ss.rows();
+    if (N_sets <= 1) {
+        return Eigen::MatrixXd::Zero(N_sets, 3);
+    }
+
     boost::math::normal_distribution<double> normal_d(0.0, 1.0);
     
     // Allocation of PFA
-    double Kfa_hor = -boost::math::quantile(normal_d, 0.25 * options_.PFA_HOR / (N_sets - 1));
-    double Kfa_vert = -boost::math::quantile(normal_d, 0.5 * options_.PFA_VERT / (N_sets - 1));
+    double Kfa_x = -boost::math::quantile(normal_d, 0.5 * options_.PFA_X / (N_sets - 1));
+    double Kfa_y = -boost::math::quantile(normal_d, 0.5 * options_.PFA_Y / (N_sets - 1));
+    double Kfa_vert = -boost::math::quantile(normal_d, 0.5 * options_.PFA_V / (N_sets - 1));
     
     Eigen::MatrixXd T = Eigen::MatrixXd::Zero(N_sets, 3);
     
-    T.col(0).array() = Kfa_hor * sigma_ss.col(0).array() + bias_ss.col(0).array();
-    T.col(1).array() = Kfa_hor * sigma_ss.col(1).array() + bias_ss.col(1).array();
+    T.col(0).array() = Kfa_x * sigma_ss.col(0).array() + bias_ss.col(0).array();
+    T.col(1).array() = Kfa_y * sigma_ss.col(1).array() + bias_ss.col(1).array();
     T.col(2).array() = Kfa_vert * sigma_ss.col(2).array() + bias_ss.col(2).array();
 
     return T;
@@ -977,18 +1237,27 @@ void VisualIntegrity::computePL(const Eigen::MatrixXd& sigma,
                                 double& YPL,
                                 double& HPL)
 {
+    if (pap_subset.empty()) {
+        VPL = std::numeric_limits<double>::quiet_NaN();
+        XPL = std::numeric_limits<double>::quiet_NaN();
+        YPL = std::numeric_limits<double>::quiet_NaN();
+        HPL = std::numeric_limits<double>::quiet_NaN();
+        return;
+    }
+
     Eigen::Map<const Eigen::VectorXd> p_fault_const(pap_subset.data(), pap_subset.size());
     Eigen::VectorXd p_fault = p_fault_const;
     p_fault(0) = 2; //Server for IR and PL computation, because 2Q(***) +　Q(***)  
 
     // Allocation of PHMI
-    double phmi_vert = options_.PHMI_VERT * (1.0 - p_not_monitored / options_.PHMI);
-    double phmi_hor = options_.PHMI_HOR * (1.0 - p_not_monitored / options_.PHMI) / 2.0;
+    double phmi_vert = options_.PHMI_V * (1.0 - p_not_monitored / options_.PHMI);
+    double phmi_x = options_.PHMI_X * (1.0 - p_not_monitored / options_.PHMI);
+    double phmi_y = options_.PHMI_Y * (1.0 - p_not_monitored / options_.PHMI);
     
     VPL = computeVPL(sigma.col(2), bias.col(2), T.col(2), p_fault, phmi_vert);
     
-    XPL = computeVPL(sigma.col(0), bias.col(0), T.col(0), p_fault, phmi_hor);
-    YPL = computeVPL(sigma.col(1), bias.col(1), T.col(1), p_fault, phmi_hor);
+    XPL = computeVPL(sigma.col(0), bias.col(0), T.col(0), p_fault, phmi_x);
+    YPL = computeVPL(sigma.col(1), bias.col(1), T.col(1), p_fault, phmi_y);
     HPL = std::sqrt(XPL*XPL + YPL*YPL);
 }
 
@@ -1054,7 +1323,9 @@ double VisualIntegrity::computeVPL(const Eigen::VectorXd& sigma_in,
     for (int i = 0; i < Klow.rows() - 1; ++i)
     {
         phmi_right_low(i) =((phmi / (p_fault(i)  * alloc_max(i))) > 1 )?  1 : (phmi / (p_fault(i) * alloc_max(i)));
-        if(phmi_right_low(i) == 1)
+        if (phmi_right_low(i) < 0) phmi_right_low(i) = 0; // Safety check
+
+        if(phmi_right_low(i) >= 1.0 - 1e-9)
         {
             Klow(i) = -INFINITY;
         }
@@ -1072,6 +1343,8 @@ double VisualIntegrity::computeVPL(const Eigen::VectorXd& sigma_in,
     Eigen::VectorXd Khigh = p_fault;
     for (int i = 0; i < Khigh.rows();++i)
     {
+        if (phmi_right_high(i) < 0) phmi_right_high(i) = 0; // Safety check
+
         // Handle the case where probability is 1.0 (quantile is infinity)
         if (phmi_right_high(i) >= 1.0 - 1e-9) {
              Khigh(i) = 0.0; // Or a very small number, effectively no protection needed from noise if risk budget is huge
@@ -1116,6 +1389,10 @@ double VisualIntegrity::computeIR(const Eigen::MatrixXd& sigma,
                                   const std::vector<double>& pap_subset,
                                   double p_not_monitored)
 {
+    if (pap_subset.empty()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
     Eigen::Map<const Eigen::VectorXd> p_fault_const(pap_subset.data(), pap_subset.size());
     Eigen::VectorXd p_fault = p_fault_const;
     p_fault(0) = 2; //Server for IR and PL computation, because 2Q(***) +　Q(***)  
@@ -1243,6 +1520,137 @@ int VisualIntegrity::nchoosek(int n, int k)
         result /=(i + 1);
     }
     return result;
+}
+
+
+void VisualIntegrity::serializeSnapshot(const IntegritySnapshot& snapshot, std::ofstream& out) {
+    out.write(reinterpret_cast<const char*>(&snapshot.timestamp), sizeof(double));
+    
+    // J_all
+    long rows = snapshot.J_all.rows();
+    long cols = snapshot.J_all.cols();
+    out.write(reinterpret_cast<const char*>(&rows), sizeof(long));
+    out.write(reinterpret_cast<const char*>(&cols), sizeof(long));
+    out.write(reinterpret_cast<const char*>(snapshot.J_all.data()), rows * cols * sizeof(double));
+
+    // r_all
+    long size = snapshot.r_all.size();
+    out.write(reinterpret_cast<const char*>(&size), sizeof(long));
+    out.write(reinterpret_cast<const char*>(snapshot.r_all.data()), size * sizeof(double));
+
+    // sig2_all
+    size = snapshot.sig2_all.size();
+    out.write(reinterpret_cast<const char*>(&size), sizeof(long));
+    out.write(reinterpret_cast<const char*>(snapshot.sig2_all.data()), size * sizeof(double));
+
+    // curr_lm_to_J_rows
+    size_t map_size = snapshot.curr_lm_to_J_rows.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.curr_lm_to_J_rows) {
+        out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
+        size_t vec_size = pair.second.size();
+        out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+        out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
+    }
+
+    // curr_lm_to_J_cols
+    map_size = snapshot.curr_lm_to_J_cols.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.curr_lm_to_J_cols) {
+        out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
+        size_t vec_size = pair.second.size();
+        out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+        out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
+    }
+
+    // curr_pose_to_J_cols
+    map_size = snapshot.curr_pose_to_J_cols.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.curr_pose_to_J_cols) {
+        out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
+        size_t vec_size = pair.second.size();
+        out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+        out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
+    }
+
+    // curr_pose_J_cols
+    size_t vec_size = snapshot.curr_pose_J_cols.size();
+    out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+    out.write(reinterpret_cast<const char*>(snapshot.curr_pose_J_cols.data()), vec_size * sizeof(int));
+
+    // options
+    out.write(reinterpret_cast<const char*>(&snapshot.options), sizeof(VisualIntegrityOptions));
+}
+
+void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifstream& in) {
+    in.read(reinterpret_cast<char*>(&snapshot.timestamp), sizeof(double));
+
+    // J_all
+    long rows, cols;
+    in.read(reinterpret_cast<char*>(&rows), sizeof(long));
+    in.read(reinterpret_cast<char*>(&cols), sizeof(long));
+    snapshot.J_all.resize(rows, cols);
+    in.read(reinterpret_cast<char*>(snapshot.J_all.data()), rows * cols * sizeof(double));
+
+    // r_all
+    long size;
+    in.read(reinterpret_cast<char*>(&size), sizeof(long));
+    snapshot.r_all.resize(size);
+    in.read(reinterpret_cast<char*>(snapshot.r_all.data()), size * sizeof(double));
+
+    // sig2_all
+    in.read(reinterpret_cast<char*>(&size), sizeof(long));
+    snapshot.sig2_all.resize(size);
+    in.read(reinterpret_cast<char*>(snapshot.sig2_all.data()), size * sizeof(double));
+
+    // curr_lm_to_J_rows
+    size_t map_size;
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    snapshot.curr_lm_to_J_rows.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint64_t key;
+        size_t vec_size;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        std::vector<int> vec(vec_size);
+        in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
+        snapshot.curr_lm_to_J_rows[key] = vec;
+    }
+
+    // curr_lm_to_J_cols
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    snapshot.curr_lm_to_J_cols.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint64_t key;
+        size_t vec_size;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        std::vector<int> vec(vec_size);
+        in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
+        snapshot.curr_lm_to_J_cols[key] = vec;
+    }
+
+    // curr_pose_to_J_cols
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    snapshot.curr_pose_to_J_cols.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint64_t key;
+        size_t vec_size;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        std::vector<int> vec(vec_size);
+        in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
+        snapshot.curr_pose_to_J_cols[key] = vec;
+    }
+
+    // curr_pose_J_cols
+    size_t vec_size;
+    in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+    snapshot.curr_pose_J_cols.resize(vec_size);
+    in.read(reinterpret_cast<char*>(snapshot.curr_pose_J_cols.data()), vec_size * sizeof(int));
+
+    // options
+    in.read(reinterpret_cast<char*>(&snapshot.options), sizeof(VisualIntegrityOptions));
 }
 
 

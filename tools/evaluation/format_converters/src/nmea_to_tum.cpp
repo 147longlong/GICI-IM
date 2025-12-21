@@ -55,7 +55,7 @@ int main(int argc, char ** argv)
   sprintf(buf, "%s.tum", nmea_buf);
   FILE *fp_tum = fopen(buf, "w");
   
-  fprintf(fp_tum, "# timestamp tx ty tz qx qy qz qw\r\n");
+  fprintf(fp_tum, "# timestamp tx ty tz qx qy qz qw xpl ypl vpl\r\n");
 
   for (int i = 0; i < epochs.size(); i++)
   {
@@ -71,8 +71,9 @@ int main(int argc, char ** argv)
     q = eulerAngleToQuaternion(Eigen::Map<Eigen::Vector3d>(epoch.esa.att));
     double time = (double)epoch.sol.time.time + epoch.sol.time.sec;
 
-    fprintf(fp_tum, "%.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf\r\n", 
-      time, p_enu(0), p_enu(1), p_enu(2), q.x(), q.y(), q.z(), q.w());
+    fprintf(fp_tum, "%.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf %.4lf\r\n", 
+      time, p_enu(0), p_enu(1), p_enu(2), q.x(), q.y(), q.z(), q.w(),
+      epoch.im.xpl, epoch.im.ypl, epoch.im.vpl);
   }
 
   fclose(fp_tum);

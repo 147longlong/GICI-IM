@@ -8,6 +8,7 @@
 **/
 #include "gici/fusion/gnss_imu_camera_srr_estimator.h"
 #include "gici/integrity/visual_integrity.h"
+#include "gici/integrity/visual_ism_gen.h"
 
 namespace gici {
 
@@ -34,6 +35,8 @@ GnssImuCameraSrrEstimator::GnssImuCameraSrrEstimator(
   gnss_imu_initializer_.reset(new GnssImuInitializer(
     init_options, gnss_loose_base_options, imu_base_options, 
     base_options, graph_));
+
+  visual_integrity_ = std::make_unique<VisualIntegrity>(srr_options_.integrity_options);
 }
 
 // The default destructor
@@ -237,6 +240,13 @@ bool GnssImuCameraSrrEstimator::visualInitialization(const FrameBundlePtr& frame
 // Solve current graph
 bool GnssImuCameraSrrEstimator::estimate()
 {
+  // Reset integrity results to NaN
+  hpl_ = std::numeric_limits<double>::quiet_NaN();
+  xpl_ = std::numeric_limits<double>::quiet_NaN();
+  ypl_ = std::numeric_limits<double>::quiet_NaN();
+  vpl_ = std::numeric_limits<double>::quiet_NaN();
+  ir_ = std::numeric_limits<double>::quiet_NaN();
+
   // Optimize
   optimize();
 
@@ -261,20 +271,19 @@ bool GnssImuCameraSrrEstimator::estimate()
     // update states to frontend
     updateFrameStateToFrontend(states_[latest_state_index_], curFrame());
 
-
-    // Visual Integrity Monitoring
-    VisualIntegrityOptions integrity_options;
-    integrity_options.sigma_pixel = visual_base_options_.feature_error_std;
-    VisualIntegrity visual_integrity(integrity_options);
-    visual_integrity.monitor(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
-
-    hpl_ = visual_integrity.getHPL();
-    xpl_ = visual_integrity.getXPL();
-    ypl_ = visual_integrity.getYPL();
-    vpl_ = visual_integrity.getVPL();
-    ir_ = visual_integrity.getIR();
-
-
+    // Visual Integrity Monitoring for post processing or real time.
+    if (visual_integrity_ && srr_options_.integrity_options.enable) {
+      if (srr_options_.integrity_options.post_processing) {
+        visual_integrity_->saveSnapshot(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
+      } else {
+        visual_integrity_->monitor(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
+        hpl_ = visual_integrity_->getHPL();
+        xpl_ = visual_integrity_->getXPL();
+        ypl_ = visual_integrity_->getYPL();
+        vpl_ = visual_integrity_->getVPL();
+        ir_ = visual_integrity_->getIR();
+      }
+    }
 
     // reject landmark outliers
     size_t n_reprojection = numReprojectionError(curFrame());

@@ -10,6 +10,8 @@
 
 #include <memory>
 #include <yaml-cpp/yaml.h>
+#include "gici/integrity/visual_integrity.h"
+#include "gici/integrity/visual_ism_gen.h"
 
 namespace gici {
 
@@ -91,9 +93,8 @@ public:
       IntegrityNode(const YAML::Node& yaml_node);
       ~IntegrityNode() { }
 
-      bool enable = false;
-      bool ism_gen_flag = false;
-      bool save_ism_image = false;
+      VisualIntegrityOptions integrity_options;
+      VisualISMOptions ism_options;
   };
   using IntegrityNodePtr = std::shared_ptr<IntegrityNode>;
 

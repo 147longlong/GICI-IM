@@ -1,0 +1,12 @@
+<launch>
+    <arg name="file_path" default="/home/syl/GICI-IM/tools/evaluation/integrity/srr_solution.txt.tum" />
+    <arg name="speed" default="1.0" />
+    <arg name="trigger_topic" default="/gici/solution_odometry" />
+
+    <node pkg="gici_tools" type="publish_integrity_log" name="integrity_replay_node" output="screen">
+        <param name="file_path" value="$(arg file_path)" />
+        <param name="topic_name" value="/gici/integrity/pl_replay" />
+        <param name="speed_factor" value="$(arg speed)" />
+        <param name="trigger_topic" value="$(arg trigger_topic)" />
+    </node>
+</launch>

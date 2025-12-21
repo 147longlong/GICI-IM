@@ -6,17 +6,17 @@ stream:
         tag: str_gnss_rov
         output_tags: [fmt_gnss_rov]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/gnss_rover.bin
+        path: /media/syl/longlong/GICI-Dataset/5.2/gnss_rover.bin
     - streamer:
         tag: str_gnss_ref
         output_tags: [fmt_gnss_ref]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/gnss_reference.bin
+        path: /media/syl/longlong/GICI-Dataset/5.2/gnss_reference.bin
     - streamer:
         tag: str_gnss_eph
         output_tags: [fmt_gnss_eph]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/gnss_ephemeris.bin
+        path: /media/syl/longlong/GICI-Dataset/5.2/gnss_ephemeris.bin
     - streamer:
         tag: str_dcb_file
         output_tags: [fmt_dcb_file]
@@ -27,25 +27,25 @@ stream:
         tag: str_imu
         output_tags: [fmt_imu]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/imu.bin
+        path: /media/syl/longlong/GICI-Dataset/5.2/imu.bin
         loop_duration: 0.001
     - streamer:
         tag: str_camera
         output_tags: [fmt_camera]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/camera.bin
+        path: /media/syl/longlong/GICI-Dataset/5.2/camera.bin
         buffer_length: 361472 # 752 * 480 + 512 
     - streamer:
         tag: str_rtk_solution_file
         input_tags: [fmt_rtk_solution_file]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/rtk_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/5.2/rtk_solution.txt
         enable_time_tag: false
     - streamer:
         tag: str_srr_solution_file
         input_tags: [fmt_srr_solution_file]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/srr_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/5.2/srr_solution.txt
         enable_time_tag: false
     - streamer:
         tag: str_protection_level
@@ -106,12 +106,12 @@ stream:
         io: input
         tag: fmt_gnss_ref
         type: gnss-rtcm-3
-        start_time: 2023.03.20
+        start_time: 2023.05.21
     - formator:
         io: input
         tag: fmt_gnss_eph
         type: gnss-rtcm-3
-        start_time: 2023.03.20
+        start_time: 2023.05.21
     - formator:
         io: input
         tag: fmt_imu
@@ -271,9 +271,39 @@ estimate:
                   0.00201129251744842832, -0.00400038914436078377,     0.99998997574430859,    0.025008868367930974,
                                       0,                       0,                       0,                       1]
 integrity:
-  enable: true
-  ism_gen_flag: false
-  save_ism_image: false
+  visual_ism_gen:
+    ism_gen_flag: true
+    save_ism_image: false
+    gt_file: /media/syl/longlong/GICI-Dataset/5.2/gici_tum/Ground-Truth.tum
+    pairwise_file: /media/syl/longlong/GICI-Dataset/5.2/pairwise_sd_errors.txt
+    pairwise_file_mode: trunc #app,trunc
+    saved_folder: 
+    saved_file: 
+    sd_errors_file: 
+  integrity_options:
+    enable: false
+    post_processing: true
+    snapshot_file: /media/syl/longlong/GICI-Dataset/5.2/integrity_snapshots.bin
+  integrity_support_message:
+    sigma_pixel: 0.2
+    p_feature_fault: 1.0e-4
+    meas_dim: 2
+  navigation_requirements:
+    PHMI: 1.0e-7
+    PHMI_X: 0.33e-7
+    PHMI_Y: 0.34e-7
+    PHMI_V: 0.33e-7
+    PFA: 1.0e-5
+    PFA_X: 0.33e-5
+    PFA_Y: 0.34e-5
+    PFA_V: 0.33e-5
+    HAL: 2.0
+    XAL: 1.50
+    YAL: 0.55
+    VAL: 1.40
+    P_THRES: 2e-8
+    Fc_THRES: 0.01
+    PL_TOL: 1.0e-3
 
 
 logging:

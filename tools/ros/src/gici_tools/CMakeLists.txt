@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   sensor_msgs
   geometry_msgs
+  visualization_msgs
   cmake_modules
   tf
   tf_conversions
@@ -87,3 +88,8 @@ add_executable(gici_files_to_rosbag
               src/gici_files_to_rosbag.cpp ${DIR_UTILITIES})
 target_link_libraries(gici_files_to_rosbag 
               gici ${catkin_LIBRARIES})
+
+add_executable(publish_integrity_log
+              src/publish_integrity_log.cpp)
+target_link_libraries(publish_integrity_log
+              ${catkin_LIBRARIES})

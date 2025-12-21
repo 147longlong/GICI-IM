@@ -66,8 +66,11 @@ MultiSensorEstimating::MultiSensorEstimating(
   if (estimatorTypeContains(SensorType::Camera, type_) && 
       feature_handler_node.IsDefined()) {
     option_tools::loadOptions(feature_handler_node, feature_handler_options_);
-    feature_handler_options_.tracker.ism_gen_flag = nodes->integrity_node_->ism_gen_flag;
-    feature_handler_options_.tracker.save_ism_image = nodes->integrity_node_->save_ism_image;
+    if (nodes->integrity_node_) {
+      feature_handler_options_.tracker.ism_gen_flag = nodes->integrity_node_->ism_options.ism_gen_flag;
+      feature_handler_options_.tracker.save_ism_image = nodes->integrity_node_->ism_options.save_ism_image;
+      feature_handler_options_.ism_options = nodes->integrity_node_->ism_options;
+    }
   }
 
   // Instantiate estimators
@@ -258,6 +261,10 @@ MultiSensorEstimating::MultiSensorEstimating(
     for (size_t i = 0; i < camera_bundle->numCameras(); i++) {
       camera_bundle->set_T_C_B(i, ImuEstimatorBase::rotateImuToBody(
         camera_bundle->get_T_C_B(i).inverse(), imu_base_options_).inverse());
+    }
+
+    if (nodes->integrity_node_) {
+      gnss_imu_camera_srr_options_.integrity_options = nodes->integrity_node_->integrity_options;
     }
 
     feature_handler_.reset(new FeatureHandler(feature_handler_options_, imu_base_options_));

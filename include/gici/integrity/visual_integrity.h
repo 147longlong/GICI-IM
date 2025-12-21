@@ -1,8 +1,8 @@
 /**
 * @Function: Visual Integrity Monitoring using MHSS
 *
-* @Author  : GitHub Copilot
-* @Email   : 
+* @Author  : Yulong Sun
+* @Email   : sunyulong@sjtu.edu.cn
 *
 * Copyright (C) 2025, All rights reserved.
 **/
@@ -19,32 +19,53 @@
 namespace gici {
 
 struct VisualIntegrityOptions {
-    // Integrity Risk requirements
-    double PHMI = 1.0e-7;
-    double PHMI_HOR = 1.0e-7 * 0.1; // Allocation
-    double PHMI_VERT = 1.0e-7 * 0.9; // Allocation
-    
-    // False Alarm requirements
-    double PFA = 1.0e-5;
-    double PFA_HOR = 1.0e-5 * 0.5;
-    double PFA_VERT = 1.0e-5 * 0.5;
 
-    // Alert Limits
-    double HAL = 10.0;
-    double XAL = 2.0;
-    double YAL = 1.0;
-    double VAL = 10.0;
+    // Enable/Disable Integrity Monitoring
+    bool enable = true;
+
+    // Integrtiy Support Message 
+    double sigma_pixel = 0.2; // Pixel noise std
+    double p_feature_fault = 1.0e-4; // Probability of single feature fault
+    int meas_dim = 2; // 2D reprojection errors
+
+
+    // Nvigation requirements
+    double PHMI = 1.0e-7;
+    double PHMI_X = 1.0e-7 * 0.33; // Allocation
+    double PHMI_Y = 1.0e-7 * 0.34; // Allocation
+    double PHMI_V = 1.0e-7 * 0.33; // Allocation
+    
+    double PFA = 1.0e-5;
+    double PFA_X = 1.0e-5 * 0.33;
+    double PFA_Y = 1.0e-5 * 0.34;
+    double PFA_V = 1.0e-5 * 0.33;
+
+    double HAL = 2.0;
+    double XAL = 1.50;
+    double YAL = 0.55;
+    double VAL = 1.40;
 
     // MHSS parameters
-    double P_THRES = 8.0e-10;
+    double P_THRES = 2e-8;
     double Fc_THRES = 0.01;
     double PL_TOL = 1.0e-3;
     
-    // Measurement noise model
-    double sigma_pixel = 1.0; // Pixel noise std
-    double p_feature_fault = 1.0e-4; // Probability of single feature fault
 
-    int meas_dim = 2; // 2D reprojection errors
+    // Integrity options
+    bool post_processing = true;
+    std::string snapshot_file = "";
+};
+
+struct IntegritySnapshot {
+    double timestamp;
+    Eigen::MatrixXd J_all;
+    Eigen::VectorXd r_all;
+    Eigen::VectorXd sig2_all;
+    std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
+    std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
+    std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
+    std::vector<int> curr_pose_J_cols;
+    VisualIntegrityOptions options;
 };
 
 class VisualIntegrity {
@@ -64,6 +85,13 @@ public:
      */
     bool monitor(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index);
 
+    // New methods for post-processing
+    void saveSnapshot(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index);
+    void processSnapshotsFromFile(const std::string& filename);
+    
+    void setOutputFile(const std::string& filename) { output_file_ = filename; }
+    void setCsvOutputFile(const std::string& filename) { csv_output_file_ = filename; }
+
     double getHPL() const { return HPL_; }
     double getXPL() const { return XPL_; }
     double getYPL() const { return YPL_; }
@@ -71,6 +99,33 @@ public:
     double getIR() const { return IR_; }
 
 private:
+    std::string output_file_;
+    std::string csv_output_file_;
+
+    void serializeSnapshot(const IntegritySnapshot& snapshot, std::ofstream& out);
+    void deserializeSnapshot(IntegritySnapshot& snapshot, std::ifstream& in);
+
+    // Helper functions for code reuse
+    bool prepareLinearSystem(const FramePtr& frame, 
+                             const std::deque<State>& states, 
+                             size_t state_index, 
+                             const Graph* graph, 
+                             const PointMap& landmarks_map,
+                             Eigen::MatrixXd& J_all, 
+                             Eigen::VectorXd& r_all, 
+                             Eigen::VectorXd& sig2_all,
+                             std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
+                             std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                             std::map<uint64_t, std::vector<int>>& curr_pose_to_J_cols,
+                             std::vector<int>& curr_pose_J_cols);
+
+    bool computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
+                                 const Eigen::VectorXd& r_all,
+                                 const Eigen::VectorXd& sig2_all,
+                                 const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
+                                 const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                                 const std::vector<int>& curr_pose_J_cols);
+
 
     std::string idTypeToString(IdType type) {
     switch (type) {
@@ -104,6 +159,9 @@ private:
                                const Eigen::VectorXd& sig2,
                                const std::vector<std::vector<int>>& subsets,
                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
+                               const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
+                               const std::vector<uint64_t>& curr_lm_ids,
+                               const std::vector<int>& curr_pose_J_cols,
                                Eigen::MatrixXd& sigma,
                                Eigen::MatrixXd& bias,
                                Eigen::MatrixXd& sigma_ss,
@@ -119,6 +177,9 @@ private:
                                 const Eigen::MatrixXd& JtWJ,
                                 const std::vector<std::vector<int>>& subsets,
                                 const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
+                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
+                                const std::vector<uint64_t>& curr_lm_ids,
+                                const std::vector<int>& curr_pose_J_cols,
                                 const Eigen::VectorXd& residual,
                                 Eigen::MatrixXd& s1vec,
                                 Eigen::MatrixXd& s2vec,
@@ -186,7 +247,8 @@ private:
                                                   std::map<uint64_t, std::vector<int>>& landmark_observation_cols);
     void extractPoseRelatedRowsCols(uint64_t current_pose_id,
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
-                                                  std::map<uint64_t, std::vector<int>>& pose_related_cols);
+                                                  std::map<uint64_t, std::vector<int>>& pose_related_cols,
+                                                  std::vector<int>& curr_pose_J_cols);
 
 private:
     VisualIntegrityOptions options_;
@@ -199,9 +261,6 @@ private:
     double VPL_;
     double IR_;
 
-    
-    std::vector<uint64_t> curr_lm_ids_;
-    std::vector<int> curr_pose_J_cols_;
 
     // Intermediate variables
     std::vector<std::vector<int>> subsets_;

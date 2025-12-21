@@ -17,6 +17,7 @@
 #include "gici/vision/visual_initialization.h"
 #include "gici/utility/common.h"
 #include "gici/imu/imu_estimator_base.h"
+#include "gici/integrity/visual_ism_gen.h"
 
 namespace gici {
 
@@ -61,6 +62,9 @@ struct FeatureHandlerOptions {
 
   // Feature tracker options
   FeatureTrackerOptions tracker;
+
+  // Visual ISM options
+  VisualISMOptions ism_options;
 
   // Initialization options
   VisualInitializationOptions initialization;

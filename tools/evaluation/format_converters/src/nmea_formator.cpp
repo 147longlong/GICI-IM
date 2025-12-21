@@ -281,6 +281,53 @@ int decodeESD(char *buff, sol_t *sol, esd_t *esd)
     return 1;
 }
 
+// Decode GNIM message
+int decodeIM(char *buff, sol_t *sol, im_t *im)
+{
+    gtime_t time;
+    double tod=0.0,ep[6],tt;
+    char *p,*q,*val[MAXFIELD],**v;
+    int n=0, i=0;
+    
+    trace(4,"decode_nmea: buff=%s\n",buff);
+    
+    /* parse fields */
+    for (p=buff;*p&&n<MAXFIELD;p=q+1) {
+        if ((q=strchr(p,','))||(q=strchr(p,'*'))) {
+            val[n++]=p; *q='\0';
+        }
+        else break;
+    }
+    if (n<1) {
+        return 0;
+    }
+    
+    v = val + 1;
+    for (i=0;i<n;i++) {
+        switch (i) {
+            case  0: tod =atof(v[i]); break; /* UTC of position (hhmmss) */
+            case  1: im->xpl = atof(v[i]); break;
+            case  2: im->ypl = atof(v[i]); break;
+            case  3: im->vpl = atof(v[i]); break;
+            case  4: im->ir  = atof(v[i]); break;
+        }
+    }
+    if (sol->time.time==0) {
+        trace(3,"no date info for nmea gga\n");
+        return 0;
+    }
+
+    time2epoch(sol->time,ep);
+    septime(tod,ep+3,ep+4,ep+5);
+    time=utc2gpst(epoch2time(ep));
+    tt=timediff(time,sol->time);
+    if      (tt<-43200.0) im->time=timeadd(time, 86400.0);
+    else if (tt> 43200.0) im->time=timeadd(time,-86400.0);
+    else im->time=time;
+
+    return 1;
+}
+
 // Encode GNRMC message
 int encodeRMC(const sol_t *sol, char *buff)
 {
@@ -426,9 +473,11 @@ bool loadNmeaFile(char *path, std::vector<NmeaEpoch>& epochs)
     sol_t sol = {0};
     esa_t esa = {0};
     esd_t esd = {0};
+    im_t im = {0};
     std::vector<sol_t> sols;
     std::vector<esa_t> esas;
     std::vector<esd_t> esds;
+    std::vector<im_t> ims;
     while (!(fgets(buf, 1024 * sizeof(char), fp_nmea) == NULL))
     {
         std::vector<std::string> strs;
@@ -454,10 +503,13 @@ bool loadNmeaFile(char *path, std::vector<NmeaEpoch>& epochs)
         else if (strs[0].substr(3, 3) == "ESD") {
             if (decodeESD(buf, &sol, &esd)) esds.push_back(esd);
         }
+        else if (strs[0].size() >= 5 && strs[0].substr(3, 2) == "IM") {
+             if (decodeIM(buf, &sol, &im)) ims.push_back(im);
+        }
     }
     fclose(fp_nmea);
 
-    int esa_index = 0, esd_index = 0;
+    int esa_index = 0, esd_index = 0, im_index = 0;
     for (int i = 0; i < sols.size(); i++) {
         epochs.push_back(NmeaEpoch());
         epochs.back().sol = sols[i];
@@ -475,6 +527,15 @@ bool loadNmeaFile(char *path, std::vector<NmeaEpoch>& epochs)
             if (dt == 0.0) {
                 epochs.back().esd = esds[j];
                 esd_index = j;
+                break;
+            }
+            if (dt > 0.0) break;
+        }
+        for (int j = im_index; j < ims.size(); j++) {
+            double dt = timediff(ims[j].time, sols[i].time);
+            if (dt == 0.0) {
+                epochs.back().im = ims[j];
+                im_index = j;
                 break;
             }
             if (dt > 0.0) break;

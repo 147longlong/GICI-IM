@@ -12,6 +12,9 @@
 #include "gici/imu/imu_estimator_base.h"
 #include "gici/vision/visual_estimator_base.h"
 #include "gici/fusion/gnss_imu_initializer.h"
+#include "gici/integrity/visual_integrity.h"
+#include <limits>
+#include <memory>
 
 namespace gici {
 
@@ -30,6 +33,9 @@ struct GnssImuCameraSrrEstimatorOptions {
 
   // Maximum yaw STD to start visual initialization (deg)
   double min_yaw_std_init_visual = 0.5;
+
+  // Integrity options
+  VisualIntegrityOptions integrity_options;
 };
 
 // Estimator
@@ -98,11 +104,12 @@ protected:
   int num_cotinuous_reject_visual_ = 0;
 
   // Integrity results
-  double hpl_ = 0.0;
-  double xpl_ = 0.0;
-  double ypl_ = 0.0;
-  double vpl_ = 0.0;
-  double ir_ = 0.0;
+  double hpl_ = std::numeric_limits<double>::quiet_NaN();
+  double xpl_ = std::numeric_limits<double>::quiet_NaN();
+  double ypl_ = std::numeric_limits<double>::quiet_NaN();
+  double vpl_ = std::numeric_limits<double>::quiet_NaN();
+  double ir_ = std::numeric_limits<double>::quiet_NaN();
+  std::unique_ptr<VisualIntegrity> visual_integrity_;
 
 public:
   double getHPL() const { return hpl_; }

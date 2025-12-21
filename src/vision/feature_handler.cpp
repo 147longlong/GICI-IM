@@ -31,7 +31,9 @@ FeatureHandler::FeatureHandler(const FeatureHandlerOptions& options,
   detector_ = feature_detection_utils::makeDetector(
     options.detector, cams_->getCameraShared(0));
   tracker_ = std::make_shared<FeatureTracker>(options.tracker);
-  tracker_->visual_ism_gen_ = std::make_shared<VisualISMGenerator>(options.detector, cams_->getCameraShared(0));
+  if (options_.ism_options.ism_gen_flag) {
+    tracker_->visual_ism_gen_ = std::make_shared<VisualISMGenerator>(options.ism_options, options.detector, cams_->getCameraShared(0));
+  }
   initializer_ = makeVisualInitializer(options.initialization, detector_, tracker_);
 
   frame_bundles_.push_back(std::make_shared<FrameBundle>(std::vector<FramePtr>()));
@@ -301,6 +303,10 @@ void FeatureHandler::trackFeatures()
 
   // Add landmark observations
   addObservation(getCurrent(frame_bundles_)->at(0));
+
+  if (options_.tracker.ism_gen_flag) {
+    tracker_->visual_ism_gen_->computePairwiseSampsonDistance(getCurrent(frame_bundles_)->at(0));
+  }
 }
 
 // Optimize pose of new frame using tracked (and initialized) landmarks

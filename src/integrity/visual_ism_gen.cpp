@@ -14,71 +14,113 @@
 
 namespace gici {
 
-VisualISMGenerator::VisualISMGenerator(const DetectorOptions& options, const CameraPtr& cam) 
-      : grid_(options.cell_size, std::ceil(static_cast<double>(cam->imageWidth())/options.cell_size),
+VisualISMGenerator::VisualISMGenerator(const VisualISMOptions& ism_options, const DetectorOptions& options, const CameraPtr& cam) 
+      : options_(ism_options), grid_(options.cell_size, std::ceil(static_cast<double>(cam->imageWidth())/options.cell_size),
               std::ceil(static_cast<double>(cam->imageHeight())/options.cell_size)) {
-                 
-    saved_folder = "/home/syl/GICI-Dataset/2.1/images_track/";
-    saved_file = "/home/syl/GICI-Dataset/2.1/ransac.txt";
-    gt_file = "/home/syl/GICI-Dataset/2.1/gici_tum/Ground-Truth.tum";
-    sd_errors_file = "/home/syl/GICI-Dataset/2.1/sd_errors.txt";
-    
+
     img_count = 0;
 
+    if (!options_.saved_file.empty()) {
+      std::ofstream out(options_.saved_file, std::ios::trunc);
+      out << "#frame_id all_couts outlier_count" << std::endl;
+    }
+
+    if (!options_.sd_errors_file.empty()) {
+      std::ofstream out_sd(options_.sd_errors_file, std::ios::trunc);
+      out_sd << "#sampson_error" << std::endl;
+    }
+
+    if (!options_.pairwise_file.empty()) {
+      std::ios_base::openmode mode = std::ios::out;
+      if (options_.pairwise_file_mode == "app") {
+        mode |= std::ios::app;
+      } else {
+        mode |= std::ios::trunc;
+      }
+
+      std::ofstream out_pairwise(options_.pairwise_file, mode);
+      out_pairwise << "# PairType Error" << std::endl;
+      
+    }
+
+    if (!options_.gt_file.empty()) {
+      loadGTData();
+    }
+}
+
+void VisualISMGenerator::loadGTData() {
+    std::ifstream in(options_.gt_file);
+    if (!in.is_open()) {
+        LOG(ERROR) << "Cannot open GT file: " << options_.gt_file;
+        CHECK_EQ(1, 0) << "Please provide a valid GT file. When the ISM generation is enabled, GT file is required.";
+        return;
+    }
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream iss(line);
+        GTPose pose;
+        iss >> pose.time >> pose.pos[0] >> pose.pos[1] >> pose.pos[2] 
+            >> pose.q.coeffs()[0] >> pose.q.coeffs()[1] 
+            >> pose.q.coeffs()[2] >> pose.q.coeffs()[3];
+        gt_poses_.push_back(pose);
+    }
+    std::sort(gt_poses_.begin(), gt_poses_.end(), [](const GTPose& a, const GTPose& b) {
+        return a.time < b.time;
+    });
+    LOG(INFO) << "Loaded " << gt_poses_.size() << " GT poses.";
+}
+
+bool VisualISMGenerator::getGTPose(double timestamp, Eigen::Vector3d& pos, Eigen::Quaterniond& q) {
+    if (gt_poses_.empty()) return false;
     
-    std::ofstream out(saved_file, std::ios::trunc);
-    out << "#frame_id all_couts outlier_count" << std::endl;
-
-    std::ofstream out_sd(sd_errors_file, std::ios::trunc);
-    out_sd << "#sampson_error" << std::endl;
-
+    double target_time = timestamp + 18.0;
+    
+    auto it = std::lower_bound(gt_poses_.begin(), gt_poses_.end(), target_time, 
+        [](const GTPose& pose, double val) {
+            return pose.time < val;
+        });
+        
+    if (it != gt_poses_.end()) {
+        if (std::abs(it->time - target_time) < 0.005) {
+            pos = it->pos;
+            q = it->q;
+            return true;
+        }
+    }
+    if (it != gt_poses_.begin()) {
+        auto prev = std::prev(it);
+        if (std::abs(prev->time - target_time) < 0.005) {
+            pos = prev->pos;
+            q = prev->q;
+            return true;
+        }
+    }
+    return false;
 }
 
 bool VisualISMGenerator::getGTFundamentalMat(Eigen::Quaterniond& q_cur_ref, Eigen::Vector3d& pos_cur_ref){
     
     Eigen::Vector3d cur_pos, ref_pos;
     Eigen::Quaterniond cur_q, ref_q;
-    double cur_time, ref_time;
-  
-    std::ifstream in(gt_file);
-    std::string line;
-    while (std::getline(in, line)) {
-        std::istringstream iss(line);
-        Eigen::Vector3d position;
-        Eigen::Quaterniond orientation;
-        double time;
-        iss >> time >> position[0] >> position[1] >> position[2] 
-            >> orientation.coeffs()[0] >> orientation.coeffs()[1] 
-            >> orientation.coeffs()[2] >> orientation.coeffs()[3];
-  
-        if (std::abs(time - ref_frame_->getTimestampSec() - 18) < 0.005) {
-            ref_time = time;
-            ref_pos = position;
-            ref_q = orientation;
-            continue;
-        }
-        if (std::abs(time - cur_frame_->getTimestampSec() - 18) < 0.005) {
-            cur_time = time;
-            cur_pos = position;
-            cur_q = orientation;
-            break;
-        }
+    
+    if (!getGTPose(cur_frame_->getTimestampSec(), cur_pos, cur_q)) {
+        return false;
     }
+    if (!getGTPose(ref_frame_->getTimestampSec(), ref_pos, ref_q)) {
+        std::cout << "Cannot find the reference frame" << std::endl;
+        return false;
+    }
+
     std::cout << "*********************get GT fundamentalMat************************" << std::endl;
     std::cout << "Cur Frame Time: " << cur_frame_->getTimestampSec() << std::endl;
-    std::cout << "Time: " << cur_time << std::endl;
     std::cout << "Position: " << cur_pos.transpose() << std::endl;
     std::cout << "Orientation: " << cur_q.coeffs().transpose() << std::endl;
   
     std::cout << "Ref Frame Time: " << ref_frame_->getTimestampSec() << std::endl;
-    std::cout << "Time: " << ref_time << std::endl;
     std::cout << "Position: " << ref_pos.transpose() << std::endl;
     std::cout << "Orientation: " << ref_q.coeffs().transpose() << std::endl;
   
-    if(std::abs(ref_time) < 1){
-      std::cout << "Cannot find the reference frame" << std::endl;
-      return false;
-    }
     // Normalize cur_q
     if (std::abs(cur_q.squaredNorm() - 1.0) > 1e-6) {
       cur_q.normalize();
@@ -111,11 +153,46 @@ bool VisualISMGenerator::getGTFundamentalMat(Eigen::Quaterniond& q_cur_ref, Eige
 }
 
 
+bool VisualISMGenerator::getGTFundamentalMat(const FramePtr& f1, const FramePtr& f2, Eigen::Quaterniond& q_1_2, Eigen::Vector3d& pos_1_2){
+    
+    Eigen::Vector3d pos1, pos2;
+    Eigen::Quaterniond q1, q2;
+    
+    if (!getGTPose(f1->getTimestampSec(), pos1, q1)) return false;
+    if (!getGTPose(f2->getTimestampSec(), pos2, q2)) return false;
+
+    // Normalize q1
+    if (std::abs(q1.squaredNorm() - 1.0) > 1e-6) {
+      q1.normalize();
+    }
+  
+    // Normalize q2
+    if (std::abs(q2.squaredNorm() - 1.0) > 1e-6) {
+      q2.normalize();
+    }
+    
+    Transformation T_1_gt = Transformation(pos1, q1); 
+    Transformation T_2_gt = Transformation(pos2, q2); 
+    Transformation T_WS_cam_1 = (T_1_gt * f1->T_imu_cam()); 
+    Transformation T_WS_cam_2 = (T_2_gt * f2->T_imu_cam());
+  
+    // Compute relative pose q_1_2 is f2 to f1
+    Transformation T_1_2 = T_WS_cam_1.inverse() * T_WS_cam_2;
+    q_1_2 = T_1_2.getEigenQuaternion();
+    pos_1_2 = T_1_2.getPosition();
+    if (std::abs(q_1_2.squaredNorm() - 1.0) > 1e-6) {
+      q_1_2.normalize();
+    }   
+  
+    return true;
+}
+
+
 void VisualISMGenerator::saveRawTrackedImage() {
 
   // Save the tracked features
-  std::string file = saved_folder + std::to_string(img_count) + ".png";
-  std::string file_combined = saved_folder + std::to_string(img_count) + "_combined.png";
+  std::string file = options_.saved_folder + std::to_string(img_count) + ".png";
+  std::string file_combined = options_.saved_folder + std::to_string(img_count) + "_combined.png";
 
   cv::Mat img = cur_frame_->img_pyr_[0].clone();
   cv::Mat cur_img = cur_frame_->img_pyr_[0].clone();
@@ -170,7 +247,7 @@ void VisualISMGenerator::saveRawTrackedImage() {
 
 void VisualISMGenerator::saveOutliers() {
 
-  std::string img_file = saved_folder + std::to_string(img_count) + "_exclude.png";
+  std::string img_file = options_.saved_folder + std::to_string(img_count) + "_exclude.png";
 
   cv::Mat cur_img = cur_frame_->img_pyr_[0].clone();
   cv::Mat ref_img = ref_frame_->img_pyr_[0].clone();
@@ -217,7 +294,7 @@ void VisualISMGenerator::saveOutliers() {
 
 void VisualISMGenerator::saveInliers() {
 
-  std::string file_ransac = saved_folder + std::to_string(img_count) + "_ransac.png";
+  std::string file_ransac = options_.saved_folder + std::to_string(img_count) + "_ransac.png";
     
   // Save the tracked features
   cv::Mat cur_img_ransac = cur_frame_->img_pyr_[0].clone();
@@ -260,6 +337,94 @@ void VisualISMGenerator::saveInliers() {
 
 }
 
+
+void VisualISMGenerator::computePairwiseSampsonDistance(const FramePtr& cur_frame) {
+    std::ofstream out_sd(options_.pairwise_file, std::ios::app);
+    
+    // Cache for relative poses and Essential matrices to avoid redundant calculations
+    struct RelativePoseResult {
+        bool valid;
+        Eigen::Quaterniond q;
+        Eigen::Vector3d t;
+        Eigen::Matrix3d E;
+    };
+    std::map<std::pair<int, int>, RelativePoseResult> pose_cache;
+    std::stringstream ss; // Buffer for file output
+
+    // Iterate over all features in the current frame
+    for (size_t i = 0; i < cur_frame->num_features_; ++i) {
+        if (cur_frame->landmark_vec_[i] == nullptr) continue;
+        
+        PointPtr point = cur_frame->landmark_vec_[i];
+        
+        // Get observations
+        std::vector<KeypointIdentifier> obs = point->obs_;
+        
+        // Sort observations by frame ID
+        std::sort(obs.begin(), obs.end(), [](const KeypointIdentifier& a, const KeypointIdentifier& b) {
+            return a.frame_id < b.frame_id;
+        });
+        
+        // We need at least 2 observations to form a pair
+        if (obs.size() < 2) continue;
+
+        
+        // Iterate over all previous observations to pair with current frame
+        for (size_t j = 0; j < obs.size(); ++j) {
+            if (obs[j].frame_id == cur_frame->id_) continue;
+
+            FramePtr frame_j = obs[j].frame.lock();
+            FramePtr frame_k = cur_frame;
+            
+            if (!frame_j) continue;
+            
+            // Check cache first
+            std::pair<int, int> key = {frame_k->id_, frame_j->id_};
+            RelativePoseResult res;
+            
+            auto it = pose_cache.find(key);
+            if (it != pose_cache.end()) {
+                res = it->second;
+            } else {
+                // Not in cache, compute and store
+                res.valid = getGTFundamentalMat(frame_k, frame_j, res.q, res.t);
+                if (res.valid) {
+                    res.E = skewSymmetric(res.t) * res.q.toRotationMatrix();
+                }
+                pose_cache[key] = res;
+            }
+            
+            if (!res.valid) continue; 
+
+            // Get bearings
+            BearingVector f_j = frame_j->f_vec_.col(obs[j].keypoint_index_);
+            BearingVector f_k = frame_k->f_vec_.col(obs.back().keypoint_index_); 
+            
+            // Use cached Essential Matrix
+            Eigen::Matrix3d E = res.E;
+            
+            cv::Mat f_j_norm = (cv::Mat_<double>(3, 1) << f_j.x()/f_j.z(), f_j.y()/f_j.z(), 1.0);
+            cv::Mat f_k_norm = (cv::Mat_<double>(3, 1) << f_k.x()/f_k.z(), f_k.y()/f_k.z(), 1.0);
+            
+            cv::Mat E_cv = (cv::Mat_<double>(3, 3) << E(0, 0), E(0, 1), E(0, 2), E(1, 0), E(1, 1), E(1, 2), E(2, 0), E(2, 1), E(2, 2));
+            
+            double sd_dist_norm = cv::sampsonDistance(f_j_norm, f_k_norm, E_cv);
+            
+            // Convert to pixel units using focal length approximation
+            // errorMultiplier() returns roughly f_x
+            double focal_length = frame_k->cam()->errorMultiplier(); 
+            double sd_dist_pixel2 = sd_dist_norm * focal_length * focal_length; // the sampson distance scales with the square of the focal length
+
+            ss << j << "-" << obs.size() - 1 << " " << sd_dist_pixel2 << "\n";
+
+            // LOG(INFO) << "[Visual ISM]: Pairwise SD between Frame " << frame_j->id_ 
+            //           << " and Frame " << frame_k->id_ << " (" << j << "-" << obs.size() - 1 << ") : " << sd_dist_pixel << " pixels.";
+        }
+    }
+    LOG(INFO) << "[Visual ISM]: Saved pairwise Sampson distances for Frame " << cur_frame->id_;
+    out_sd << ss.str();
+}
+
 void VisualISMGenerator::computeSampsonDistance() {
   // Compute the Sampson distance
   Eigen::Quaterniond q_cur_ref_gt;
@@ -271,7 +436,7 @@ void VisualISMGenerator::computeSampsonDistance() {
 
   sampson_errors_map.clear();
 
-  std::ofstream out_sd(sd_errors_file, std::ios::app);
+  std::ofstream out_sd(options_.sd_errors_file, std::ios::app);
 
   const cv::Mat& mask = cur_frame_->cam()->getMask();
 
@@ -311,7 +476,7 @@ void VisualISMGenerator::computeSampsonDistance() {
 
 void VisualISMGenerator::saveSDImage() {
 
-  std::string file_ransac = saved_folder + std::to_string(img_count) + "_ransac.png";
+  std::string file_ransac = options_.saved_folder + std::to_string(img_count) + "_ransac.png";
   if(!is_drawInliers){
     saveInliers();
     is_drawInliers = true;
@@ -348,7 +513,7 @@ void VisualISMGenerator::saveSDImage() {
 
   cv::imwrite(file_ransac, img_combined_ransac);
   // save outlier_count and all_couts to saved_file
-  std::ofstream out(saved_file, std::ios::app);
+  std::ofstream out(options_.saved_file, std::ios::app);
   out << img_count << " " << sampson_errors_map.size() << " " << outlier_count<< " mean_sd: " <<  mean_sampson  << " max_std: " << max_sd << " couts_fault: " << couts_fault << std::endl;
   LOG(INFO) << "Saved Sampson distance image: " << file_ransac;
 }

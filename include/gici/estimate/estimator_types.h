@@ -512,11 +512,11 @@ struct Solution {
   GeoCoordinatePtr coordinate;
   
   // Integrity monitoring results
-  double protection_level_h = 0.0;
-  double protection_level_x = 0.0;
-  double protection_level_y = 0.0;
-  double protection_level_v = 0.0;
-  double integrity_risk = 0.0;
+  double protection_level_h = std::numeric_limits<double>::quiet_NaN();
+  double protection_level_x = std::numeric_limits<double>::quiet_NaN();
+  double protection_level_y = std::numeric_limits<double>::quiet_NaN();
+  double protection_level_v = std::numeric_limits<double>::quiet_NaN();
+  double integrity_risk = std::numeric_limits<double>::quiet_NaN();
 };
 
 // Role of solution when it behaves as measurement (for loosely couple)

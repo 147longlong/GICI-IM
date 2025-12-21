@@ -13,10 +13,24 @@
 
 namespace gici {
 
+struct VisualISMOptions {
+    bool ism_gen_flag = false;
+    bool save_ism_image = false;
+
+    std::string gt_file = "";
+    std::string pairwise_file = "";
+    std::string pairwise_file_mode = "trunc";
+
+    std::string saved_folder = "";
+    std::string saved_file = "";
+    std::string sd_errors_file = "";
+
+};
+
 class VisualISMGenerator {
 public:
     // The constructor of visual_ism_gen_ is in feature_handler.cpp
-    VisualISMGenerator(const DetectorOptions& options, const CameraPtr& cam);
+    VisualISMGenerator(const VisualISMOptions& ism_options, const DetectorOptions& options, const CameraPtr& cam);
     ~VisualISMGenerator() { }
 
     void setFrames(const FramePtr& cur_frame, const FramePtr& ref_frame, 
@@ -41,6 +55,12 @@ public:
     // compute the Sampson distance for each feature point
     void computeSampsonDistance();
 
+    // compute the pairwise Sampson distance for each feature point
+    void computePairwiseSampsonDistance(const FramePtr& cur_frame);
+
+    // get the ground truth fundamental matrix between two arbitrary frames
+    bool getGTFundamentalMat(const FramePtr& f1, const FramePtr& f2, Eigen::Quaterniond& q_1_2, Eigen::Vector3d& pos_1_2);
+
     // save the raw tracked image and combined two image with the features to the saved_folder
     void saveRawTrackedImage();
     
@@ -57,10 +77,7 @@ public:
 
 
 private:
-    std::string saved_folder;
-    std::string saved_file;
-    std::string gt_file;
-    std::string sd_errors_file;
+    VisualISMOptions options_;
 
     FramePtr cur_frame_;
     FramePtr ref_frame_;
@@ -79,7 +96,14 @@ private:
     std::unordered_map<int, double> sampson_errors_map;
     bool is_drawInliers = false;
 
-    
+    struct GTPose {
+        double time;
+        Eigen::Vector3d pos;
+        Eigen::Quaterniond q;
+    };
+    std::vector<GTPose> gt_poses_;
+    void loadGTData();
+    bool getGTPose(double timestamp, Eigen::Vector3d& pos, Eigen::Quaterniond& q);
 
 };
 
