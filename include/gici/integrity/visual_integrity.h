@@ -9,12 +9,20 @@
 
 #pragma once
 
-#include <vector>
 #include <Eigen/Dense>
 #include <boost/math/distributions/normal.hpp>
 #include "gici/estimate/graph.h"
 #include "gici/utility/common.h"
+#include "gici/gnss/gnss_common.h"
+#include "gici/utility/rtklib_safe.h"
+
 #include "gici/vision/visual_estimator_base.h"
+#include "gici/estimate/pose_parameter_block.h"
+#include "gici/estimate/speed_and_bias_parameter_block.h"
+
+#include "gici/integrity/jacobian_visualization.h"
+
+#include <omp.h>
 
 namespace gici {
 
@@ -24,10 +32,17 @@ struct VisualIntegrityOptions {
     bool enable = true;
 
     // Integrtiy Support Message 
-    double sigma_pixel = 0.2; // Pixel noise std
-    double p_feature_fault = 1.0e-4; // Probability of single feature fault
+    double sigma_pixel = 1.0; // Pixel noise std
+    double prior_fault_probability = 1.0e-4; // Probability of single feature fault
     int meas_dim = 2; // 2D reprojection errors
 
+    // Overbounding function parameters for q_i
+    std::string overbounding_func = "none"; // Function type: "dual_exp" or "rational"
+    std::vector<double> overbounding_parameters; // Parameters for overbounding function
+    
+    // Normal fit function parameters for q_i
+    std::string normal_func = "none"; // Function type: "dual_exp" or "rational"
+    std::vector<double> normal_parameters; // Parameters for normal fit function
 
     // Nvigation requirements
     double PHMI = 1.0e-7;
@@ -60,12 +75,12 @@ struct IntegritySnapshot {
     double timestamp;
     Eigen::MatrixXd J_all;
     Eigen::VectorXd r_all;
-    Eigen::VectorXd sig2_all;
+    Eigen::MatrixXd sig2_int;
+    Eigen::MatrixXd sig2_acc;
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
     std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
     std::vector<int> curr_pose_J_cols;
-    VisualIntegrityOptions options;
 };
 
 class VisualIntegrity {
@@ -105,6 +120,11 @@ private:
     void serializeSnapshot(const IntegritySnapshot& snapshot, std::ofstream& out);
     void deserializeSnapshot(IntegritySnapshot& snapshot, std::ifstream& in);
 
+    // Helper functions for reading/writing options
+    void serializeOptions(const VisualIntegrityOptions& options, std::ofstream& out);
+    void deserializeOptions(VisualIntegrityOptions& options, std::ifstream& in);
+
+
     // Helper functions for code reuse
     bool prepareLinearSystem(const FramePtr& frame, 
                              const std::deque<State>& states, 
@@ -113,7 +133,8 @@ private:
                              const PointMap& landmarks_map,
                              Eigen::MatrixXd& J_all, 
                              Eigen::VectorXd& r_all, 
-                             Eigen::VectorXd& sig2_all,
+                             Eigen::MatrixXd&  sig2_int,
+                             Eigen::MatrixXd&  sig2_acc,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
                              std::map<uint64_t, std::vector<int>>& curr_pose_to_J_cols,
@@ -121,7 +142,8 @@ private:
 
     bool computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
                                  const Eigen::VectorXd& r_all,
-                                 const Eigen::VectorXd& sig2_all,
+                                 const Eigen::MatrixXd&  sig2_int,
+                                 const Eigen::MatrixXd&  sig2_acc,
                                  const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
                                  const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
                                  const std::vector<int>& curr_pose_J_cols);
@@ -156,7 +178,8 @@ private:
 
     void computeSubsetSolution(const Eigen::MatrixXd& J,
                                const Eigen::VectorXd& residual,
-                               const Eigen::VectorXd& sig2,
+                               const Eigen::MatrixXd& sig2_int,
+                               const Eigen::MatrixXd& sig2_acc,
                                const std::vector<std::vector<int>>& subsets,
                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
@@ -172,19 +195,6 @@ private:
                                Eigen::MatrixXd& x,
                                Eigen::VectorXd& chi2);
 
-    void compute_S_coefficients(const Eigen::MatrixXd& J,
-                                const Eigen::MatrixXd& W,
-                                const Eigen::MatrixXd& JtWJ,
-                                const std::vector<std::vector<int>>& subsets,
-                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
-                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
-                                const std::vector<uint64_t>& curr_lm_ids,
-                                const std::vector<int>& curr_pose_J_cols,
-                                const Eigen::VectorXd& residual,
-                                Eigen::MatrixXd& s1vec,
-                                Eigen::MatrixXd& s2vec,
-                                Eigen::MatrixXd& s3vec,
-                                Eigen::MatrixXd& x);
 
     std::vector<int> filteroutSubsets(Eigen::MatrixXd& sigma,
                                       Eigen::MatrixXd& bias,
@@ -228,15 +238,16 @@ private:
     int determineNfaultmax(const std::vector<double>& p, double P_THRES);
     std::vector<std::vector<int>> determine_k_subsets(int n, int k);
     int nchoosek(int n, int k);
+    double computeDualExpOverboundingSig2(std::vector<double> prm, int alpha, int beta);
 
     // --- Data Extraction ---
     bool extractLinearSystem(const FramePtr& frame, const State& state, const Graph* graph, const PointMap& landmarks_map,
-                             Eigen::MatrixXd& J_all, Eigen::VectorXd& r_all, Eigen::VectorXd& sig2_all,
+                             Eigen::MatrixXd& J_all, Eigen::VectorXd& r_all, Eigen::MatrixXd& sig2_int,
                              std::vector<uint64_t>& row_ids_all, std::vector<uint64_t>& col_ids_all,
                              std::vector<std::pair<uint64_t, int>> rows_curr, std::vector<std::pair<uint64_t, int>> cols_curr);
 
-    bool extractFullLinearSystem(const FramePtr& frame, const std::deque<State>& states, size_t state_index, const Graph* graph,
-                                 Eigen::MatrixXd& J_all, Eigen::VectorXd& r_all, Eigen::VectorXd& sig2_all,
+    bool extractFullLinearSystem(const FramePtr& frame, const std::deque<State>& states, size_t state_index, const Graph* graph, const PointMap& landmarks_map,
+                                 Eigen::MatrixXd& J_all, Eigen::VectorXd& r_all, Eigen::MatrixXd& sig2_int, Eigen::MatrixXd& sig2_acc,
                                  std::vector<std::pair<uint64_t, std::string>>& row_ids_all, std::vector<std::pair<uint64_t, std::string>>& col_ids_all, std::vector<std::pair<uint64_t, double>>& pose_timestamps,
                                 std::vector<std::pair<uint64_t, int>>& rows_curr, std::vector<std::pair<uint64_t, int>>& cols_curr);
     
@@ -249,7 +260,15 @@ private:
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
                                                   std::map<uint64_t, std::vector<int>>& pose_related_cols,
                                                   std::vector<int>& curr_pose_J_cols);
+                    
+    double computeConditionNumber(const Eigen::MatrixXd& A);
 
+    // Robust Cholesky decomposition with multiple fallback strategies
+    bool computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT<Eigen::MatrixXd>& llt_out, double& used_damping);
+    
+    // Robust weight matrix computation with validation
+    bool computeRobustWeightMatrix(const Eigen::MatrixXd& sig2_int, Eigen::MatrixXd& W);
+    
 private:
     VisualIntegrityOptions options_;
 
@@ -260,6 +279,8 @@ private:
     double YPL_;
     double VPL_;
     double IR_;
+
+    bool is_first_ = true;
 
 
     // Intermediate variables

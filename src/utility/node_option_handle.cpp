@@ -359,8 +359,28 @@ NodeOptionHandle::IntegrityNode::IntegrityNode(const YAML::Node& yaml_node)
   if (yaml_node["integrity_support_message"].IsDefined()) {
     const YAML::Node& ism_msg_node = yaml_node["integrity_support_message"];
     option_tools::safeGet(ism_msg_node, "sigma_pixel", &i_opts.sigma_pixel);
-    option_tools::safeGet(ism_msg_node, "p_feature_fault", &i_opts.p_feature_fault);
+    option_tools::safeGet(ism_msg_node, "prior_fault_probability", &i_opts.prior_fault_probability);
     option_tools::safeGet(ism_msg_node, "meas_dim", &i_opts.meas_dim);
+    
+    // Load overbounding function parameters
+    option_tools::safeGet(ism_msg_node, "overbounding_func", &i_opts.overbounding_func);
+    if (ism_msg_node["overbounding_parameters"].IsDefined()) {
+      const YAML::Node& params_node = ism_msg_node["overbounding_parameters"];
+      i_opts.overbounding_parameters.clear();
+      for (size_t i = 0; i < params_node.size(); i++) {
+        i_opts.overbounding_parameters.push_back(params_node[i].as<double>());
+      }
+    }
+    
+    // Load normal fit function parameters
+    option_tools::safeGet(ism_msg_node, "normal_func", &i_opts.normal_func);
+    if (ism_msg_node["normal_parameters"].IsDefined()) {
+      const YAML::Node& params_node = ism_msg_node["normal_parameters"];
+      i_opts.normal_parameters.clear();
+      for (size_t i = 0; i < params_node.size(); i++) {
+        i_opts.normal_parameters.push_back(params_node[i].as<double>());
+      }
+    }
   }
 
   // navigation_requirements

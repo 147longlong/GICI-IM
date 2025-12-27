@@ -593,4 +593,20 @@ void printJacobianInfo(const Eigen::MatrixXd& J, const Eigen::VectorXd& r,
     out.close();
 }
 
+
+void saveEigenMatrixToFile(const Eigen::MatrixXd& Matrix_eigen, const std::string& filename) {
+    // Print Matrix_eigen to file to check its shape
+    std::ofstream m(filename, std::ios::trunc);
+    if (m.is_open()) {
+        m << "Matrix shape: " << Matrix_eigen.rows() << " x " << Matrix_eigen.cols() << "\n";
+        m << "Matrix:\n" << Matrix_eigen << "\n";
+        m << "----------------------------------------\n";
+        m.close();
+        LOG(INFO) << "[VisualIntegrity] Matrix printed to " << filename;
+    } else {
+        LOG(ERROR) << "[VisualIntegrity] Failed to open matrix output file: " << filename;
+    }
+}
+
+
 } // namespace gici

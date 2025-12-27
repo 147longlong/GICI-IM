@@ -75,31 +75,69 @@ def strict_envelope_fit(q_i):
             'rmse': np.sqrt(np.mean((fitted - q_i) ** 2))
         }
     else:
-        # 备用方案：使用双指数函数 a*exp(-b*i) + d*exp(-e*i)
+        # 备用方案：使用双指数函数 a*exp(-b*i) + d*exp(-e*i)，带约束优化
         def dual_exp_func(i, a, b, d, e):
             return a * np.exp(-b * i) + d * np.exp(-e * i)
         
-        p0_dual = [np.max(q_i) * 0.7, 0.05, np.max(q_i) * 0.3, 0.005]
-        params, _ = curve_fit(dual_exp_func, x, q_i, p0=p0_dual, maxfev=20000)
-        fitted = dual_exp_func(x, *params)
+        # 目标函数：最小化RMSE，同时满足约束
+        def objective_dual(params):
+            fitted = dual_exp_func(x, *params)
+            violations = np.maximum(0, q_i - fitted)
+            penalty = np.sum(violations ** 2) * 1e12
+            rmse = np.sqrt(np.mean((fitted - q_i) ** 2))
+            return rmse + penalty
         
-        # 计算最大违反
-        violations = np.maximum(0, q_i - fitted)
-        max_viol = np.max(violations)
+        # 约束：每个点 f(i) >= q_i[i]
+        def constraint_dual(params):
+            fitted = dual_exp_func(x, *params)
+            return fitted - q_i
         
-        # 如果有违反，整体上移
-        if max_viol > 1e-6:
-            fitted += max_viol + 1e-6
+        constraints_dual = [{'type': 'ineq', 'fun': constraint_dual}]
         
-        return {
-            'type': 'dual_exp_envelope',
-            'params': params,
-            'fitted': fitted,
-            'violations': 0,
-            'max_violation': 0,
-            'envelope_margin': np.mean(fitted - q_i),
-            'rmse': np.sqrt(np.mean((fitted - q_i) ** 2))
-        }
+        # 初始猜测：使用更保守的值（让曲线更高）
+        p0_dual = [np.max(q_i) * 1.2, 0.03, np.max(q_i) * 0.5, 0.002]
+        
+        # 边界：所有参数非负
+        bounds_dual = [(0, None), (0, None), (0, None), (0, None)]
+        
+        from scipy.optimize import minimize
+        
+        result_dual = minimize(objective_dual, p0_dual, method='SLSQP', bounds=bounds_dual, constraints=constraints_dual, options={'maxiter': 20000})
+        
+        if result_dual.success:
+            params = result_dual.x
+            fitted = dual_exp_func(x, *params)
+            violations = np.maximum(0, q_i - fitted)
+            max_viol = np.max(violations)
+            
+            return {
+                'type': 'dual_exp_envelope',
+                'params': params,
+                'fitted': fitted,
+                'violations': 0 if max_viol < 1e-6 else np.sum(violations),
+                'max_violation': max_viol,
+                'envelope_margin': np.mean(fitted - q_i),
+                'rmse': np.sqrt(np.mean((fitted - q_i) ** 2))
+            }
+        else:
+            # 如果优化失败，使用原始曲线并上移
+            params, _ = curve_fit(dual_exp_func, x, q_i, p0=p0_dual, maxfev=20000)
+            fitted = dual_exp_func(x, *params)
+            violations = np.maximum(0, q_i - fitted)
+            max_viol = np.max(violations)
+            
+            if max_viol > 1e-6:
+                fitted += max_viol + 1e-6
+            
+            return {
+                'type': 'dual_exp_envelope',
+                'params': params,
+                'fitted': fitted,
+                'violations': 0,
+                'max_violation': 0,
+                'envelope_margin': np.mean(fitted - q_i),
+                'rmse': np.sqrt(np.mean((fitted - q_i) ** 2))
+            }
 
 
 def normal_fit(q_i):
@@ -239,7 +277,7 @@ def plot_final_result(q_i, envelope_result, normal_result, output_file):
     plt.close(fig)
 
 
-def print_final_formula(envelope_result, normal_result):
+def print_final_formula(envelope_result, normal_result, q_i):
     """打印两种拟合的公式"""
     print("\n" + "="*70)
     print("FITTING RESULTS - Envelope vs Normal Fit")
@@ -288,22 +326,44 @@ def print_final_formula(envelope_result, normal_result):
     print("="*70)
 
 
-def main():
-    """主函数"""
-    results_file = '/home/syl/GICI-IM/visual_ism/qk_results.json'
-    output_file = '/home/syl/GICI-IM/visual_ism/qk_fitting_comparison.png'
-    params_file = '/home/syl/GICI-IM/visual_ism/qk_fitting_params.json'
+def main(phi=3, 
+         results_file='/home/syl/GICI-IM/visual_ism/qk_results.json',
+         output_file='/home/syl/GICI-IM/visual_ism/qk_fitting_comparison.png',
+         params_file='/home/syl/GICI-IM/visual_ism/qk_fitting_params.json'):
+    """主函数
     
+    参数:
+        phi: phi值，用于从results_file中选择对应的数据
+        results_file: q_k结果文件路径
+        output_file: 拟合对比图保存路径
+        params_file: 拟合参数保存路径
+    """
     # 加载数据
-    print("Loading phi=3 q_i data...")
-    q_i = load_qk_results(results_file)
+    print(f"Loading phi={phi} q_i data...")
+    
+    # 从JSON文件加载所有phi的结果
+    try:
+        with open(results_file, 'r') as f:
+            data = json.load(f)
+        
+        # 获取指定phi的数据
+        phi_key = 'nan' if np.isnan(phi) else str(phi)
+        if phi_key not in data['qk_results']:
+            print(f"Error: phi={phi} not found in {results_file}")
+            return
+        
+        q_i = np.array(data['qk_results'][phi_key])
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return
+    
     print(f"Data length: {len(q_i)}")
     print(f"Range: [{np.min(q_i):.6f}, {np.max(q_i):.6f}]")
     print(f"Mean: {np.mean(q_i):.6f}")
     
     # 1. 上包络拟合（有理函数）
     print("\n" + "="*70)
-    print("【1】Strict Envelope Fit (a/(k+b) + c)")
+    print("【1】Strict Envelope Fit (a/(i+b) + c)")
     print("="*70)
     envelope_result = strict_envelope_fit(q_i)
     
@@ -322,7 +382,7 @@ def main():
         return
     
     # 打印结果
-    print_final_formula(envelope_result, normal_result)
+    print_final_formula(envelope_result, normal_result, q_i)
     
     # 绘图对比
     print("\nGenerating comparison plot...")
@@ -331,7 +391,7 @@ def main():
     # 保存参数
     with open(params_file, 'w') as f:
         json.dump({
-            'phi': 3,
+            'phi': phi if not np.isnan(phi) else 'nan',
             'envelope_fit': {
                 'type': envelope_result['type'],
                 'params': envelope_result['params'].tolist(),
@@ -355,4 +415,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # ==================== 参数配置 ====================
+    # 拟合参数
+    phi = 3  # 要拟合的phi值
+    
+    # 路径配置
+    results_file = '/home/syl/GICI-IM/visual_ism/qk_results.json'  # q_k结果文件
+    output_file = '/home/syl/GICI-IM/visual_ism/qk_fitting_comparison.png'  # 对比图文件
+    params_file = '/home/syl/GICI-IM/visual_ism/qk_fitting_params.json'  # 参数文件
+    # ==================================================
+    
+    main(phi=phi, results_file=results_file, output_file=output_file, params_file=params_file)

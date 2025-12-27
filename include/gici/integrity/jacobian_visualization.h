@@ -13,4 +13,6 @@ void printJacobianInfo(const Eigen::MatrixXd& J, const Eigen::VectorXd& r,
                        const std::vector<std::pair<uint64_t, int>>& rows_curr, const std::vector<std::pair<uint64_t, int>>& cols_curr, std::vector<std::pair<uint64_t, double>> pose_timestamps,
                        const std::string& filename);
 
+void saveEigenMatrixToFile(const Eigen::MatrixXd& Matrix_eigen, const std::string& filename);
+
 } // namespace gici

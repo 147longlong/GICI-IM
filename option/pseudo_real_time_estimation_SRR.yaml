@@ -6,17 +6,17 @@ stream:
         tag: str_gnss_rov
         output_tags: [fmt_gnss_rov]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/gnss_rover.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/gnss_rover.bin
     - streamer:
         tag: str_gnss_ref
         output_tags: [fmt_gnss_ref]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/gnss_reference.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/gnss_reference.bin
     - streamer:
         tag: str_gnss_eph
         output_tags: [fmt_gnss_eph]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/gnss_ephemeris.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/gnss_ephemeris.bin
     - streamer:
         tag: str_dcb_file
         output_tags: [fmt_dcb_file]
@@ -27,25 +27,25 @@ stream:
         tag: str_imu
         output_tags: [fmt_imu]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/imu.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/imu.bin
         loop_duration: 0.001
     - streamer:
         tag: str_camera
         output_tags: [fmt_camera]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/camera.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/camera.bin
         buffer_length: 361472 # 752 * 480 + 512 
     - streamer:
         tag: str_rtk_solution_file
         input_tags: [fmt_rtk_solution_file]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/rtk_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/2.1/rtk_solution.txt
         enable_time_tag: false
     - streamer:
         tag: str_srr_solution_file
         input_tags: [fmt_srr_solution_file]
         type: file
-        path: /media/syl/longlong/GICI-Dataset/5.2/srr_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/2.1/srr_solution.txt
         enable_time_tag: false
     - streamer:
         tag: str_protection_level
@@ -106,12 +106,12 @@ stream:
         io: input
         tag: fmt_gnss_ref
         type: gnss-rtcm-3
-        start_time: 2023.05.21
+        start_time: 2023.03.20
     - formator:
         io: input
         tag: fmt_gnss_eph
         type: gnss-rtcm-3
-        start_time: 2023.05.21
+        start_time: 2023.03.20
     - formator:
         io: input
         tag: fmt_imu
@@ -140,7 +140,7 @@ stream:
 
   replay:
     enable: true
-    speed: 0.5
+    speed: 0.1
     start_offset: 0.0
 
 estimate:
@@ -272,21 +272,27 @@ estimate:
                                       0,                       0,                       0,                       1]
 integrity:
   visual_ism_gen:
-    ism_gen_flag: true
+    ism_gen_flag: false
     save_ism_image: false
-    gt_file: /media/syl/longlong/GICI-Dataset/5.2/gici_tum/Ground-Truth.tum
-    pairwise_file: /media/syl/longlong/GICI-Dataset/5.2/pairwise_sd_errors.txt
+    gt_file: /media/syl/longlong/GICI-Dataset/2.1/gici_tum/Ground-Truth.tum
+    pairwise_file: /media/syl/longlong/GICI-Dataset/2.1/pairwise_sd_errors.txt
     pairwise_file_mode: trunc #app,trunc
     saved_folder: 
     saved_file: 
     sd_errors_file: 
   integrity_options:
-    enable: false
-    post_processing: true
-    snapshot_file: /media/syl/longlong/GICI-Dataset/5.2/integrity_snapshots.bin
+    enable: true
+    post_processing: true # save snapshot in gici_main, and process snapshot in integrity_main after estimation
+    snapshot_file: /media/syl/longlong/GICI-Dataset/2.1/integrity_snapshots.bin
+    output_post_processing_csv: /media/syl/longlong/GICI-Dataset/2.1/integrity_results.csv
+    output_post_processing_nmea: /media/syl/longlong/GICI-Dataset/2.1/srr_solution.txt
   integrity_support_message:
-    sigma_pixel: 0.2
-    p_feature_fault: 1.0e-4
+    sigma_pixel: 1.0
+    overbounding_func: dual_exp #"dual_exp" f(i) = 1.49101568*exp(-0.28066870*i) + 0.40406420*exp(-0.00353658*i), or "none" to omit the tracking error
+    overbounding_parameters: [1.49101568, -0.28066870, 0.40406420, -0.00353658]
+    normal_func: dual_exp #"dual_exp" f(i) = 1.38577510*exp(-0.24765217*i) + 0.34366019*exp(-0.00529072*i), or "none" to omit the tracking error
+    normal_parameters: [1.38577510, -0.24765217, 0.34366019, -0.00529072]
+    prior_fault_probability: 1.0e-3
     meas_dim: 2
   navigation_requirements:
     PHMI: 1.0e-7
@@ -309,5 +315,5 @@ integrity:
 logging:
   enable: true
   min_log_level: 0
-  log_to_stderr: true
-  file_directory: <log-directory>
+  log_to_stderr: false
+  file_directory: /media/syl/longlong/GICI-Dataset/2.1/log-IM/

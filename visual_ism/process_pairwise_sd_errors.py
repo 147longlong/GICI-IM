@@ -10,7 +10,7 @@ import json
 
 
 
-def solve_qk_for_phi(phi, max_j, file_paths):
+def solve_qk_for_phi(phi, max_j, file_paths, threshold=2e-3):
     """针对特定phi值求解q_i"""
     # 读取数据
     data_map = {}
@@ -54,7 +54,7 @@ def solve_qk_for_phi(phi, max_j, file_paths):
         try:
             errors_dist = np.sqrt(errors)
             errors_sym = np.concatenate((-errors_dist, errors_dist))
-            sigma_ob, _ = fcdf_overbounding(errors_sym, pair_name, force_b_zero=True, plot_flag=False, flag_remove=True, Threshold=2e-3)
+            sigma_ob, _ = fcdf_overbounding(errors_sym, pair_name, force_b_zero=True, plot_flag=False, flag_remove=True, Threshold=threshold)
             results.append((pair_name, sigma_ob))
         except Exception as e:
             print(f"Error calculating for {pair_name}: {e}")
@@ -104,13 +104,22 @@ def solve_qk_for_phi(phi, max_j, file_paths):
     return q_i, num_samples, num_categories
 
 
-def main():
-    max_j = 200
-    # phi值：1-10和nan（表示不限制j-i）
-    phi_values = [3] #np.nan
+def main(max_j=200, phi_values=None, threshold=2e-3, 
+         data_dir='/media/syl/longlong/GICI-Dataset',
+         results_file='/home/syl/GICI-IM/visual_ism/qk_results.json',
+         plot_file='/home/syl/GICI-IM/visual_ism/phi_analysis.png'):
+    """主函数
     
-    # 结果文件路径
-    results_file = '/home/syl/GICI-IM/visual_ism/qk_results.json'
+    参数:
+        max_j: 最大j值
+        phi_values: phi值列表，如 [1,2,3,np.nan]
+        threshold: fcdf_overbounding的阈值
+        data_dir: 数据目录路径
+        results_file: 结果保存文件路径
+        plot_file: 分析图保存路径
+    """
+    if phi_values is None:
+        phi_values = [3]  # 默认phi值
     
     # 检查是否已有保存的结果
     if os.path.exists(results_file):
@@ -133,7 +142,7 @@ def main():
             
             if qk_results:
                 # 绘制分析图表
-                plot_phi_analysis(qk_results, summary_data, '/home/syl/GICI-IM/visual_ism/phi_analysis.png')
+                plot_phi_analysis(qk_results, summary_data, plot_file)
                 print(f"Plotted {len(qk_results)} phi values: {list(qk_results.keys())}")
                 return
             else:
@@ -143,9 +152,9 @@ def main():
     print("No saved results found or no matching phi values, computing from scratch...")
     
     # 自动查找所有pairwise_sd_errors.txt
-    file_paths = glob.glob('/media/syl/longlong/GICI-Dataset/*/pairwise_sd_errors.txt')
+    file_paths = glob.glob(f'{data_dir}/*/pairwise_sd_errors.txt')
     if not file_paths:
-        print("No pairwise_sd_errors.txt files found.")
+        print(f"No pairwise_sd_errors.txt files found in {data_dir}")
         return
 
     # 存储不同phi的结果
@@ -153,7 +162,7 @@ def main():
     summary_data = []
 
     for phi in phi_values:
-        q_i, num_samples, num_categories = solve_qk_for_phi(phi, max_j, file_paths)
+        q_i, num_samples, num_categories = solve_qk_for_phi(phi, max_j, file_paths, threshold)
         
         if q_i is not None:
             qk_results[phi] = q_i
@@ -171,7 +180,7 @@ def main():
     save_qk_results(qk_results, summary_data, results_file)
     
     # 绘制分析图表
-    plot_phi_analysis(qk_results, summary_data, '/home/syl/GICI-IM/visual_ism/phi_analysis.png')
+    plot_phi_analysis(qk_results, summary_data, plot_file)
 
 
 def save_qk_results(qk_results, summary_data, output_file):
@@ -231,7 +240,7 @@ def plot_phi_analysis(qk_results, summary_data, output_file):
         indices = range(1, len(q_i) + 1)
         phi_label = 'nan' if np.isnan(phi) else f'phi={phi}'
         ax1.plot(indices, q_i, marker='o', linestyle='-', linewidth=1.5, markersize=2, label=phi_label)
-    ax1.set_xlabel('Index k', fontsize=10)
+    ax1.set_xlabel('Index i', fontsize=10)
     ax1.set_ylabel('q_i', fontsize=10)
     ax1.set_title('q_i vs Index (All)', fontsize=11, fontweight='bold')
     ax1.grid(True, which="both", linestyle='--', linewidth=0.5, alpha=0.7)
@@ -613,8 +622,17 @@ if __name__ == "__main__":
     # 检查命令行参数
     import sys
     
-    # 默认phi值
-    phi_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, np.nan]
+    # ==================== 参数配置 ====================
+    # 计算参数
+    max_j = 500
+    phi_values = [3]
+    threshold = 2e-3  # fcdf_overbounding的阈值
+    
+    # 路径配置
+    data_dir = '/media/syl/longlong/GICI-Dataset'  # 数据目录
+    results_file = '/home/syl/GICI-IM/visual_ism/qk_results1e-2.json'  # 结果文件
+    plot_file = '/home/syl/GICI-IM/visual_ism/phi_analysis.png'  # 分析图文件
+    # ==================================================
     
     if len(sys.argv) > 1:
         if sys.argv[1] == '--plot-only':
@@ -631,7 +649,7 @@ if __name__ == "__main__":
                         phi_values.append(int(phi_str))
                 print(f"Plotting only for phi values: {phi_values}")
             
-            plot_from_saved_file(phi_values=phi_values)
+            plot_from_saved_file(results_file=results_file, phi_values=phi_values)
         else:
             # 从命令行读取phi值进行计算
             phi_str_list = sys.argv[1].split(',')
@@ -642,68 +660,13 @@ if __name__ == "__main__":
                     phi_values.append(np.nan)
                 else:
                     phi_values.append(int(phi_str))
+            
             print(f"Computing for phi values: {phi_values}")
             
-            # 修改main函数使用指定的phi值
-            max_j = 200
-            results_file = '/home/syl/GICI-IM/visual_ism/qk_results.json'
-            
-            # 检查是否已有保存的结果
-            if os.path.exists(results_file):
-                print(f"Found saved results file: {results_file}")
-                qk_results_all, summary_data_all = load_qk_results(results_file)
-                
-                if qk_results_all is not None:
-                    # 根据phi_values筛选对应的结果
-                    qk_results = {}
-                    summary_data = []
-                    
-                    for phi in phi_values:
-                        if phi in qk_results_all:
-                            qk_results[phi] = qk_results_all[phi]
-                            for data in summary_data_all:
-                                if (np.isnan(phi) and data['phi'] == 'nan') or (not np.isnan(phi) and data['phi'] == phi):
-                                    summary_data.append(data)
-                                    break
-                    
-                    if qk_results:
-                        plot_phi_analysis(qk_results, summary_data, '/home/syl/GICI-IM/visual_ism/phi_analysis.png')
-                        print(f"Plotted {len(qk_results)} phi values: {list(qk_results.keys())}")
-                        sys.exit(0)
-            
-            # 如果没有保存的结果或没有匹配的phi值，重新计算
-            print("No saved results found or no matching phi values, computing from scratch...")
-            
-            # 自动查找所有pairwise_sd_errors.txt
-            file_paths = glob.glob('/media/syl/longlong/GICI-Dataset/*/pairwise_sd_errors.txt')
-            if not file_paths:
-                print("No pairwise_sd_errors.txt files found.")
-                sys.exit(1)
-
-            # 存储不同phi的结果
-            qk_results = {}
-            summary_data = []
-
-            for phi in phi_values:
-                q_i, num_samples, num_categories = solve_qk_for_phi(phi, max_j, file_paths)
-                
-                if q_i is not None:
-                    qk_results[phi] = q_i
-                    summary_data.append({
-                        'phi': phi if not np.isnan(phi) else 'nan',
-                        'num_samples': num_samples,
-                        'num_categories': num_categories
-                    })
-
-            if not qk_results:
-                print("No valid results for any phi value.")
-                sys.exit(1)
-
-            # 保存结果到文件
-            save_qk_results(qk_results, summary_data, results_file)
-            
-            # 绘制分析图表
-            plot_phi_analysis(qk_results, summary_data, '/home/syl/GICI-IM/visual_ism/phi_analysis.png')
+            # 调用main函数，使用配置的路径
+            main(max_j=max_j, phi_values=phi_values, threshold=threshold,
+                 data_dir=data_dir, results_file=results_file, plot_file=plot_file)
     else:
-        # 默认流程：使用默认phi值，计算并保存，然后绘图
-        main()
+        # 默认流程：使用配置的参数
+        main(max_j=max_j, phi_values=phi_values, threshold=threshold,
+             data_dir=data_dir, results_file=results_file, plot_file=plot_file)
