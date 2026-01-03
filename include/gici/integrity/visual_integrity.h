@@ -68,6 +68,9 @@ struct VisualIntegrityOptions {
 
     // Integrity options
     bool post_processing = true;
+    double start_timestamp = 0;
+    bool yaml_options = true;
+    double snapshot_freq = 1;
     std::string snapshot_file = "";
 };
 
@@ -267,12 +270,17 @@ private:
     bool computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT<Eigen::MatrixXd>& llt_out, double& used_damping);
     
     // Robust weight matrix computation with validation
-    bool computeRobustWeightMatrix(const Eigen::MatrixXd& sig2_int, Eigen::MatrixXd& W);
+    bool computeRobustWeightMatrix(Eigen::MatrixXd& sig2_int, Eigen::MatrixXd& W, bool& diag_force);
+
+    Eigen::MatrixXd robustInverse(const Eigen::MatrixXd& M, double svd_threshold = -1.0, bool always_pseudo = false);
+
+    Eigen::MatrixXd pseudoinverseSVD(const Eigen::MatrixXd& M, double threshold = -1.0);
     
 private:
     VisualIntegrityOptions options_;
 
     double timestamp_;
+    double last_timestamp_ = 0;
     
     double HPL_;
     double XPL_;

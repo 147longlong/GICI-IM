@@ -60,3 +60,4 @@ lib/
 *.atx
 factor_graph.dot
 jacobian_visualization.txt
+results/debug/*

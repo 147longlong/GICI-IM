@@ -59,10 +59,73 @@ int main(int argc, char** argv) {
         if (opts["post_processing"]) {
             options.post_processing = opts["post_processing"].as<bool>();
         }
+        if (opts["start_timestamp"]) options.start_timestamp = opts["start_timestamp"].as<double>();
+        if (opts["yaml_options"]) options.yaml_options = opts["yaml_options"].as<bool>();
+        if (opts["snapshot_freq"]) options.snapshot_freq = opts["snapshot_freq"].as<bool>();
         if (opts["snapshot_file"]) snapshot_file = opts["snapshot_file"].as<std::string>();
         if (opts["output_post_processing_csv"]) csv_file = opts["output_post_processing_csv"].as<std::string>();
         if (opts["output_post_processing_nmea"]) nmea_file = opts["output_post_processing_nmea"].as<std::string>();
     }
+    if (options.yaml_options){
+        LOG(INFO) << "Read options from yaml file";
+        // integrity_support_message
+        if (config["integrity"] && config["integrity"]["integrity_support_message"].IsDefined()) {
+            const YAML::Node& ism_msg_node = config["integrity"]["integrity_support_message"];
+            option_tools::safeGet(ism_msg_node, "sigma_pixel", &options.sigma_pixel);
+            option_tools::safeGet(ism_msg_node, "prior_fault_probability", &options.prior_fault_probability);
+            option_tools::safeGet(ism_msg_node, "meas_dim", &options.meas_dim);
+            
+            // Load overbounding function parameters
+            option_tools::safeGet(ism_msg_node, "overbounding_func", &options.overbounding_func);
+            if (ism_msg_node["overbounding_parameters"].IsDefined()) {
+            const YAML::Node& params_node = ism_msg_node["overbounding_parameters"];
+            options.overbounding_parameters.clear();
+            for (size_t i = 0; i < params_node.size(); i++) {
+                options.overbounding_parameters.push_back(params_node[i].as<double>());
+            }
+            }
+            
+            // Load normal fit function parameters
+            option_tools::safeGet(ism_msg_node, "normal_func", &options.normal_func);
+            if (ism_msg_node["normal_parameters"].IsDefined()) {
+            const YAML::Node& params_node = ism_msg_node["normal_parameters"];
+            options.normal_parameters.clear();
+            for (size_t i = 0; i < params_node.size(); i++) {
+                options.normal_parameters.push_back(params_node[i].as<double>());
+            }
+            }
+        }
+
+        // navigation_requirements
+        if (config["integrity"] && config["integrity"]["navigation_requirements"].IsDefined()) {
+            const YAML::Node& nav_req_node = config["integrity"]["navigation_requirements"];
+            #define LOAD_NAV_REQ(opt) \
+            if (!option_tools::safeGet(nav_req_node, #opt, &options.opt)) { \
+            LOG(INFO) << "Unable to load integrity option " << #opt \
+                    << ". Using default instead."; }
+
+            LOAD_NAV_REQ(PHMI);
+            LOAD_NAV_REQ(PHMI_X);
+            LOAD_NAV_REQ(PHMI_Y);
+            LOAD_NAV_REQ(PHMI_V);
+            
+            LOAD_NAV_REQ(PFA);
+            LOAD_NAV_REQ(PFA_X);
+            LOAD_NAV_REQ(PFA_Y);
+            LOAD_NAV_REQ(PFA_V);
+
+            LOAD_NAV_REQ(HAL);
+            LOAD_NAV_REQ(XAL);
+            LOAD_NAV_REQ(YAL);
+            LOAD_NAV_REQ(VAL);
+
+            LOAD_NAV_REQ(P_THRES);
+            LOAD_NAV_REQ(Fc_THRES);
+            LOAD_NAV_REQ(PL_TOL);
+            #undef LOAD_NAV_REQ
+        }
+    }
+
 
     if (snapshot_file.empty()) {
         LOG(ERROR) << "snapshot_file not set in configuration!";
