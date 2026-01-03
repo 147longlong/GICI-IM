@@ -76,6 +76,14 @@ void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State
     State state = states[state_index];
     if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return;
 
+    timestamp_ = state.timestamp;
+    if (last_timestamp_ > 0 && (timestamp_ - last_timestamp_) < 1/options_.snapshot_freq) {
+        LOG(INFO) << "[VisualIntegrity] The save snapshot frequency: " << options_.snapshot_freq << ", skipped timestamp: " << std::setprecision(6) << std::fixed << timestamp_;
+        return;
+    }
+    last_timestamp_ = timestamp_;
+
+
     IntegritySnapshot snapshot;
     snapshot.timestamp = state.timestamp;
 
@@ -109,9 +117,13 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         LOG(ERROR) << "[VisualIntegrity] Failed to open snapshot file: " << filename;
         return;
     }
-    if (is_first_ && ifs.peek() != EOF) {
+    if (is_first_ && ifs.peek() != EOF && !options_.yaml_options) {
         deserializeOptions(options_, ifs);
         LOG(INFO) << "[VisualIntegrity] Read options from snapshot file: " << filename;
+        is_first_ = false;
+    } else{
+        VisualIntegrityOptions temp_opts;
+        deserializeOptions(temp_opts, ifs);
         is_first_ = false;
     }
 
@@ -139,17 +151,23 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
 
         timestamp_ = snapshot.timestamp;
 
-        if (last_processed_timestamp > 0 && (timestamp_ - last_processed_timestamp) < 1.0) {
+        if (last_processed_timestamp > 0 && (timestamp_ - last_processed_timestamp) < 1.0/options_.snapshot_freq) {
             continue;
         }
         last_processed_timestamp = timestamp_;
+                    
+        if (timestamp_ < options_.start_timestamp) {
+            LOG(WARNING) << std::fixed << std::setprecision(6)  << "[VisualIntegrity] Skipped Timestamp: " << timestamp_;
+            continue;
+        }
 
         VPL_ = std::numeric_limits<double>::quiet_NaN();
         XPL_ = std::numeric_limits<double>::quiet_NaN();
         YPL_ = std::numeric_limits<double>::quiet_NaN();
         HPL_ = std::numeric_limits<double>::quiet_NaN();
         IR_ = 0;
-        
+
+        LOG(INFO) << std::fixed << std::setprecision(6) << "[VisualIntegrity] Timestamp: " << timestamp_;
         computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_pose_J_cols);
 
 
@@ -167,17 +185,17 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         if (XPL_ > 1e4 || YPL_ > 1e4 || VPL_ > 1e4 || std::isnan(VPL_) || std::isnan(XPL_) || std::isnan(YPL_)) {
             LOG(WARNING) << "[VisualIntegrity] Abnormally large VPL detected, at timestamp: "<< std::fixed << std::setprecision(6) << timestamp_;
             LOG(WARNING) << "===========================================================================";
-            LOG(WARNING) << "p_not_monitored_: " << p_not_monitored_;
-            LOG(WARNING) << "sigma_.size(): " << sigma_.rows() << " x " << sigma_.cols();
-            LOG(WARNING) << "Index\tSigma_1\tSigma_2\tSigma_3\tBias\tT_1\tT_2\tT_3\tP_fault";
-            for (int i = 0; i < sigma_.rows(); ++i) {
-                LOG(WARNING) << i << "\t" 
-                        << sigma_(i, 0) << "\t" << sigma_(i, 1) << "\t" << sigma_(i, 2) << "\t"
-                        << bias_(i) << "\t" 
-                        << T_(i, 0) << "\t" << T_(i, 1) << "\t" << T_(i, 2) << "\t"
-                        << pap_subset_[i];
-            }
-            LOG(WARNING) << "===========================================================================";
+            // LOG(WARNING) << "p_not_monitored_: " << p_not_monitored_;
+            // LOG(WARNING) << "sigma_.size(): " << sigma_.rows() << " x " << sigma_.cols();
+            // LOG(WARNING) << "Index\tSigma_1\tSigma_2\tSigma_3\tBias\tT_1\tT_2\tT_3\tP_fault";
+            // for (int i = 0; i < sigma_.rows(); ++i) {
+            //     LOG(WARNING) << i << "\t" 
+            //             << sigma_(i, 0) << "\t" << sigma_(i, 1) << "\t" << sigma_(i, 2) << "\t"
+            //             << bias_(i) << "\t" 
+            //             << T_(i, 0) << "\t" << T_(i, 1) << "\t" << T_(i, 2) << "\t"
+            //             << pap_subset_[i];
+            // }
+            // LOG(WARNING) << "===========================================================================";
         }
 
         // Free memory for the processed snapshot to avoid OOM
@@ -302,9 +320,9 @@ bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame,
         LOG(ERROR) << "[VisualIntegrity] Failed to extract linear system.";
         return false;
     }
-
-    // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/sig2_int_output.txt");
-    // saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/sig2_acc_output.txt");
+    
+    // saveEigenMatrixToFile(sig2_int, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
+    // saveEigenMatrixToFile(sig2_acc, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_acc_output" + std::to_string(state.timestamp)  + ".txt");
     // saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, "/home/syl/GICI-IM/results/factor_graph.dot");
     // printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, "/home/syl/GICI-IM/results/jacobian_visualization.txt");
 
@@ -358,15 +376,19 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
 
     // 7. Fault Detection
     bool fault_detected = false;
+    int fault_detected_num = 0;
     for (int i = 0; i < T_.rows(); ++i) {
         for (int q = 0; q < 3; ++q) {
             double test_stat = std::abs(x_(i, q) - x_(0, q));
             if (test_stat > T_(i, q)) {
                 fault_detected = true;
-                LOG(ERROR) << "[VisualIntegrity] Fault detected in subset " << i << " axis " << q << std::endl;
+                fault_detected_num++;
+                break;
+                // LOG(WARNING) << "[VisualIntegrity] Fault detected in subset " << i << " axis " << q << std::endl;
             }
         }
     }
+    LOG(WARNING) << std::fixed << std::setprecision(6)<< "[VisualIntegrity] Fault detected num: " << fault_detected_num << ", for timestamp: " << timestamp_;
 
     // 8. Compute PL and IR
     computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, HPL_, XPL_, YPL_);
@@ -499,6 +521,14 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
                     break;
                 }
             }
+        }
+
+        if (info.landmark_id != 0) {
+            info.sig2_int = options_.sigma_pixel * options_.sigma_pixel;
+            info.sig2_acc = options_.sigma_pixel * options_.sigma_pixel;
+        } else{
+            info.sig2_int = 1;
+            info.sig2_acc = 1;
         }
         all_residuals.push_back(info);
     }
@@ -634,9 +664,9 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
 
     if (N_all_rows > 0) {
         J_all = Eigen::MatrixXd::Zero(N_all_rows, N_all_cols);
-        r_all.resize(N_all_rows);
-        sig2_int.resize(N_all_rows, N_all_rows);
-        sig2_acc.resize(N_all_rows, N_all_rows);
+        r_all = Eigen::VectorXd::Zero(N_all_rows); 
+        sig2_int = Eigen::MatrixXd::Identity(N_all_rows, N_all_rows);
+        sig2_acc = Eigen::MatrixXd::Identity(N_all_rows, N_all_rows);
         row_ids_all.resize(N_all_rows);
         col_ids_all.resize(N_all_cols);
 
@@ -854,7 +884,7 @@ void VisualIntegrity::determineSubsets(const std::vector<double>& p_prior,
     //Deterimine the maximum simultanous faults need to monitor.
     std::vector<double> p_sum = p_prior;
     int N_fault_max = determineNfaultmax(p_sum, P_THRES);
-    LOG(INFO) << "[VisualIntegrity] Info: The maximum simultanous faults need to monitor = " << N_fault_max;
+    LOG(INFO) << "[VisualIntegrity] Info: The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << P_THRES;
 
     //Calculate the number of subsets.
     int N_used = N;
@@ -968,21 +998,21 @@ void VisualIntegrity::determineSubsets(const std::vector<double>& p_prior,
 
 void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                                             const Eigen::VectorXd& residual,
-                                            const Eigen::MatrixXd& sig2_acc,
                                             const Eigen::MatrixXd& sig2_int,
+                                            const Eigen::MatrixXd& sig2_acc,
                                             const std::vector<std::vector<int>>& subsets,
                                             const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
                                             const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
                                             const std::vector<uint64_t>& curr_lm_ids,
                                             const std::vector<int>& curr_pose_J_cols,
-                                            Eigen::MatrixXd& sigma,
-                                            Eigen::MatrixXd& bias,
-                                            Eigen::MatrixXd& sigma_ss,
-                                            Eigen::MatrixXd& bias_ss,
-                                            Eigen::MatrixXd& s1vec,
-                                            Eigen::MatrixXd& s2vec,
-                                            Eigen::MatrixXd& s3vec,
-                                            Eigen::MatrixXd& x,
+                                            Eigen::MatrixXd& sigma_out,  
+                                            Eigen::MatrixXd& bias_out,
+                                            Eigen::MatrixXd& sigma_ss_out,
+                                            Eigen::MatrixXd& bias_ss_out,
+                                            Eigen::MatrixXd& s1vec_out,
+                                            Eigen::MatrixXd& s2vec_out,
+                                            Eigen::MatrixXd& s3vec_out,
+                                            Eigen::MatrixXd& x_out,
                                             Eigen::VectorXd& chi2)
 {
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -992,277 +1022,653 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     int N_J_cols = J.cols();
     int N_state = 3;
     int N_meas_curr = subsets[0].size(); //landmarks is corresponding to col of subsets
-    
+
     // Initialize outputs
-    sigma = Eigen::MatrixXd::Constant(N_sets, 3, INFINITY);
-    bias = Eigen::MatrixXd::Constant(N_sets, 3, INFINITY);
-    sigma_ss = Eigen::MatrixXd::Constant(N_sets, 3, INFINITY);
-    bias_ss = Eigen::MatrixXd::Constant(N_sets, 3, INFINITY);
-    s1vec = Eigen::MatrixXd::Constant(N_sets, N_J_rows, INFINITY);
-    s2vec = Eigen::MatrixXd::Constant(N_sets, N_J_rows, INFINITY);
-    s3vec = Eigen::MatrixXd::Constant(N_sets, N_J_rows, INFINITY);
-    x = Eigen::MatrixXd::Zero(N_sets, N_state);
+    using MatrixRowMaj    = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    MatrixRowMaj sigma    = MatrixRowMaj::Constant(N_sets, 3, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj bias     = MatrixRowMaj::Constant(N_sets, 3, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj sigma_ss = MatrixRowMaj::Constant(N_sets, 3, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj bias_ss  = MatrixRowMaj::Constant(N_sets, 3, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj s1vec    = MatrixRowMaj::Constant(N_sets, N_J_rows, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj s2vec    = MatrixRowMaj::Constant(N_sets, N_J_rows, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj s3vec    = MatrixRowMaj::Constant(N_sets, N_J_rows, std::numeric_limits<double>::quiet_NaN());
+    MatrixRowMaj x        = MatrixRowMaj::Zero(N_sets, 3);
     chi2 = Eigen::VectorXd::Zero(N_sets);
-    
+    Eigen::VectorXd nom_bias = Eigen::VectorXd::Zero(N_J_rows);
+
     // Robust weight matrix computation with validation
-    Eigen::MatrixXd W;
-    bool weight_computed = computeRobustWeightMatrix(sig2_int, W);
+    Eigen::MatrixXd W, W_acc;
+    bool diag_force = false;
+    Eigen::MatrixXd sig2_int_copy = sig2_int; //convert const
+    Eigen::MatrixXd sig2_acc_copy = sig2_acc;
+    LOG(INFO) << "[VisualIntegrity] Compute the inverse of sig2_int:";
+    bool weight_computed = computeRobustWeightMatrix(sig2_int_copy, W, diag_force);
+    LOG(INFO) << "[VisualIntegrity] Compute the inverse of sig2_acc:";
+    bool weight_acc_computed = computeRobustWeightMatrix(sig2_acc_copy, W_acc, diag_force);
     if (!weight_computed) {
         LOG(ERROR) << "[VisualIntegrity] Failed to compute valid weight matrix";
         return;
     }
     const bool W_is_diagonal = W.isDiagonal(0.0);
+    bool is_sig2_int_diag = sig2_int_copy.isDiagonal(1e-6);
+    bool is_sig2_acc_diag = sig2_acc_copy.isDiagonal(1e-6);
+    Eigen::VectorXd sig2_int_diag = is_sig2_int_diag ? sig2_int_copy.diagonal() : Eigen::VectorXd();
+    Eigen::VectorXd sig2_acc_diag = is_sig2_acc_diag ? sig2_acc_copy.diagonal() : Eigen::VectorXd();
     
     // Precompute All-in-view Cholesky Decomposition
     // Precompute J'W (N_cols x N_J_rows)
     Eigen::MatrixXd JtW_all = J.transpose() * W;
-    
     // Precompute b_all = J'W * r
     Eigen::VectorXd b_all = JtW_all * residual;
-
     // Precompute J'WJ
     Eigen::MatrixXd JtWJ_all = JtW_all * J;
 
     // Robust Cholesky decomposition with fallback mechanisms
     Eigen::LLT<Eigen::MatrixXd> llt_all;
     double used_damping = 0.0;
+    LOG(INFO) << "[VisualIntegrity] Compute the Cholesky decomposition of JtWJ:";
     bool cholesky_success = computeRobustCholesky(JtWJ_all, llt_all, used_damping);
     if (!cholesky_success) {
         LOG(ERROR) << "[VisualIntegrity] All Cholesky decomposition attempts failed!";
         return;
     }
+    Eigen::MatrixXd P_all = llt_all.solve(Eigen::MatrixXd::Identity(N_J_cols, N_J_cols));
 
-
+    // all-in-view solution
     Eigen::VectorXd x_all = llt_all.solve(b_all);
-    x(0, 0) = x_all(curr_pose_J_cols[0]);;
-    x(0, 1) = x_all(curr_pose_J_cols[1]);
-    x(0, 2) = x_all(curr_pose_J_cols[2]);
-
-    auto compute_S_row = [&](int row_idx_in_P) -> Eigen::VectorXd {
+    std::vector<Eigen::VectorXd> s_base(3);
+    for (int k = 0; k < 3; ++k) {
+        x(0, k) = x_all(curr_pose_J_cols[k]);
         Eigen::VectorXd e_k = Eigen::VectorXd::Zero(N_J_cols);
-        e_k(row_idx_in_P) = 1.0;
+        e_k(curr_pose_J_cols[k]) = 1.0;
         Eigen::VectorXd p_col = llt_all.solve(e_k);
-        Eigen::VectorXd s_row = p_col.transpose() * JtW_all;
-        return s_row;
-    };
-
-    s1vec.row(0) = compute_S_row(curr_pose_J_cols[0]);
-    s2vec.row(0) = compute_S_row(curr_pose_J_cols[1]);
-    s3vec.row(0) = compute_S_row(curr_pose_J_cols[2]);
-    
-
-    // compute subset solutions in parallel
-    Eigen::VectorXd nom_bias = Eigen::VectorXd::Zero(N_J_rows);
+        s_base[k] = p_col.transpose() * JtW_all;
+        if (k == 0) s1vec.row(0) = s_base[k];
+        if (k == 1) s2vec.row(0) = s_base[k];
+        if (k == 2) s3vec.row(0) = s_base[k];
+        double var = is_sig2_int_diag ? 
+                     s_base[k].cwiseAbs2().dot(sig2_int_diag) : 
+                     (s_base[k].transpose() * sig2_int_copy * s_base[k]).value();
+        sigma(0, k) = std::sqrt(var);
+        bias(0, k) = s_base[k].cwiseAbs().dot(nom_bias);
+        sigma_ss(0, k) = 0.0;
+        bias_ss(0, k) = 0.0;
+    }
 
     LOG(INFO) << "[VisualIntegrity] Info: Computing subset solutions for " << N_sets - 1 << " subsets.";
     
     // Progress tracking for subset computation
     std::atomic<int> subsets_processed{0};
     std::atomic<int> last_progress{0};
-    
-    #pragma omp parallel for
-    for (int i = 1; i < N_sets; ++i) {
-
-        // Identify rows to remove based on current subset
-        std::vector<int> rows_to_remove;
-        rows_to_remove.reserve(N_meas_curr * 2); 
-
-        for (int j = 0; j < N_meas_curr; ++j) {
-            if (subsets[i][j] == 0) { // 0 means fault/exclude
-                uint64_t lm_id = curr_lm_ids[j];
-                const std::vector<int>& rows = curr_lm_to_J_rows.at(lm_id);
-                rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
-            }
-        }
-
-        // Check observability roughly
-        if (N_meas_curr - (rows_to_remove.size() / 2) < 6 && rows_to_remove.size() > 0) continue;
-
-        Eigen::LLT<Eigen::MatrixXd> llt_sub;
-        Eigen::MatrixXd JtW_sub;
-        Eigen::VectorXd b_sub;
-
-        if (rows_to_remove.empty() || W_is_diagonal) {
-            // Copy the full LLT object to perform downdates on
-            llt_sub = llt_all;
-            b_sub = b_all;
-
-            // Perform Rank-1 Downdates for each removed measurement
-            for (int r_idx : rows_to_remove) {
-                double w_val = W(r_idx, r_idx);
-                // Vector to downdate is sqrt(w) * J_row
-                Eigen::VectorXd v = std::sqrt(w_val) * J.row(r_idx);
-                
-                // Rank-1 update with sigma = -1 (Downdate)
-                // Note: Eigen's rankUpdate modifies the internal L factor
-                llt_sub.rankUpdate(v, -1.0);
-                
-                // Update b vector: b_sub = b_all - J_row^T * w * r
-                b_sub -= J.row(r_idx).transpose() * w_val * residual(r_idx);
-            }
-
-            JtW_sub = JtW_all;
-        } else {
-            // For non-diagonal W, zero full rows/cols for removed measurements
-            Eigen::MatrixXd W_sub = W;
-            for (int r_idx : rows_to_remove) {
-                W_sub.row(r_idx).setZero();
-                W_sub.col(r_idx).setZero();
-            }
-
-            JtW_sub = J.transpose() * W_sub;
-            Eigen::MatrixXd JtWJ_sub = JtW_sub * J;
-            // Use the same damping as the main decomposition
-            JtWJ_sub += used_damping * Eigen::MatrixXd::Identity(N_J_cols, N_J_cols);
-            llt_sub.compute(JtWJ_sub);
-            b_sub = JtW_sub * residual;
-        }
-
-        // Solve for x: (L'L'^T) x = b_sub
-        Eigen::VectorXd x_full = llt_sub.solve(b_sub);
-        x(i, 0) = x_full(curr_pose_J_cols[0]);
-        x(i, 1) = x_full(curr_pose_J_cols[1]);
-        x(i, 2) = x_full(curr_pose_J_cols[2]);
-
-        // Compute S vectors
-        // We need specific rows of S_sub = (J^T W_sub J)^-1 * J^T * W_sub
-        auto compute_S_row = [&](int row_idx_in_P) -> Eigen::VectorXd {
-            // Create unit vector e_k
-            Eigen::VectorXd e_k = Eigen::VectorXd::Zero(N_J_cols);
-            e_k(row_idx_in_P) = 1.0;
-            
-            // Solve for k-th column of P_sub (which is also k-th row since symmetric)
-            Eigen::VectorXd p_col = llt_sub.solve(e_k);
-            
-            // Result = p_col^T * JtW_all
-            Eigen::VectorXd s_row = p_col.transpose() * JtW_sub;
-            
-            return s_row;
-        };
-
-        s1vec.row(i) = compute_S_row(curr_pose_J_cols[0]);
-        s2vec.row(i) = compute_S_row(curr_pose_J_cols[1]);
-        s3vec.row(i) = compute_S_row(curr_pose_J_cols[2]);
-
-        Eigen::VectorXd s1 = s1vec.row(i);
-        Eigen::VectorXd s2 = s2vec.row(i);
-        Eigen::VectorXd s3 = s3vec.row(i);
-        Eigen::VectorXd ds1 = s1vec.row(i) - s1vec.row(0);
-        Eigen::VectorXd ds2 = s2vec.row(i) - s2vec.row(0);
-        Eigen::VectorXd ds3 = s3vec.row(i) - s3vec.row(0);
-        
-        //sigma = sqrt(s^T * sig2_int * s)
-        sigma(i, 0) = std::sqrt(s1.transpose() * sig2_int * s1);
-        sigma(i, 1) = std::sqrt(s2.transpose() * sig2_int * s2);
-        sigma(i, 2) = std::sqrt(s3.transpose() * sig2_int * s3);
-        bias(i, 0) = s1.transpose().cwiseAbs() * nom_bias;
-        bias(i, 1) = s2.transpose().cwiseAbs() * nom_bias;
-        bias(i, 2) = s3.transpose().cwiseAbs() * nom_bias;
-        
-        //sigma_ss = sqrt(ds^T * sig2_acc * ds)
-        sigma_ss(i, 0) = std::sqrt(ds1.transpose() * sig2_acc * ds1);
-        sigma_ss(i, 1) = std::sqrt(ds2.transpose() * sig2_acc * ds2);
-        sigma_ss(i, 2) = std::sqrt(ds3.transpose() * sig2_acc * ds3);
-        bias_ss(i, 0) = ds1.cwiseAbs().transpose() * nom_bias;
-        bias_ss(i, 1) = ds2.cwiseAbs().transpose() * nom_bias;
-        bias_ss(i, 2) = ds3.cwiseAbs().transpose() * nom_bias;
-        
-        // Update progress
-        int current_count = subsets_processed.fetch_add(1) + 1;
-        int progress = static_cast<int>((static_cast<double>(current_count)/ (N_sets - 1)) * 100);
-        int last_prog = last_progress.load();
-        if (progress != last_prog && progress % 1 == 0 && last_progress.compare_exchange_strong(last_prog, progress)) {
-            LOG(INFO) << "[VisualIntegrity] Subset computation progress: " << progress << "% (" << current_count << "/" << N_sets - 1 << ")";
-        }
+    std::vector<std::vector<int>> lm_rows_cache(N_meas_curr);
+    for(int j=0; j<N_meas_curr; ++j) {
+        lm_rows_cache[j] = curr_lm_to_J_rows.at(curr_lm_ids[j]);
     }
+    
+    // // Pre-allocate thread-local storage to avoid dynamic allocation in parallel loop
+    // #pragma omp parallel
+    // {
+    //     std::vector<int> rows_to_remove;
+    //     rows_to_remove.reserve(N_meas_curr * 2);
+    //     size_t n_max = 100;
+    //     Eigen::MatrixXd J_rem(n_max, N_J_cols);
+    //     Eigen::MatrixXd W_rem(n_max, n_max);
+    //     Eigen::VectorXd r_rem(n_max);
+        
+    //     #pragma omp for schedule(dynamic, 16)  // Dynamic scheduling for load balancing
+    //     for (int i = 1; i < N_sets; ++i) {
+    //         rows_to_remove.clear();
+    //         int lm_to_remove = 0;
+    //         // Identify rows to remove based on current subset
+    //         for (int j = 0; j < N_meas_curr; ++j) {
+    //             if (subsets[i][j] == 0) { // 0 means fault/exclude
+    //                 ++lm_to_remove;
+    //                 const auto& rows = lm_rows_cache[j];
+    //                 rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
+    //             }
+    //         }
 
+    //         // Check observability roughly
+    //         if (!rows_to_remove.empty() && (N_meas_curr - lm_to_remove < 6)) {
+    //             LOG(WARNING) << "[VisualIntegrity] Info: Subset " << i << " skipped due to insufficient measurements for observability.";
+    //             continue;
+    //         }
+
+
+    //         // Build J_rem and W_rem efficiently
+    //         size_t n_rem = rows_to_remove.size();
+    //         J_rem.resize(n_rem, N_J_cols);
+    //         W_rem.resize(n_rem, n_rem);
+    //         r_rem.resize(n_rem);
+
+    //         for(size_t r = 0; r < n_rem; ++r) {
+    //             int r_idx = rows_to_remove[r];
+    //             J_rem.row(r) = J.row(r_idx);
+    //             r_rem(r) = residual(r_idx);
+    //             W_rem(r, r) = W(r_idx, r_idx);
+    //             if (!W_is_diagonal) {
+    //                 for(size_t c = r + 1; c < n_rem; ++c) {
+    //                     int c_idx = rows_to_remove[c];
+    //                     W_rem(r, c) = W(r_idx, c_idx);
+    //                     W_rem(c, r) = W(c_idx, r_idx); 
+    //                 }
+    //             }
+    //         }
+
+    //         // UpdateBlock = (P_all * J_rem^T) * (W_rem^-1 - J_rem * P_all * J_rem^T)^-1
+    //         Eigen::MatrixXd JP = J_rem * P_all; // n_rem x N_cols
+    //         Eigen::MatrixXd W_rem_inv;
+    //         if (W_is_diagonal) {
+    //             W_rem_inv = W_rem.diagonal().cwiseInverse().asDiagonal();
+    //         } else {
+    //             W_rem_inv = robustInverse(W_rem);
+    //         }
+            
+    //         Eigen::MatrixXd Middle = W_rem_inv - (JP * J_rem.transpose());
+    //         Eigen::MatrixXd Kernel = robustInverse(Middle);
+    //         Eigen::MatrixXd UpdateBlock = JP.transpose() * Kernel;
+    //         Eigen::VectorXd b_sub = b_all - J_rem.transpose() * W_rem * r_rem;
+    //         Eigen::VectorXd x_curr_full = P_all * b_sub + UpdateBlock * (JP * b_sub);
+
+    //         // Compute S vectors and Sigma for all 3 dimensions
+    //         for (int k = 0; k < 3; ++k) {
+    //             int row_id = curr_pose_J_cols[k];
+    //             x(i, k) = x_curr_full(row_id);
+    //             // Compute specific row of P_sub: P_row + UpdateBlock_row * JP
+    //             Eigen::RowVectorXd P_sub_row = P_all.row(row_id) + UpdateBlock.row(row_id) * JP;
+    //             // Compute S vector: S = P_sub_row * JtW_all
+    //             Eigen::VectorXd s_row = (P_sub_row * JtW_all).transpose();
+    //             // Set S values for removed measurements to 0
+    //             for(size_t r=0; r<rows_to_remove.size(); ++r) {
+    //                 s_row(rows_to_remove[r]) = 0.0;
+    //             }
+
+    //             // Store S vectors
+    //             if(k==0) s1vec.row(i) = s_row;
+    //             if(k==1) s2vec.row(i) = s_row;
+    //             if(k==2) s3vec.row(i) = s_row;
+    //             Eigen::VectorXd ds = s_row - s_base[k];
+                
+    //             // Compute Sigma and Sigma_ss with diagonal optimization
+    //             double var = is_sig2_int_diag ? 
+    //                      s_row.cwiseAbs2().dot(sig2_int_diag) : 
+    //                      (s_row.transpose() * sig2_int_copy * s_row).value();
+    //             double var_ss = is_sig2_acc_diag ? 
+    //                      ds.cwiseAbs2().dot(sig2_acc_diag) : 
+    //                      (ds.transpose() * sig2_acc_copy * ds).value();
+                
+    //             sigma(i, k) = std::sqrt(var);
+    //             bias(i, k) = s_row.cwiseAbs().dot(nom_bias);
+    //             sigma_ss(i, k) = std::sqrt(var_ss);
+    //             bias_ss(i, k) = ds.cwiseAbs().dot(nom_bias);
+                
+    //             if (std::isnan(sigma(i, k)) || std::isnan(sigma_ss(i, k))) {
+            
+    //                 // Debug: Check for NaN in s_row before computing variances
+    //                 bool s_row_has_nan = false;
+    //                 bool s_row_has_inf = false;
+    //                 for (int idx = 0; idx < s_row.size(); ++idx) {
+    //                     if (std::isnan(s_row(idx))) {
+    //                         s_row_has_nan = true;
+    //                         LOG(WARNING) << "[VisualIntegrity] NaN found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
+    //                     }
+    //                     if (std::isinf(s_row(idx))) {
+    //                         s_row_has_inf = true;
+    //                         LOG(WARNING) << "[VisualIntegrity] Inf found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
+    //                     }
+    //                 }
+                    
+    //                 // Debug: Check for NaN in ds
+    //                 bool ds_has_nan = false;
+    //                 bool ds_has_inf = false;
+    //                 for (int idx = 0; idx < ds.size(); ++idx) {
+    //                     if (std::isnan(ds(idx))) {
+    //                         ds_has_nan = true;
+    //                         LOG(WARNING) << "[VisualIntegrity] NaN found in ds at index " << idx << " for subset " << i << ", dimension " << k;
+    //                     }
+    //                     if (std::isinf(ds(idx))) {
+    //                         ds_has_inf = true;
+    //                         LOG(WARNING) << "[VisualIntegrity] Inf found in ds at index " << idx << " for subset " << i << ", dimension " << k;
+    //                     }
+    //                 }
+                    
+    //                 // Debug: Check sig2_int_copy and sig2_acc_copy for issues
+    //                 bool sig2_int_has_issue = false;
+    //                 bool sig2_acc_has_issue = false;
+    //                 if (!is_sig2_int_diag) {
+    //                     for (int idx = 0; idx < sig2_int_copy.rows(); ++idx) {
+    //                         if (std::isnan(sig2_int_copy(idx, idx)) || std::isinf(sig2_int_copy(idx, idx)) || sig2_int_copy(idx, idx) <= 0.0) {
+    //                             sig2_int_has_issue = true;
+    //                             LOG(WARNING) << "[VisualIntegrity] sig2_int_copy has issue at diagonal index " << idx << ": " << sig2_int_copy(idx, idx);
+    //                         }
+    //                     }
+    //                 } else {
+    //                     for (int idx = 0; idx < sig2_int_diag.size(); ++idx) {
+    //                         if (std::isnan(sig2_int_diag(idx)) || std::isinf(sig2_int_diag(idx)) || sig2_int_diag(idx) <= 0.0) {
+    //                             sig2_int_has_issue = true;
+    //                             LOG(WARNING) << "[VisualIntegrity] sig2_int_diag has issue at index " << idx << ": " << sig2_int_diag(idx);
+    //                         }
+    //                     }
+    //                 }
+                    
+    //                 if (!is_sig2_acc_diag) {
+    //                     for (int idx = 0; idx < sig2_acc_copy.rows(); ++idx) {
+    //                         if (std::isnan(sig2_acc_copy(idx, idx)) || std::isinf(sig2_acc_copy(idx, idx)) || sig2_acc_copy(idx, idx) <= 0.0) {
+    //                             sig2_acc_has_issue = true;
+    //                             LOG(WARNING) << "[VisualIntegrity] sig2_acc_copy has issue at diagonal index " << idx << ": " << sig2_acc_copy(idx, idx);
+    //                         }
+    //                     }
+    //                 } else {
+    //                     for (int idx = 0; idx < sig2_acc_diag.size(); ++idx) {
+    //                         if (std::isnan(sig2_acc_diag(idx)) || std::isinf(sig2_acc_diag(idx)) || sig2_acc_diag(idx) <= 0.0) {
+    //                             sig2_acc_has_issue = true;
+    //                             LOG(WARNING) << "[VisualIntegrity] sig2_acc_diag has issue at index " << idx << ": " << sig2_acc_diag(idx);
+    //                         }
+    //                     }
+    //                 }
+                
+    //                 // Debug: Check intermediate computation results
+    //                 if (std::isnan(var) || std::isinf(var)) {
+    //                     LOG(WARNING) << "[VisualIntegrity] var is NaN/Inf for subset " << i << ", dimension " << k;
+    //                     LOG(INFO) << "[VisualIntegrity] var computation details: is_sig2_int_diag=" << is_sig2_int_diag 
+    //                             << ", s_row.norm()=" << s_row.norm() 
+    //                             << ", sig2_int_diag.norm()=" << (is_sig2_int_diag ? sig2_int_diag.norm() : -1.0);
+    //                     if (!is_sig2_int_diag) {
+    //                         LOG(INFO) << "[VisualIntegrity] sig2_int_copy matrix norm: " << sig2_int_copy.norm();
+    //                     }
+    //                 }
+                    
+    //                 if (std::isnan(var_ss) || std::isinf(var_ss)) {
+    //                     LOG(WARNING) << "[VisualIntegrity] var_ss is NaN/Inf for subset " << i << ", dimension " << k;
+    //                     LOG(INFO) << "[VisualIntegrity] var_ss computation details: is_sig2_acc_diag=" << is_sig2_acc_diag 
+    //                             << ", ds.norm()=" << ds.norm() 
+    //                             << ", sig2_acc_diag.norm()=" << (is_sig2_acc_diag ? sig2_acc_diag.norm() : -1.0);
+    //                     if (!is_sig2_acc_diag) {
+    //                         LOG(INFO) << "[VisualIntegrity] sig2_acc_copy matrix norm: " << sig2_acc_copy.norm();
+    //                     }
+    //                 }
+    //                 LOG(WARNING) << "[VisualIntegrity] Warning: NaN encountered in sigma computation for subset " << i << ", dimension " << k;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: var = " << var << ", var_ss = " << var_ss;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row norm = " << s_row.norm() << ", ds norm = " << ds.norm();
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row has NaN = " << s_row_has_nan << ", s_row has Inf = " << s_row_has_inf;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: ds has NaN = " << ds_has_nan << ", ds has Inf = " << ds_has_inf;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: sig2_int has issue = " << sig2_int_has_issue << ", sig2_acc has issue = " << sig2_acc_has_issue;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: subset index = " << i << ", dimension = " << k << ", lm_to_remove = " << lm_to_remove;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: rows_to_remove size = " << rows_to_remove.size() << ", N_meas_curr = " << N_meas_curr;
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: P_all norm = " << P_all.norm() << ", JtW_all norm = " << JtW_all.norm();
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: JP norm = " << JP.norm() << ", W_rem_inv norm = " << W_rem_inv.norm();
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: Middle norm = " << Middle.norm() << ", Kernel norm = " << Kernel.norm();
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: UpdateBlock norm = " << UpdateBlock.norm() << ", b_sub norm = " << b_sub.norm();
+    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: x_curr_full norm = " << x_curr_full.norm() << ", P_sub_row norm = " << P_sub_row.norm();
+    //                 saveEigenMatrixToFile(sig2_int, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //                 saveEigenMatrixToFile(sig2_acc, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //                 // saveEigenMatrixToFile(s1vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s1vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //                 // saveEigenMatrixToFile(s2vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s2vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //                 // saveEigenMatrixToFile(s3vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s3vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //                 saveEigenMatrixToFile(sigma_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //                 saveEigenMatrixToFile(sigma_ss_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_ss_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+    //             }
+    //         }
+            
+    //         // Update progress
+    //         int current_count = subsets_processed.fetch_add(1) + 1;
+    //         int progress = static_cast<int>((static_cast<double>(current_count)/ (N_sets - 1)) * 100);
+    //         int last_prog = last_progress.load();
+    //         if (progress != last_prog && progress % 20 == 0 && last_progress.compare_exchange_strong(last_prog, progress)) {
+    //             LOG(INFO) << "[VisualIntegrity] Subset computation progress: " << progress << "% (" << current_count << "/" << N_sets - 1 << ")";
+    //         }
+    //     }
+        
+    // }
     // about time taken
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
-    LOG(INFO) << "[VisualIntegrity] Info: Time taken to compute S coefficients for all subsets: " << elapsed.count() << " seconds.";
-    LOG(INFO) << "[VisualIntegrity] Info: Number of subsets processed: " << N_sets;
+    LOG(INFO) << "[VisualIntegrity] Compute subset solution, number of subsets: " << N_sets << ", measurement dimension: " << sig2_int.rows() << ", time taken(s): " << elapsed.count();
     
-
-    // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/sig2_int_debug.txt");
-    // saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/sig2_acc_debug.txt");
-    // saveEigenMatrixToFile(s1vec, "/home/syl/GICI-IM/results/s1vec_debug.txt");
-    // saveEigenMatrixToFile(s2vec, "/home/syl/GICI-IM/results/s2vec_debug.txt");
-    // saveEigenMatrixToFile(s3vec, "/home/syl/GICI-IM/results/s3vec_debug.txt");
-    // saveEigenMatrixToFile(sigma, "/home/syl/GICI-IM/results/sigma_debug.txt");
-    // saveEigenMatrixToFile(sigma_ss, "/home/syl/GICI-IM/results/sigma_ss_debug.txt");
+    // Cast back to standard MatrixXd if necessary (Eigen handles implicit copy)
+    sigma_out = sigma;
+    bias_out = bias;
+    sigma_ss_out = sigma_ss;
+    bias_ss_out = bias_ss;
+    s1vec_out = s1vec;
+    s2vec_out = s2vec;
+    s3vec_out = s3vec;
+    x_out = x;
 }
 
 // Helper function to compute robust weight matrix with validation
-bool VisualIntegrity::computeRobustWeightMatrix(const Eigen::MatrixXd& sig2_int, Eigen::MatrixXd& W) {
-    if (sig2_int.rows() == 0 || sig2_int.cols() == 0) {
-        LOG(ERROR) << "Empty sig2_int matrix";
+// sig2 is both input and output: it will be modified to be positive definite if needed
+// Helper function to compute robust weight matrix with validation
+// sig2 is both input and output: it will be modified to be positive definite if needed
+bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::MatrixXd& W, bool& diag_force) {
+    if (sig2.rows() == 0 || sig2.cols() == 0) {
+        LOG(ERROR) << "[VisualIntegrity]    - Empty sig2 matrix";
         return false;
     }
     
-    // Check if sig2_int is diagonal
-    bool is_diagonal = sig2_int.isDiagonal(1e-12);
+    // Constants for regularization
+    const double REGULARIZATION_EPS = 1e-8;
+    const int MAX_REGULARIZATION_ATTEMPTS = 5;
     
+    // Check if sig2 is diagonal (within numerical tolerance)
+    bool is_diagonal = sig2.isDiagonal(1e-12);
+    
+    // Handle diagonal matrices efficiently
     if (is_diagonal) {
-        // Use only diagonal elements for efficiency and stability
-        Eigen::VectorXd diag_elements = sig2_int.diagonal();
+        // Extract diagonal elements
+        Eigen::VectorXd diag_elements = sig2.diagonal();
         
-        // Validate diagonal elements
+        // Validate and regularize diagonal elements
+        bool modified = false;
         for (int i = 0; i < diag_elements.size(); ++i) {
             if (diag_elements(i) <= 0.0 || !std::isfinite(diag_elements(i))) {
-                LOG(WARNING) << "Invalid variance at index " << i << ": " << diag_elements(i) 
+                LOG(WARNING) << "[VisualIntegrity]    - Invalid variance at index " << i << ": " << diag_elements(i) 
                            << ", using regularization";
-                diag_elements(i) = 1e-6; // Regularization
+                LOG(ERROR) << "[VisualIntegrity]    - Something wrong in sig2_int/sig2_acc, maybe in saveSnap process!";
+                diag_elements(i) = 1e-6; // Apply regularization
+                modified = true;
             }
         }
         
-        // Create diagonal weight matrix
+        // Update sig2 if any modifications were made
+        if (modified) {
+            sig2 = diag_elements.asDiagonal();
+        }
+        
+        // Create diagonal weight matrix (inverse of variances)
         W = diag_elements.cwiseInverse().asDiagonal();
-        LOG(INFO) << "Using diagonal weight matrix from sig2_int";
+        LOG(INFO) << "[VisualIntegrity]    - Using diagonal weight matrix from sig2";
         return true;
     }
     
-    // For non-diagonal matrices, validate and compute inverse
-    // Check diagonal elements first
-    for (int i = 0; i < sig2_int.rows(); ++i) {
-        double val = sig2_int(i, i);
-        if (val <= 0.0 || !std::isfinite(val)) {
-            LOG(WARNING) << "Invalid variance at index " << i << ": " << val;
-            return false;
-        }
-    }
-    
-    // Check positive definiteness
-    Eigen::LLT<Eigen::MatrixXd> llt_test(sig2_int);
-    if (llt_test.info() != Eigen::Success) {
-        LOG(WARNING) << "sig2_int is not positive definite, using diagonal regularization";
+    // For non-diagonal matrices, attempt to preserve the original structure
+    // First, save the original matrix for reference
+    Eigen::MatrixXd sig2_original = sig2;
+
+    if (diag_force) {
+        // Extract diagonal elements from original matrix
+        Eigen::VectorXd diag_elements = sig2_original.diagonal();
         
-        // Fallback: use diagonal elements only
-        Eigen::VectorXd diag_elements = sig2_int.diagonal();
+        // Calculate trace for preservation
+        double trace_original = sig2_original.trace();
+        double trace_diag = diag_elements.sum();
+        
+        // Scale diagonal elements to preserve total variance (if trace is meaningful)
+        if (trace_diag > 1e-12 && trace_original > 1e-12) {
+            double relative_diff = std::abs(trace_original - trace_diag) / trace_original;
+            if (relative_diff > 0.1) { // More than 10% difference
+                double scale_factor = trace_original / trace_diag;
+                diag_elements *= scale_factor;
+                LOG(WARNING) << "[VisualIntegrity]    - Scaling diagonal elements by factor " << scale_factor 
+                        << " to preserve trace (relative diff: " << relative_diff << ")";
+            }
+        }
+        
+        // Validate and regularize diagonal elements
         for (int i = 0; i < diag_elements.size(); ++i) {
             if (diag_elements(i) <= 0.0 || !std::isfinite(diag_elements(i))) {
-                diag_elements(i) = 1e-6;
+                // Use original diagonal value if available, otherwise use default
+                double original_val = sig2_original(i, i);
+                diag_elements(i) = (std::isfinite(original_val) && original_val > 0) ? 
+                                std::max(1e-6, original_val) : 1e-6;
+                LOG(WARNING) << "[VisualIntegrity]    - Regularizing diagonal element " << i 
+                            << " to " << diag_elements(i);
             }
         }
+        
+        // Create final diagonal matrices
+        sig2 = diag_elements.asDiagonal();
         W = diag_elements.cwiseInverse().asDiagonal();
+        
+        LOG(WARNING) << "[VisualIntegrity]    - Because sig2_int uses diag, forcing sig2_acc to diagonal matrix with trace";
         return true;
     }
     
-    // Try to compute inverse
+    // Step 1: Ensure symmetry (numerical stability)
+    Eigen::MatrixXd sig2_sym = (sig2 + sig2.transpose()) / 2.0;
+    
+    // Step 2: Validate diagonal elements
+    bool needs_regularization = false;
+    for (int i = 0; i < sig2_sym.rows(); ++i) {
+        double diag_val = sig2_sym(i, i);
+        if (diag_val <= 0.0 || !std::isfinite(diag_val)) {
+            LOG(WARNING) << "[VisualIntegrity]    - Invalid variance at index " << i << ": " << diag_val;
+            needs_regularization = true;
+            break;
+        }
+    }
+    
+    // Step 3: Check positive definiteness using Cholesky decomposition
+    Eigen::LLT<Eigen::MatrixXd> llt_test(sig2_sym);
+    if (llt_test.info() == Eigen::Success && !needs_regularization) {
+        // Matrix is positive definite, attempt to compute inverse
+        try {
+            W = robustInverse(sig2_sym);
+            sig2 = sig2_sym; // Update to symmetric version
+            LOG(INFO) << "[VisualIntegrity]    - Successfully inverted positive definite matrix";
+            return true;
+        } catch (...) {
+            LOG(WARNING) << "[VisualIntegrity]    - Failed to invert positive definite matrix";
+            needs_regularization = true;
+        }
+    } else {
+        LOG(WARNING) << "[VisualIntegrity]    - sig2 is not positive definite, attempting regularization";
+        needs_regularization = true;
+    }
+    
+    // Step 4: Attempt incremental regularization before falling back to diagonal
+    if (needs_regularization) {
+        bool regularization_success = false;
+        
+        // Try multiple regularization levels
+        for (int attempt = 0; attempt < MAX_REGULARIZATION_ATTEMPTS && !regularization_success; ++attempt) {
+            double epsilon = REGULARIZATION_EPS * std::pow(10.0, attempt);
+            Eigen::MatrixXd regularized = sig2_sym;
+            
+            // Add regularization to diagonal
+            for (int i = 0; i < regularized.rows(); ++i) {
+                regularized(i, i) += epsilon;
+            }
+            
+            // Ensure symmetry after regularization
+            regularized = (regularized + regularized.transpose()) / 2.0;
+            
+            // Test positive definiteness
+            Eigen::LLT<Eigen::MatrixXd> llt_reg(regularized);
+            if (llt_reg.info() == Eigen::Success) {
+                try {
+                    W = robustInverse(regularized);
+                    sig2 = regularized;
+                    regularization_success = true;
+                    LOG(WARNING) << "[VisualIntegrity]    - Regularization succeeded with epsilon = " << epsilon;
+                    break;
+                } catch (...) {
+                    // Continue to next attempt with larger epsilon
+                }
+            }
+        }
+        
+        if (regularization_success) {
+            return true;
+        }
+    }
+    
+    // Step 5: Attempt to find nearest positive definite matrix using eigenvalue correction
+    LOG(WARNING) << "[VisualIntegrity]    - Regularization failed, attempting nearest positive definite approximation";
+    
     try {
-        W = sig2_int.inverse();
-    } catch (...) {
-        LOG(WARNING) << "Failed to invert sig2_int, using diagonal regularization";
-        Eigen::VectorXd diag_elements = sig2_int.diagonal();
-        for (int i = 0; i < diag_elements.size(); ++i) {
-            if (diag_elements(i) <= 0.0 || !std::isfinite(diag_elements(i))) {
-                diag_elements(i) = 1e-6;
+        // Ensure symmetry
+        Eigen::MatrixXd H = (sig2_sym + sig2_sym.transpose()) / 2.0;
+        
+        // Compute eigenvalue decomposition
+        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(H);
+        if (eigensolver.info() != Eigen::Success) {
+            throw std::runtime_error("Eigen decomposition failed");
+        }
+        
+        Eigen::VectorXd eigenvalues = eigensolver.eigenvalues();
+        Eigen::MatrixXd eigenvectors = eigensolver.eigenvectors();
+        
+        // Find minimum eigenvalue and maximum absolute eigenvalue
+        double min_eigenvalue = eigenvalues.minCoeff();
+        double max_abs_eigenvalue = eigenvalues.cwiseAbs().maxCoeff();
+        
+        // Correct negative or near-zero eigenvalues
+        bool eigenvalues_corrected = false;
+        for (int i = 0; i < eigenvalues.size(); ++i) {
+            if (eigenvalues(i) < REGULARIZATION_EPS) {
+                eigenvalues(i) = REGULARIZATION_EPS;
+                eigenvalues_corrected = true;
             }
         }
-        W = diag_elements.cwiseInverse().asDiagonal();
-        return true;
+        
+        if (eigenvalues_corrected) {
+            LOG(WARNING) << "[VisualIntegrity]    - Corrected " << eigenvalues_corrected 
+                        << " eigenvalues, min eigenvalue was: " << min_eigenvalue;
+        }
+        
+        // Reconstruct the nearest positive definite matrix
+        Eigen::MatrixXd nearest_pd = eigenvectors * eigenvalues.asDiagonal() * eigenvectors.transpose();
+        
+        // Ensure final symmetry
+        nearest_pd = (nearest_pd + nearest_pd.transpose()) / 2.0;
+        
+        // Validate the reconstructed matrix
+        Eigen::LLT<Eigen::MatrixXd> llt_final(nearest_pd);
+        if (llt_final.info() == Eigen::Success) {
+            try {
+                W = robustInverse(nearest_pd);
+                sig2 = nearest_pd;
+                LOG(WARNING) << "[VisualIntegrity]    - Successfully inverted positive definite matrix using nearest positive definite matrix approximation";
+                return true;
+            } catch (...) {
+                LOG(WARNING) << "[VisualIntegrity]    - Failed to invert nearest PD matrix";
+            }
+        }
+    } catch (const std::exception& e) {
+        LOG(WARNING) << "[VisualIntegrity]    - Nearest PD computation failed: " << e.what();
+    } catch (...) {
+        LOG(WARNING) << "[VisualIntegrity]    - Unknown error in nearest PD computation";
     }
+    
+    // Step 6: Final fallback - diagonal approximation with trace preservation
+    LOG(WARNING) << "[VisualIntegrity]    - All methods failed, falling back to diagonal approximation";
+    
+    // Extract diagonal elements from original matrix
+    Eigen::VectorXd diag_elements = sig2_original.diagonal();
+    
+    // Calculate trace for preservation
+    double trace_original = sig2_original.trace();
+    double trace_diag = diag_elements.sum();
+    
+    // Scale diagonal elements to preserve total variance (if trace is meaningful)
+    if (trace_diag > 1e-12 && trace_original > 1e-12) {
+        double relative_diff = std::abs(trace_original - trace_diag) / trace_original;
+        if (relative_diff > 0.1) { // More than 10% difference
+            double scale_factor = trace_original / trace_diag;
+            diag_elements *= scale_factor;
+            LOG(WARNING) << "[VisualIntegrity]    - Scaling diagonal elements by factor " << scale_factor 
+                     << " to preserve trace (relative diff: " << relative_diff << ")";
+        }
+    }
+    
+    // Validate and regularize diagonal elements
+    for (int i = 0; i < diag_elements.size(); ++i) {
+        if (diag_elements(i) <= 0.0 || !std::isfinite(diag_elements(i))) {
+            // Use original diagonal value if available, otherwise use default
+            double original_val = sig2_original(i, i);
+            diag_elements(i) = (std::isfinite(original_val) && original_val > 0) ? 
+                              std::max(1e-6, original_val) : 1e-6;
+            LOG(WARNING) << "[VisualIntegrity]    - Regularizing diagonal element " << i 
+                        << " to " << diag_elements(i);
+        }
+    }
+    
+    // Create final diagonal matrices
+    sig2 = diag_elements.asDiagonal();
+    W = diag_elements.cwiseInverse().asDiagonal();
+    
+    LOG(WARNING) << "[VisualIntegrity]    - Fallback to diagonal matrix with trace: " << sig2.trace() << ", and will force sig2_acc to diag";
+    diag_force = true;
     
     return true;
+}
+
+
+Eigen::MatrixXd VisualIntegrity::robustInverse(const Eigen::MatrixXd& M, double svd_threshold, bool always_pseudo) {
+    
+    if (M.rows() == 0 || M.cols() == 0) {
+        return Eigen::MatrixXd::Zero(0, 0);
+    }
+    
+    // Option 1: Always use pseudoinverse (most robust)
+    if (always_pseudo) {
+        return pseudoinverseSVD(M, svd_threshold);
+    }
+    
+    // Option 2: For square matrices, try regular inverse first
+    if (M.rows() == M.cols()) {
+        // Fast path: diagonal matrix
+        if (M.isDiagonal(1e-12)) {
+            return M.diagonal().cwiseInverse().asDiagonal();
+        }
+        
+        // Try direct inverse
+        try {
+            Eigen::MatrixXd inv = M.inverse();
+            
+            // Verify accuracy
+            Eigen::MatrixXd I_check = M * inv;
+            double error = (I_check - Eigen::MatrixXd::Identity(M.rows(), M.rows())).norm();
+            
+            if (error < M.rows() * 1e-12 * M.norm()) {
+                return inv;
+            }
+        } catch (...) {
+            LOG(WARNING) << "[VisualIntegrity]    - Direct inverse failed, trying alternatives.";
+        }
+        
+        // Try Cholesky for symmetric positive definite
+        if (M.isApprox(M.transpose(), 1e-12)) {
+            Eigen::LLT<Eigen::MatrixXd> llt(M);
+            if (llt.info() == Eigen::Success) {
+                return llt.solve(Eigen::MatrixXd::Identity(M.rows(), M.rows()));
+            }
+        }
+    }
+    
+    // Option 3: Use pseudoinverse (handles all cases)
+    return pseudoinverseSVD(M, svd_threshold);
+}
+
+
+Eigen::MatrixXd VisualIntegrity::pseudoinverseSVD(const Eigen::MatrixXd& M, double threshold) {
+    
+    if (M.norm() < std::numeric_limits<double>::min()) {
+        return Eigen::MatrixXd::Zero(M.cols(), M.rows());
+    }
+    
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    const Eigen::VectorXd& sv = svd.singularValues();
+    
+    if (sv.size() == 0) {
+        return Eigen::MatrixXd::Zero(M.cols(), M.rows());
+    }
+    
+    // Auto threshold if not specified
+    double eps = threshold;
+    if (threshold <= 0.0) {
+        eps = std::max(M.rows(), M.cols()) * sv[0] * std::numeric_limits<double>::epsilon();
+        eps = std::max(eps, 1e-15);
+    }
+    
+    // Compute reciprocal with thresholding
+    Eigen::VectorXd inv_sv(sv.size());
+    for (int i = 0; i < sv.size(); ++i) {
+        inv_sv[i] = (sv[i] > eps) ? 1.0 / sv[i] : 0.0;
+    }
+    
+    return svd.matrixV() * inv_sv.asDiagonal() * svd.matrixU().transpose();
 }
 
 // Helper function to compute robust Cholesky decomposition with multiple fallback strategies
@@ -1279,7 +1685,7 @@ bool VisualIntegrity::computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT
     // Start with small damping and increase gradually until success
     double base_damping = 1e-9;
     double adaptive_damping = base_damping * N_cols; //base_damping * max_diag * N_cols
-    LOG(INFO) << "[VisualIntegrity] max_diag: " << max_diag << ", N_cols: " << N_cols;
+    LOG(INFO) << "[VisualIntegrity]    - max_diag: " << max_diag << ", N_cols: " << N_cols;
     double start_damping = std::max(base_damping, adaptive_damping);
     
     // Try increasing damping factors: 1x, 10x, 100x, 1000x, 10000x
@@ -1293,76 +1699,60 @@ bool VisualIntegrity::computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT
         if (llt_out.info() == Eigen::Success) {
             used_damping = damping;
             if (factor == 1.0) {
-                LOG(INFO) << "[VisualIntegrity] Cholesky decomposition succeeded with adaptive damping: " << std::setprecision(6) << damping;
+                LOG(INFO) << "[VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: " << std::setprecision(6) << damping;
             } else {
-                LOG(WARNING) << "[VisualIntegrity] Cholesky decomposition succeeded with increased damping (factor " << factor << "): " << damping;
+                LOG(WARNING) << "[VisualIntegrity]    - Cholesky decomposition succeeded with increased damping (factor " << factor << "): " << damping;
             }
             return true;
         } else{
-            LOG(ERROR) << "[VisualIntegrity] Cholesky decomposition failed with damping factor " << factor << ": " << damping;
-            saveEigenMatrixToFile(A_damped, "/home/syl/GICI-IM/results/A_damped_debug.txt");
+            LOG(ERROR) << "[VisualIntegrity]    - Cholesky decomposition failed with damping factor " << factor << ": " << damping;
         }
     }
     
-    // Strategy 2: Try LDLT decomposition (more robust)
-    LOG(WARNING) << "[VisualIntegrity] LLT failed with all damping levels, trying LDLT decomposition";
-    // Use the last damped matrix from the loop (with highest damping)
-    double final_damping = start_damping * 10000.0;
-    Eigen::MatrixXd A_damped_final = A + final_damping * Eigen::MatrixXd::Identity(N_cols, N_cols);
-    Eigen::LDLT<Eigen::MatrixXd> ldlt_all(A_damped_final);
-    if (ldlt_all.info() == Eigen::Success) {
-        LOG(INFO) << "[VisualIntegrity] LDLT decomposition succeeded";
-        // Convert LDLT to LLT format for compatibility
-        // Note: This is a workaround, ideally we'd modify the calling code to use LDLT
-        // For now, we'll create a valid LLT object from the LDLT result
-        Eigen::MatrixXd L = ldlt_all.matrixL();
-        Eigen::VectorXd D = ldlt_all.vectorD();
-        
-        // Check if D is positive
-        bool all_positive = true;
-        for (int i = 0; i < D.size(); ++i) {
-            if (D(i) <= 0) {
-                all_positive = false;
-                break;
-            }
+    // Strategy 2: Eigenvalue Reconstruction
+    LOG(WARNING) << "[VisualIntegrity]    - LLT failed with damping, applying Eigenvalue Reconstruction (SVD-like approach)";
+    // 使用 SelfAdjointEigenSolver (针对对称矩阵优化，比 SVD 快)
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(A);
+    if (es.info() != Eigen::Success) {
+        LOG(ERROR) << "[VisualIntegrity]    - Eigen decomposition failed!";
+        return false;
+    }
+
+    Eigen::VectorXd eigenvalues = es.eigenvalues();
+    Eigen::MatrixXd eigenvectors = es.eigenvectors();
+
+    double max_eig = eigenvalues.maxCoeff();
+    double min_threshold = std::max(1e-8, max_eig * 1e-12); 
+
+    bool modified = false;
+    for (int i = 0; i < eigenvalues.size(); ++i) {
+        if (eigenvalues(i) < min_threshold) {
+            eigenvalues(i) = min_threshold;
+            modified = true;
         }
+    }
+
+    if (modified) {
+        // A_new = V * D_clamped * V^T
+        Eigen::MatrixXd A_reconstructed = eigenvectors * eigenvalues.asDiagonal() * eigenvectors.transpose();
         
-        if (all_positive) {
-            // Create LLT from LDLT: L * sqrt(D) * sqrt(D) * L^T
-            Eigen::MatrixXd sqrtD = D.cwiseSqrt().asDiagonal();
-            Eigen::MatrixXd L_sqrtD = L * sqrtD;
-            Eigen::MatrixXd A_reconstructed = L_sqrtD * L_sqrtD.transpose();
-            
-            // Check if reconstruction is close to original
-            double diff = (A_reconstructed - A_damped_final).norm();
-            if (diff < 1e-6 * A_damped_final.norm()) {
-                // Create a valid LLT object
-                llt_out.compute(A_reconstructed);
-                if (llt_out.info() == Eigen::Success) {
-                    used_damping = final_damping;
-                    LOG(INFO) << "[VisualIntegrity] Successfully converted LDLT to LLT";
-                    return true;
-                }
-            }
+        llt_out.compute(A_reconstructed);
+        
+        if (llt_out.info() == Eigen::Success) {
+            used_damping = 0.0;
+            LOG(INFO) << "[VisualIntegrity]    - Successfully recovered using Eigenvalue Clamping, with eigenvalue threshold: "<< min_threshold;
+            return true;
         }
     }
     
-    // Strategy 3: Try QR decomposition as last resort
-    LOG(WARNING) << "[VisualIntegrity] LDLT failed, trying QR decomposition";
-    Eigen::HouseholderQR<Eigen::MatrixXd> qr_all(A_damped_final);
-    // For QR, we need to modify the solving approach
-    // Store QR decomposition in a way that can be used later
-    // This requires significant code changes, so we'll log and return false
-    LOG(ERROR) << "[VisualIntegrity] QR decomposition would require significant code restructuring";
-    
-    // Strategy 4: Check matrix condition and report
+    LOG(ERROR) << "[VisualIntegrity]    - All decomposition attempts failed.";
     double condition_number = computeConditionNumber(A);
-    LOG(ERROR) << "[VisualIntegrity] Matrix condition number: " << condition_number;
-    LOG(ERROR) << "[VisualIntegrity] Matrix size: " << N_cols << "x" << N_cols;
-    LOG(ERROR) << "[VisualIntegrity] Min diagonal: " << A.diagonal().minCoeff();
-    LOG(ERROR) << "[VisualIntegrity] Max diagonal: " << A.diagonal().maxCoeff();
+    LOG(ERROR) << "[VisualIntegrity]    - Matrix condition number: " << condition_number;
+    LOG(ERROR) << "[VisualIntegrity]    - Matrix size: " << N_cols << "x" << N_cols;
+    LOG(ERROR) << "[VisualIntegrity]    - Min diagonal: " << A.diagonal().minCoeff();
+    LOG(ERROR) << "[VisualIntegrity]    - Max diagonal: " << A.diagonal().maxCoeff();
     
-    used_damping = 0.0; // No successful decomposition
+    used_damping = 0.0;
     return false;
 }
 
@@ -1382,11 +1772,13 @@ std::vector<int> VisualIntegrity::filteroutSubsets(Eigen::MatrixXd& sigma,
     std::vector<int> idx;
     for(int i = 0; i < sigma.rows(); ++i)
     {
-        double sigma_min = sigma.row(i).minCoeff();
-        double sigma_max = sigma.row(i).maxCoeff();
-        if (sigma_min < INFINITY && sigma_max < INFINITY && sigma_min > -INFINITY && sigma_max > -INFINITY)
+        if (!std::isnan(sigma(i,0)) && !std::isnan(sigma(i,1)) && !std::isnan(sigma(i,2)) && !std::isnan(sigma_ss(i,0)) && !std::isnan(sigma_ss(i,1)) && !std::isnan(sigma_ss(i,2)) )
         {
             idx.push_back(i);
+        } else {
+            // LOG(WARNING) << "[VisualIntegrity] Warning: Excluding subset " << i 
+            //              << " due to invalid sigma values (sigma: [" << sigma(i,0) << ", " << sigma(i,1) << ", " << sigma(i,2) 
+            //              << "], sigma_ss: [" << sigma_ss(i,0) << ", " << sigma_ss(i,1) << ", " << sigma_ss(i,2) << "])";
         }
     }
 
@@ -1512,7 +1904,7 @@ double VisualIntegrity::computeVPL(const Eigen::VectorXd& sigma_in,
     double p_not_monitorable = 0;
     for (int i = 0; i < sigma.rows(); ++i)
     {   
-        if (sigma(i) == INFINITY)
+        if (sigma(i) == std::numeric_limits<double>::quiet_NaN())
         {
             index_Inf.push_back(i);
             p_not_monitorable += p_fault(i);
@@ -1524,14 +1916,14 @@ double VisualIntegrity::computeVPL(const Eigen::VectorXd& sigma_in,
 
     if (p_not_monitorable >= phmi)
     {
-        double VPL = INFINITY;
+        double VPL = std::numeric_limits<double>::quiet_NaN();
         return VPL;
     }
 
-    Eigen::VectorXd sigma_new = Eigen::VectorXd::Ones(index_Fin.size()) * INFINITY;
-    Eigen::VectorXd bias_new = Eigen::VectorXd::Ones(index_Fin.size()) * INFINITY;
-    Eigen::VectorXd T_new = Eigen::VectorXd::Ones(index_Fin.size()) * INFINITY;
-    Eigen::VectorXd p_fault_new = Eigen::VectorXd::Ones(index_Fin.size()) * INFINITY;
+    Eigen::VectorXd sigma_new = Eigen::VectorXd::Ones(index_Fin.size()) * std::numeric_limits<double>::quiet_NaN();
+    Eigen::VectorXd bias_new = Eigen::VectorXd::Ones(index_Fin.size()) * std::numeric_limits<double>::quiet_NaN();
+    Eigen::VectorXd T_new = Eigen::VectorXd::Ones(index_Fin.size()) * std::numeric_limits<double>::quiet_NaN();
+    Eigen::VectorXd p_fault_new = Eigen::VectorXd::Ones(index_Fin.size()) * std::numeric_limits<double>::quiet_NaN();
     
     for (int i = 0, k = 0; i < index_Fin.size(); ++i)
     {
@@ -1555,7 +1947,7 @@ double VisualIntegrity::computeVPL(const Eigen::VectorXd& sigma_in,
 
         if(phmi_right_low(i) >= 1.0 - 1e-9)
         {
-            Klow(i) = -INFINITY;
+            Klow(i) = -std::numeric_limits<double>::quiet_NaN();
         }
         else
         {
