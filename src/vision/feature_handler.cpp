@@ -36,6 +36,12 @@ FeatureHandler::FeatureHandler(const FeatureHandlerOptions& options,
   }
   initializer_ = makeVisualInitializer(options.initialization, detector_, tracker_);
 
+  // Initialize segmentation module if enabled
+  if (options_.use_segmentation_filter) {
+    segmentator_ = std::make_shared<Segmentator>(options_.segmentator);
+    LOG(INFO) << "Segmentation filter enabled with model: " << options_.segmentation_model;
+  }
+
   frame_bundles_.push_back(std::make_shared<FrameBundle>(std::vector<FramePtr>()));
 }
 
@@ -255,6 +261,46 @@ void FeatureHandler::detectFeatures(const FramePtr& frame)
         frame->img_pyr_, frame->getMask(), max_n_features, new_px, new_scores,
         new_levels, new_grads, new_types);
 
+  // Semantic tagging
+  std::vector<int> new_object_ids(new_px.cols(), -1);
+  std::vector<std::string> new_object_names(new_px.cols(), "");
+
+  if (options_.use_segmentation_filter && segmentator_ && segmentator_->isLoaded()) {
+    cv::Mat img = frame->img_pyr_[0];
+    
+    if (segmentator_->getModelType() == SegmentationModelType::FastSAM) {
+       auto instances = segmentator_->segmentInstances(img);
+       for (int i = 0; i < new_px.cols(); ++i) {
+         cv::Point pt(static_cast<int>(new_px(0, i)), static_cast<int>(new_px(1, i)));
+         for (const auto& instance : instances) {
+           const cv::Mat& mask = instance.first;
+           int class_id = instance.second;
+           if (pt.x >= 0 && pt.x < mask.cols && pt.y >= 0 && pt.y < mask.rows) {
+             if (mask.at<uchar>(pt.y, pt.x) > 0) {
+               new_object_ids[i] = class_id;
+               new_object_names[i] = segmentator_->getClassName(class_id);
+               break; // Assume one object per point
+             }
+           }
+         }
+       }
+    } else {
+       // For MobileSAM or OpenCV, use binary mask
+       cv::Mat mask = segmentator_->segment(img);
+       if (!mask.empty()) {
+         for (int i = 0; i < new_px.cols(); ++i) {
+           cv::Point pt(static_cast<int>(new_px(0, i)), static_cast<int>(new_px(1, i)));
+           if (pt.x >= 0 && pt.x < mask.cols && pt.y >= 0 && pt.y < mask.rows) {
+               if (mask.at<uchar>(pt.y, pt.x) > 0) {
+                 new_object_ids[i] = 0; // Generic object
+                 new_object_names[i] = "object";
+               }
+           }
+         }
+       }
+    }
+  }
+
   frame_utils::computeBearingVectors(new_px, *frame->cam(), &new_f);
 
   // Add features to frame.
@@ -269,6 +315,10 @@ void FeatureHandler::detectFeatures(const FramePtr& frame)
     frame->score_vec_(j) = new_scores(i);
     frame->level_vec_(j) = new_levels(i);
     frame->type_vec_[j] = FeatureType::kCorner;
+    
+    // Set semantic info
+    frame->object_id_vec_[j] = new_object_ids[i];
+    frame->object_name_vec_[j] = new_object_names[i];
 
     frame->landmark_vec_[j] = std::make_shared<Point>(Eigen::Vector3d::Zero());
     frame->track_id_vec_(j) = frame->landmark_vec_[j]->id();
@@ -629,6 +679,41 @@ bool FeatureHandler::processFrame()
   setKeyFrame(curFrames());
 
   return true;
+}
+
+// Enable/disable segmentation filtering
+void FeatureHandler::setSegmentationFilter(bool enable) {
+  options_.use_segmentation_filter = enable;
+  
+  if (enable && !segmentator_) {
+    segmentator_ = std::make_shared<Segmentator>(options_.segmentator);
+  }
+  
+  LOG(INFO) << "Segmentation filter " << (enable ? "enabled" : "disabled");
+}
+
+// Change segmentation model
+void FeatureHandler::setSegmentationModel(const std::string& model_name) {
+  options_.segmentation_model = model_name;
+  
+  // Map string to enum
+  if (model_name == "MobileSAM") {
+    options_.segmentator.model_type = SegmentationModelType::MobileSAM;
+  } else if (model_name == "FastSAM") {
+    options_.segmentator.model_type = SegmentationModelType::FastSAM;
+  } else if (model_name == "OpenCV") {
+    options_.segmentator.model_type = SegmentationModelType::OpenCV;
+  } else {
+    LOG(WARNING) << "Unknown segmentation model: " << model_name 
+                 << ". Using MobileSAM.";
+    options_.segmentator.model_type = SegmentationModelType::MobileSAM;
+  }
+  
+  // Recreate segmentator
+  if (options_.use_segmentation_filter) {
+    segmentator_ = std::make_shared<Segmentator>(options_.segmentator);
+    LOG(INFO) << "Changed segmentation model to: " << model_name;
+  }
 }
 
 }

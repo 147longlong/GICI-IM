@@ -171,6 +171,30 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_pose_J_cols);
 
 
+        // int num_residual = snapshot.r_all.size();
+        // int num_state_vars = snapshot.J_all.cols();
+        // int num_meas = snapshot.curr_lm_to_J_rows.size();
+
+        // std::vector<double> p_prior(num_meas, options_.prior_fault_probability);
+        // int N_fault_max = determineNfaultmax(p_prior, options_.P_THRES);
+        // LOG(INFO) << "[VisualIntegrity] Info: The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << options_.P_THRES;
+        // int subsetsize = 0;
+        // for(int j = 0; j <= N_fault_max;++j){
+        //     subsetsize = subsetsize + nchoosek((num_meas),j);
+        // }
+        // LOG(INFO) << "[VisualIntegrity] Info: The total subset size = " << subsetsize;
+
+        // std::ofstream debug_file("/home/dell/sunyulong/GICI-IM/results/subset_info_1e_12.txt", std::ios::app);
+        // if (debug_file.is_open()) {
+        //     //# time, num_meas, N_fault_max, subsetsize, num_residual, num_state_vars
+        //     debug_file << std::fixed << std::setprecision(6) << timestamp_ << " " 
+        //                << num_meas << " " 
+        //                << N_fault_max << " " 
+        //                << subsetsize << " "
+        //                << num_residual << " " 
+        //                << num_state_vars << std::endl;
+        //     debug_file.close();
+        // }
         LOG(INFO) << std::fixed << std::setprecision(6) 
                   << "[VisualIntegrity] Timestamp: " << timestamp_
                   << ", XPL: " << XPL_ << " m"
@@ -388,7 +412,8 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
             }
         }
     }
-    LOG(WARNING) << std::fixed << std::setprecision(6)<< "[VisualIntegrity] Fault detected num: " << fault_detected_num << ", for timestamp: " << timestamp_;
+    if (fault_detected) LOG(WARNING) << std::fixed << std::setprecision(6)<< "[VisualIntegrity] Fault detected num: " << fault_detected_num << ", for timestamp: " << timestamp_;
+    if (!fault_detected)  LOG(INFO) << std::fixed << std::setprecision(6)<< "[VisualIntegrity] No fault detected for timestamp: " << timestamp_;
 
     // 8. Compute PL and IR
     computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, HPL_, XPL_, YPL_);
@@ -1105,221 +1130,221 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
         lm_rows_cache[j] = curr_lm_to_J_rows.at(curr_lm_ids[j]);
     }
     
-    // // Pre-allocate thread-local storage to avoid dynamic allocation in parallel loop
-    // #pragma omp parallel
-    // {
-    //     std::vector<int> rows_to_remove;
-    //     rows_to_remove.reserve(N_meas_curr * 2);
-    //     size_t n_max = 100;
-    //     Eigen::MatrixXd J_rem(n_max, N_J_cols);
-    //     Eigen::MatrixXd W_rem(n_max, n_max);
-    //     Eigen::VectorXd r_rem(n_max);
+    // Pre-allocate thread-local storage to avoid dynamic allocation in parallel loop
+    #pragma omp parallel
+    {
+        std::vector<int> rows_to_remove;
+        rows_to_remove.reserve(N_meas_curr * 2);
+        size_t n_max = 100;
+        Eigen::MatrixXd J_rem(n_max, N_J_cols);
+        Eigen::MatrixXd W_rem(n_max, n_max);
+        Eigen::VectorXd r_rem(n_max);
         
-    //     #pragma omp for schedule(dynamic, 16)  // Dynamic scheduling for load balancing
-    //     for (int i = 1; i < N_sets; ++i) {
-    //         rows_to_remove.clear();
-    //         int lm_to_remove = 0;
-    //         // Identify rows to remove based on current subset
-    //         for (int j = 0; j < N_meas_curr; ++j) {
-    //             if (subsets[i][j] == 0) { // 0 means fault/exclude
-    //                 ++lm_to_remove;
-    //                 const auto& rows = lm_rows_cache[j];
-    //                 rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
-    //             }
-    //         }
+        #pragma omp for schedule(dynamic, 16)  // Dynamic scheduling for load balancing
+        for (int i = 1; i < N_sets; ++i) {
+            rows_to_remove.clear();
+            int lm_to_remove = 0;
+            // Identify rows to remove based on current subset
+            for (int j = 0; j < N_meas_curr; ++j) {
+                if (subsets[i][j] == 0) { // 0 means fault/exclude
+                    ++lm_to_remove;
+                    const auto& rows = lm_rows_cache[j];
+                    rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
+                }
+            }
 
-    //         // Check observability roughly
-    //         if (!rows_to_remove.empty() && (N_meas_curr - lm_to_remove < 6)) {
-    //             LOG(WARNING) << "[VisualIntegrity] Info: Subset " << i << " skipped due to insufficient measurements for observability.";
-    //             continue;
-    //         }
+            // Check observability roughly
+            if (!rows_to_remove.empty() && (N_meas_curr - lm_to_remove < 6)) {
+                LOG(WARNING) << "[VisualIntegrity] Info: Subset " << i << " skipped due to insufficient measurements for observability.";
+                continue;
+            }
 
 
-    //         // Build J_rem and W_rem efficiently
-    //         size_t n_rem = rows_to_remove.size();
-    //         J_rem.resize(n_rem, N_J_cols);
-    //         W_rem.resize(n_rem, n_rem);
-    //         r_rem.resize(n_rem);
+            // Build J_rem and W_rem efficiently
+            size_t n_rem = rows_to_remove.size();
+            J_rem.resize(n_rem, N_J_cols);
+            W_rem.resize(n_rem, n_rem);
+            r_rem.resize(n_rem);
 
-    //         for(size_t r = 0; r < n_rem; ++r) {
-    //             int r_idx = rows_to_remove[r];
-    //             J_rem.row(r) = J.row(r_idx);
-    //             r_rem(r) = residual(r_idx);
-    //             W_rem(r, r) = W(r_idx, r_idx);
-    //             if (!W_is_diagonal) {
-    //                 for(size_t c = r + 1; c < n_rem; ++c) {
-    //                     int c_idx = rows_to_remove[c];
-    //                     W_rem(r, c) = W(r_idx, c_idx);
-    //                     W_rem(c, r) = W(c_idx, r_idx); 
-    //                 }
-    //             }
-    //         }
+            for(size_t r = 0; r < n_rem; ++r) {
+                int r_idx = rows_to_remove[r];
+                J_rem.row(r) = J.row(r_idx);
+                r_rem(r) = residual(r_idx);
+                W_rem(r, r) = W(r_idx, r_idx);
+                if (!W_is_diagonal) {
+                    for(size_t c = r + 1; c < n_rem; ++c) {
+                        int c_idx = rows_to_remove[c];
+                        W_rem(r, c) = W(r_idx, c_idx);
+                        W_rem(c, r) = W(c_idx, r_idx); 
+                    }
+                }
+            }
 
-    //         // UpdateBlock = (P_all * J_rem^T) * (W_rem^-1 - J_rem * P_all * J_rem^T)^-1
-    //         Eigen::MatrixXd JP = J_rem * P_all; // n_rem x N_cols
-    //         Eigen::MatrixXd W_rem_inv;
-    //         if (W_is_diagonal) {
-    //             W_rem_inv = W_rem.diagonal().cwiseInverse().asDiagonal();
-    //         } else {
-    //             W_rem_inv = robustInverse(W_rem);
-    //         }
+            // UpdateBlock = (P_all * J_rem^T) * (W_rem^-1 - J_rem * P_all * J_rem^T)^-1
+            Eigen::MatrixXd JP = J_rem * P_all; // n_rem x N_cols
+            Eigen::MatrixXd W_rem_inv;
+            if (W_is_diagonal) {
+                W_rem_inv = W_rem.diagonal().cwiseInverse().asDiagonal();
+            } else {
+                W_rem_inv = robustInverse(W_rem);
+            }
             
-    //         Eigen::MatrixXd Middle = W_rem_inv - (JP * J_rem.transpose());
-    //         Eigen::MatrixXd Kernel = robustInverse(Middle);
-    //         Eigen::MatrixXd UpdateBlock = JP.transpose() * Kernel;
-    //         Eigen::VectorXd b_sub = b_all - J_rem.transpose() * W_rem * r_rem;
-    //         Eigen::VectorXd x_curr_full = P_all * b_sub + UpdateBlock * (JP * b_sub);
+            Eigen::MatrixXd Middle = W_rem_inv - (JP * J_rem.transpose());
+            Eigen::MatrixXd Kernel = robustInverse(Middle);
+            Eigen::MatrixXd UpdateBlock = JP.transpose() * Kernel;
+            Eigen::VectorXd b_sub = b_all - J_rem.transpose() * W_rem * r_rem;
+            Eigen::VectorXd x_curr_full = P_all * b_sub + UpdateBlock * (JP * b_sub);
 
-    //         // Compute S vectors and Sigma for all 3 dimensions
-    //         for (int k = 0; k < 3; ++k) {
-    //             int row_id = curr_pose_J_cols[k];
-    //             x(i, k) = x_curr_full(row_id);
-    //             // Compute specific row of P_sub: P_row + UpdateBlock_row * JP
-    //             Eigen::RowVectorXd P_sub_row = P_all.row(row_id) + UpdateBlock.row(row_id) * JP;
-    //             // Compute S vector: S = P_sub_row * JtW_all
-    //             Eigen::VectorXd s_row = (P_sub_row * JtW_all).transpose();
-    //             // Set S values for removed measurements to 0
-    //             for(size_t r=0; r<rows_to_remove.size(); ++r) {
-    //                 s_row(rows_to_remove[r]) = 0.0;
-    //             }
+            // Compute S vectors and Sigma for all 3 dimensions
+            for (int k = 0; k < 3; ++k) {
+                int row_id = curr_pose_J_cols[k];
+                x(i, k) = x_curr_full(row_id);
+                // Compute specific row of P_sub: P_row + UpdateBlock_row * JP
+                Eigen::RowVectorXd P_sub_row = P_all.row(row_id) + UpdateBlock.row(row_id) * JP;
+                // Compute S vector: S = P_sub_row * JtW_all
+                Eigen::VectorXd s_row = (P_sub_row * JtW_all).transpose();
+                // Set S values for removed measurements to 0
+                for(size_t r=0; r<rows_to_remove.size(); ++r) {
+                    s_row(rows_to_remove[r]) = 0.0;
+                }
 
-    //             // Store S vectors
-    //             if(k==0) s1vec.row(i) = s_row;
-    //             if(k==1) s2vec.row(i) = s_row;
-    //             if(k==2) s3vec.row(i) = s_row;
-    //             Eigen::VectorXd ds = s_row - s_base[k];
+                // Store S vectors
+                if(k==0) s1vec.row(i) = s_row;
+                if(k==1) s2vec.row(i) = s_row;
+                if(k==2) s3vec.row(i) = s_row;
+                Eigen::VectorXd ds = s_row - s_base[k];
                 
-    //             // Compute Sigma and Sigma_ss with diagonal optimization
-    //             double var = is_sig2_int_diag ? 
-    //                      s_row.cwiseAbs2().dot(sig2_int_diag) : 
-    //                      (s_row.transpose() * sig2_int_copy * s_row).value();
-    //             double var_ss = is_sig2_acc_diag ? 
-    //                      ds.cwiseAbs2().dot(sig2_acc_diag) : 
-    //                      (ds.transpose() * sig2_acc_copy * ds).value();
+                // Compute Sigma and Sigma_ss with diagonal optimization
+                double var = is_sig2_int_diag ? 
+                         s_row.cwiseAbs2().dot(sig2_int_diag) : 
+                         (s_row.transpose() * sig2_int_copy * s_row).value();
+                double var_ss = is_sig2_acc_diag ? 
+                         ds.cwiseAbs2().dot(sig2_acc_diag) : 
+                         (ds.transpose() * sig2_acc_copy * ds).value();
                 
-    //             sigma(i, k) = std::sqrt(var);
-    //             bias(i, k) = s_row.cwiseAbs().dot(nom_bias);
-    //             sigma_ss(i, k) = std::sqrt(var_ss);
-    //             bias_ss(i, k) = ds.cwiseAbs().dot(nom_bias);
+                sigma(i, k) = std::sqrt(var);
+                bias(i, k) = s_row.cwiseAbs().dot(nom_bias);
+                sigma_ss(i, k) = std::sqrt(var_ss);
+                bias_ss(i, k) = ds.cwiseAbs().dot(nom_bias);
                 
-    //             if (std::isnan(sigma(i, k)) || std::isnan(sigma_ss(i, k))) {
+                if (std::isnan(sigma(i, k)) || std::isnan(sigma_ss(i, k))) {
             
-    //                 // Debug: Check for NaN in s_row before computing variances
-    //                 bool s_row_has_nan = false;
-    //                 bool s_row_has_inf = false;
-    //                 for (int idx = 0; idx < s_row.size(); ++idx) {
-    //                     if (std::isnan(s_row(idx))) {
-    //                         s_row_has_nan = true;
-    //                         LOG(WARNING) << "[VisualIntegrity] NaN found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
-    //                     }
-    //                     if (std::isinf(s_row(idx))) {
-    //                         s_row_has_inf = true;
-    //                         LOG(WARNING) << "[VisualIntegrity] Inf found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
-    //                     }
-    //                 }
+                    // Debug: Check for NaN in s_row before computing variances
+                    bool s_row_has_nan = false;
+                    bool s_row_has_inf = false;
+                    for (int idx = 0; idx < s_row.size(); ++idx) {
+                        if (std::isnan(s_row(idx))) {
+                            s_row_has_nan = true;
+                            LOG(WARNING) << "[VisualIntegrity] NaN found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
+                        }
+                        if (std::isinf(s_row(idx))) {
+                            s_row_has_inf = true;
+                            LOG(WARNING) << "[VisualIntegrity] Inf found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
+                        }
+                    }
                     
-    //                 // Debug: Check for NaN in ds
-    //                 bool ds_has_nan = false;
-    //                 bool ds_has_inf = false;
-    //                 for (int idx = 0; idx < ds.size(); ++idx) {
-    //                     if (std::isnan(ds(idx))) {
-    //                         ds_has_nan = true;
-    //                         LOG(WARNING) << "[VisualIntegrity] NaN found in ds at index " << idx << " for subset " << i << ", dimension " << k;
-    //                     }
-    //                     if (std::isinf(ds(idx))) {
-    //                         ds_has_inf = true;
-    //                         LOG(WARNING) << "[VisualIntegrity] Inf found in ds at index " << idx << " for subset " << i << ", dimension " << k;
-    //                     }
-    //                 }
+                    // Debug: Check for NaN in ds
+                    bool ds_has_nan = false;
+                    bool ds_has_inf = false;
+                    for (int idx = 0; idx < ds.size(); ++idx) {
+                        if (std::isnan(ds(idx))) {
+                            ds_has_nan = true;
+                            LOG(WARNING) << "[VisualIntegrity] NaN found in ds at index " << idx << " for subset " << i << ", dimension " << k;
+                        }
+                        if (std::isinf(ds(idx))) {
+                            ds_has_inf = true;
+                            LOG(WARNING) << "[VisualIntegrity] Inf found in ds at index " << idx << " for subset " << i << ", dimension " << k;
+                        }
+                    }
                     
-    //                 // Debug: Check sig2_int_copy and sig2_acc_copy for issues
-    //                 bool sig2_int_has_issue = false;
-    //                 bool sig2_acc_has_issue = false;
-    //                 if (!is_sig2_int_diag) {
-    //                     for (int idx = 0; idx < sig2_int_copy.rows(); ++idx) {
-    //                         if (std::isnan(sig2_int_copy(idx, idx)) || std::isinf(sig2_int_copy(idx, idx)) || sig2_int_copy(idx, idx) <= 0.0) {
-    //                             sig2_int_has_issue = true;
-    //                             LOG(WARNING) << "[VisualIntegrity] sig2_int_copy has issue at diagonal index " << idx << ": " << sig2_int_copy(idx, idx);
-    //                         }
-    //                     }
-    //                 } else {
-    //                     for (int idx = 0; idx < sig2_int_diag.size(); ++idx) {
-    //                         if (std::isnan(sig2_int_diag(idx)) || std::isinf(sig2_int_diag(idx)) || sig2_int_diag(idx) <= 0.0) {
-    //                             sig2_int_has_issue = true;
-    //                             LOG(WARNING) << "[VisualIntegrity] sig2_int_diag has issue at index " << idx << ": " << sig2_int_diag(idx);
-    //                         }
-    //                     }
-    //                 }
+                    // Debug: Check sig2_int_copy and sig2_acc_copy for issues
+                    bool sig2_int_has_issue = false;
+                    bool sig2_acc_has_issue = false;
+                    if (!is_sig2_int_diag) {
+                        for (int idx = 0; idx < sig2_int_copy.rows(); ++idx) {
+                            if (std::isnan(sig2_int_copy(idx, idx)) || std::isinf(sig2_int_copy(idx, idx)) || sig2_int_copy(idx, idx) <= 0.0) {
+                                sig2_int_has_issue = true;
+                                LOG(WARNING) << "[VisualIntegrity] sig2_int_copy has issue at diagonal index " << idx << ": " << sig2_int_copy(idx, idx);
+                            }
+                        }
+                    } else {
+                        for (int idx = 0; idx < sig2_int_diag.size(); ++idx) {
+                            if (std::isnan(sig2_int_diag(idx)) || std::isinf(sig2_int_diag(idx)) || sig2_int_diag(idx) <= 0.0) {
+                                sig2_int_has_issue = true;
+                                LOG(WARNING) << "[VisualIntegrity] sig2_int_diag has issue at index " << idx << ": " << sig2_int_diag(idx);
+                            }
+                        }
+                    }
                     
-    //                 if (!is_sig2_acc_diag) {
-    //                     for (int idx = 0; idx < sig2_acc_copy.rows(); ++idx) {
-    //                         if (std::isnan(sig2_acc_copy(idx, idx)) || std::isinf(sig2_acc_copy(idx, idx)) || sig2_acc_copy(idx, idx) <= 0.0) {
-    //                             sig2_acc_has_issue = true;
-    //                             LOG(WARNING) << "[VisualIntegrity] sig2_acc_copy has issue at diagonal index " << idx << ": " << sig2_acc_copy(idx, idx);
-    //                         }
-    //                     }
-    //                 } else {
-    //                     for (int idx = 0; idx < sig2_acc_diag.size(); ++idx) {
-    //                         if (std::isnan(sig2_acc_diag(idx)) || std::isinf(sig2_acc_diag(idx)) || sig2_acc_diag(idx) <= 0.0) {
-    //                             sig2_acc_has_issue = true;
-    //                             LOG(WARNING) << "[VisualIntegrity] sig2_acc_diag has issue at index " << idx << ": " << sig2_acc_diag(idx);
-    //                         }
-    //                     }
-    //                 }
+                    if (!is_sig2_acc_diag) {
+                        for (int idx = 0; idx < sig2_acc_copy.rows(); ++idx) {
+                            if (std::isnan(sig2_acc_copy(idx, idx)) || std::isinf(sig2_acc_copy(idx, idx)) || sig2_acc_copy(idx, idx) <= 0.0) {
+                                sig2_acc_has_issue = true;
+                                LOG(WARNING) << "[VisualIntegrity] sig2_acc_copy has issue at diagonal index " << idx << ": " << sig2_acc_copy(idx, idx);
+                            }
+                        }
+                    } else {
+                        for (int idx = 0; idx < sig2_acc_diag.size(); ++idx) {
+                            if (std::isnan(sig2_acc_diag(idx)) || std::isinf(sig2_acc_diag(idx)) || sig2_acc_diag(idx) <= 0.0) {
+                                sig2_acc_has_issue = true;
+                                LOG(WARNING) << "[VisualIntegrity] sig2_acc_diag has issue at index " << idx << ": " << sig2_acc_diag(idx);
+                            }
+                        }
+                    }
                 
-    //                 // Debug: Check intermediate computation results
-    //                 if (std::isnan(var) || std::isinf(var)) {
-    //                     LOG(WARNING) << "[VisualIntegrity] var is NaN/Inf for subset " << i << ", dimension " << k;
-    //                     LOG(INFO) << "[VisualIntegrity] var computation details: is_sig2_int_diag=" << is_sig2_int_diag 
-    //                             << ", s_row.norm()=" << s_row.norm() 
-    //                             << ", sig2_int_diag.norm()=" << (is_sig2_int_diag ? sig2_int_diag.norm() : -1.0);
-    //                     if (!is_sig2_int_diag) {
-    //                         LOG(INFO) << "[VisualIntegrity] sig2_int_copy matrix norm: " << sig2_int_copy.norm();
-    //                     }
-    //                 }
+                    // Debug: Check intermediate computation results
+                    if (std::isnan(var) || std::isinf(var)) {
+                        LOG(WARNING) << "[VisualIntegrity] var is NaN/Inf for subset " << i << ", dimension " << k;
+                        LOG(INFO) << "[VisualIntegrity] var computation details: is_sig2_int_diag=" << is_sig2_int_diag 
+                                << ", s_row.norm()=" << s_row.norm() 
+                                << ", sig2_int_diag.norm()=" << (is_sig2_int_diag ? sig2_int_diag.norm() : -1.0);
+                        if (!is_sig2_int_diag) {
+                            LOG(INFO) << "[VisualIntegrity] sig2_int_copy matrix norm: " << sig2_int_copy.norm();
+                        }
+                    }
                     
-    //                 if (std::isnan(var_ss) || std::isinf(var_ss)) {
-    //                     LOG(WARNING) << "[VisualIntegrity] var_ss is NaN/Inf for subset " << i << ", dimension " << k;
-    //                     LOG(INFO) << "[VisualIntegrity] var_ss computation details: is_sig2_acc_diag=" << is_sig2_acc_diag 
-    //                             << ", ds.norm()=" << ds.norm() 
-    //                             << ", sig2_acc_diag.norm()=" << (is_sig2_acc_diag ? sig2_acc_diag.norm() : -1.0);
-    //                     if (!is_sig2_acc_diag) {
-    //                         LOG(INFO) << "[VisualIntegrity] sig2_acc_copy matrix norm: " << sig2_acc_copy.norm();
-    //                     }
-    //                 }
-    //                 LOG(WARNING) << "[VisualIntegrity] Warning: NaN encountered in sigma computation for subset " << i << ", dimension " << k;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: var = " << var << ", var_ss = " << var_ss;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row norm = " << s_row.norm() << ", ds norm = " << ds.norm();
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row has NaN = " << s_row_has_nan << ", s_row has Inf = " << s_row_has_inf;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: ds has NaN = " << ds_has_nan << ", ds has Inf = " << ds_has_inf;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: sig2_int has issue = " << sig2_int_has_issue << ", sig2_acc has issue = " << sig2_acc_has_issue;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: subset index = " << i << ", dimension = " << k << ", lm_to_remove = " << lm_to_remove;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: rows_to_remove size = " << rows_to_remove.size() << ", N_meas_curr = " << N_meas_curr;
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: P_all norm = " << P_all.norm() << ", JtW_all norm = " << JtW_all.norm();
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: JP norm = " << JP.norm() << ", W_rem_inv norm = " << W_rem_inv.norm();
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: Middle norm = " << Middle.norm() << ", Kernel norm = " << Kernel.norm();
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: UpdateBlock norm = " << UpdateBlock.norm() << ", b_sub norm = " << b_sub.norm();
-    //                 LOG(WARNING) << "[VisualIntegrity] Debug Info: x_curr_full norm = " << x_curr_full.norm() << ", P_sub_row norm = " << P_sub_row.norm();
-    //                 saveEigenMatrixToFile(sig2_int, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //                 saveEigenMatrixToFile(sig2_acc, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //                 // saveEigenMatrixToFile(s1vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s1vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //                 // saveEigenMatrixToFile(s2vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s2vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //                 // saveEigenMatrixToFile(s3vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s3vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //                 saveEigenMatrixToFile(sigma_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //                 saveEigenMatrixToFile(sigma_ss_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_ss_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-    //             }
-    //         }
+                    if (std::isnan(var_ss) || std::isinf(var_ss)) {
+                        LOG(WARNING) << "[VisualIntegrity] var_ss is NaN/Inf for subset " << i << ", dimension " << k;
+                        LOG(INFO) << "[VisualIntegrity] var_ss computation details: is_sig2_acc_diag=" << is_sig2_acc_diag 
+                                << ", ds.norm()=" << ds.norm() 
+                                << ", sig2_acc_diag.norm()=" << (is_sig2_acc_diag ? sig2_acc_diag.norm() : -1.0);
+                        if (!is_sig2_acc_diag) {
+                            LOG(INFO) << "[VisualIntegrity] sig2_acc_copy matrix norm: " << sig2_acc_copy.norm();
+                        }
+                    }
+                    LOG(WARNING) << "[VisualIntegrity] Warning: NaN encountered in sigma computation for subset " << i << ", dimension " << k;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: var = " << var << ", var_ss = " << var_ss;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row norm = " << s_row.norm() << ", ds norm = " << ds.norm();
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row has NaN = " << s_row_has_nan << ", s_row has Inf = " << s_row_has_inf;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: ds has NaN = " << ds_has_nan << ", ds has Inf = " << ds_has_inf;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: sig2_int has issue = " << sig2_int_has_issue << ", sig2_acc has issue = " << sig2_acc_has_issue;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: subset index = " << i << ", dimension = " << k << ", lm_to_remove = " << lm_to_remove;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: rows_to_remove size = " << rows_to_remove.size() << ", N_meas_curr = " << N_meas_curr;
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: P_all norm = " << P_all.norm() << ", JtW_all norm = " << JtW_all.norm();
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: JP norm = " << JP.norm() << ", W_rem_inv norm = " << W_rem_inv.norm();
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: Middle norm = " << Middle.norm() << ", Kernel norm = " << Kernel.norm();
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: UpdateBlock norm = " << UpdateBlock.norm() << ", b_sub norm = " << b_sub.norm();
+                    LOG(WARNING) << "[VisualIntegrity] Debug Info: x_curr_full norm = " << x_curr_full.norm() << ", P_sub_row norm = " << P_sub_row.norm();
+                    saveEigenMatrixToFile(sig2_int, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    saveEigenMatrixToFile(sig2_acc, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(s1vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s1vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(s2vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s2vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(s3vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s3vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    saveEigenMatrixToFile(sigma_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    saveEigenMatrixToFile(sigma_ss_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_ss_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                }
+            }
             
-    //         // Update progress
-    //         int current_count = subsets_processed.fetch_add(1) + 1;
-    //         int progress = static_cast<int>((static_cast<double>(current_count)/ (N_sets - 1)) * 100);
-    //         int last_prog = last_progress.load();
-    //         if (progress != last_prog && progress % 20 == 0 && last_progress.compare_exchange_strong(last_prog, progress)) {
-    //             LOG(INFO) << "[VisualIntegrity] Subset computation progress: " << progress << "% (" << current_count << "/" << N_sets - 1 << ")";
-    //         }
-    //     }
+            // Update progress
+            int current_count = subsets_processed.fetch_add(1) + 1;
+            int progress = static_cast<int>((static_cast<double>(current_count)/ (N_sets - 1)) * 100);
+            int last_prog = last_progress.load();
+            if (progress != last_prog && progress % 1 == 0 && last_progress.compare_exchange_strong(last_prog, progress)) {
+                LOG(INFO) << "[VisualIntegrity] Subset computation progress: " << progress << "% (" << current_count << "/" << N_sets - 1 << ")";
+            }
+        }
         
-    // }
+    }
     // about time taken
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
@@ -1776,9 +1801,9 @@ std::vector<int> VisualIntegrity::filteroutSubsets(Eigen::MatrixXd& sigma,
         {
             idx.push_back(i);
         } else {
-            // LOG(WARNING) << "[VisualIntegrity] Warning: Excluding subset " << i 
-            //              << " due to invalid sigma values (sigma: [" << sigma(i,0) << ", " << sigma(i,1) << ", " << sigma(i,2) 
-            //              << "], sigma_ss: [" << sigma_ss(i,0) << ", " << sigma_ss(i,1) << ", " << sigma_ss(i,2) << "])";
+            LOG(WARNING) << "[VisualIntegrity] Warning: Excluding subset " << i 
+                         << " due to invalid sigma values (sigma: [" << sigma(i,0) << ", " << sigma(i,1) << ", " << sigma(i,2) 
+                         << "], sigma_ss: [" << sigma_ss(i,0) << ", " << sigma_ss(i,1) << ", " << sigma_ss(i,2) << "])";
         }
     }
 

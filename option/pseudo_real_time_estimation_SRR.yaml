@@ -270,6 +270,31 @@ estimate:
                   0.999907681540912807,   0.0134460859659659704, -0.00195733688253543802,   0.0110786309679912626,
                   0.00201129251744842832, -0.00400038914436078377,     0.99998997574430859,    0.025008868367930974,
                                       0,                       0,                       0,                       1]
+      segmentation:    
+        segmentation_model: "MobileSAM" # Options: "MobileSAM", "FastSAM", "OpenCV"
+        use_segmentation_filter: false
+        mobilesam:
+          encoder_path: ""
+          decoder_path: ""
+          confidence_threshold: 0.4
+          iou_threshold: 0.5
+          use_gpu: false
+        fastsam:
+          model_path: ""
+          confidence_threshold: 0.4
+          iou_threshold: 0.5
+          use_gpu: false
+          enable_instance: true
+        opencv:
+          grabcut_iterations: 5
+          watershed_threshold: 0.3
+          morph_kernel_size: 3
+        performance:
+          max_batch_size: 1
+          enable_cache: true
+          warmup_enabled: true
+
+
 integrity:
   visual_ism_gen:
     ism_gen_flag: false
@@ -287,8 +312,8 @@ integrity:
     snapshot_file: /home/dell/sunyulong/GICI-Dataset/2.1/integrity_snapshots.bin
     yaml_options: true
     start_timestamp: 0
-    output_post_processing_csv: /home/dell/sunyulong/GICI-Dataset/2.1/integrity_results.csv
-    output_post_processing_nmea: /home/dell/sunyulong/GICI-Dataset/2.1/srr_solution.txt
+    output_post_processing_csv: /home/dell/sunyulong/GICI-Dataset/2.1/test/integrity_results.csv
+    output_post_processing_nmea: /home/dell/sunyulong/GICI-Dataset/2.1/test/srr_solution.txt
   integrity_support_message:
     sigma_pixel: 1.0
     overbounding_func: dual_exp #"dual_exp" f(i) = 1.49101568*exp(-0.28066870*i) + 0.40406420*exp(-0.00353658*i), or "none" to omit the tracking error
@@ -298,32 +323,31 @@ integrity:
     prior_fault_probability: 1.0e-3
     meas_dim: 2
   navigation_requirements:
-    PHMI: 2.77e-7
-    PHMI_X: 1e-7
-    PHMI_Y: 1e-7
-    PHMI_V: 0.77e-7
-    PFA: 1e-5
-    PFA_X: 0.33e-5
-    PFA_Y: 0.34e-5
-    PFA_V: 0.33e-5
-    HAL: 2.0
-    XAL: 1.50
-    YAL: 0.55
-    VAL: 1.40
-    P_THRES: 2e-8
-    # PHMI: 2.77e-11
-    # PHMI_X: 1e-11
-    # PHMI_Y: 1e-11
-    # PHMI_V: 0.77e-11
-    # PFA: 1e-7
-    # PFA_X: 0.33e-7
-    # PFA_Y: 0.34e-7
-    # PFA_V: 0.33e-7
+    # PHMI: 2.77e-7
+    # PHMI_X: 1e-7
+    # PHMI_Y: 1e-7
+    # PHMI_V: 0.77e-7
+    # PFA: 1e-5
+    # PFA_X: 0.33e-5
+    # PFA_Y: 0.34e-5
+    # PFA_V: 0.33e-5
     # HAL: 2.0
     # XAL: 1.50
     # YAL: 0.55
     # VAL: 1.40
-    # P_THRES: 2e-13
+    # P_THRES: 1e-9
+    PHMI: 1.6667e-10
+    PHMI_X: 1.3333e-10   #lateral
+    PHMI_Y: 0.166667e-10 #longitudinal
+    PHMI_V: 0.166667e-10 #vertical
+    PFA: 1e-7
+    PFA_X: 0.2e-7
+    PFA_Y: 0.4e-7
+    PFA_V: 0.4e-7
+    XAL: 0.4 #lateral
+    YAL: 1.4 #longitudinal
+    VAL: 1.4 #vertical
+    P_THRES: 1.67e-12
     Fc_THRES: 0.01
     PL_TOL: 1.0e-3
 
@@ -332,4 +356,4 @@ logging:
   enable: true
   min_log_level: 0
   log_to_stderr: true
-  file_directory: /home/dell/sunyulong/GICI-Dataset/2.1/log-IM/
+  file_directory: /home/dell/sunyulong/GICI-Dataset/2.1/test/

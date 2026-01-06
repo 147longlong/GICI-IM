@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
         }
         if (opts["start_timestamp"]) options.start_timestamp = opts["start_timestamp"].as<double>();
         if (opts["yaml_options"]) options.yaml_options = opts["yaml_options"].as<bool>();
-        if (opts["snapshot_freq"]) options.snapshot_freq = opts["snapshot_freq"].as<bool>();
+        if (opts["snapshot_freq"]) options.snapshot_freq = opts["snapshot_freq"].as<double>();
         if (opts["snapshot_file"]) snapshot_file = opts["snapshot_file"].as<std::string>();
         if (opts["output_post_processing_csv"]) csv_file = opts["output_post_processing_csv"].as<std::string>();
         if (opts["output_post_processing_nmea"]) nmea_file = opts["output_post_processing_nmea"].as<std::string>();

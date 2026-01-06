@@ -72,6 +72,8 @@ public:
   SeedRefs seed_ref_vec_;       ///< Only for seeds during reprojection
   SeedStates invmu_sigma2_a_b_vec_; ///< Vector containing all necessary information for seed update.
   std::vector<bool> in_ba_graph_vec_;
+  std::vector<int> object_id_vec_;      ///< Object ID for each feature (-1 if none)
+  std::vector<std::string> object_name_vec_; ///< Object name for each feature
   // }
 
   FloatType seed_mu_range_;

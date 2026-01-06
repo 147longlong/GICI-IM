@@ -18,6 +18,7 @@
 #include "gici/utility/common.h"
 #include "gici/imu/imu_estimator_base.h"
 #include "gici/integrity/visual_ism_gen.h"
+#include "gici/vision/segmentator.h"
 
 namespace gici {
 
@@ -71,6 +72,15 @@ struct FeatureHandlerOptions {
 
   // Camera model, can be ATAN, Pinhole or Ocam (see vikit)
   CameraBundlePtr cameras;
+
+  // Segmentation options
+  SegmentatorOptions segmentator;
+  
+  // Enable segmentation-based feature filtering
+  bool use_segmentation_filter = false;
+  
+  // Segmentation model type (MobileSAM, FastSAM, OpenCV)
+  std::string segmentation_model = "MobileSAM";
 };
 
 // Estimator
@@ -97,6 +107,12 @@ public:
 
   // Initialize landmarks 
   void initializeLandmarks(const FramePtr& keyframe);
+  
+  // Enable/disable segmentation filtering
+  void setSegmentationFilter(bool enable);
+  
+  // Change segmentation model
+  void setSegmentationModel(const std::string& model_name);
 
   // Set pose for a frame and adjust the frames behind
   void setPoseAndAdjust(const double timestamp, const Transformation& T_WS);
@@ -209,6 +225,9 @@ protected:
   DetectorPtr detector_;
   FeatureTrackerPtr tracker_;
   AbstractVisualInitialization::UniquePtr initializer_;
+  
+  // Segmentation module
+  std::shared_ptr<Segmentator> segmentator_;
 
   // Map that handles keyframes and keypoints
   MapPtr map_;

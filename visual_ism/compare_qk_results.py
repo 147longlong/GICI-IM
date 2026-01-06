@@ -38,7 +38,7 @@ def compare_qk_different_probabilities():
     """比较不同故障概率下的q_i结果"""
     
     # 配置路径
-    base_dir = '/home/syl/GICI-IM/visual_ism'
+    base_dir = '/home/dell/sunyulong/GICI-IM/visual_ism'
     result_files = {
         '1e-2': os.path.join(base_dir, 'qk_results1e-2.json'),
         '1e-3': os.path.join(base_dir, 'qk_results1e-3.json'),
@@ -82,13 +82,36 @@ def compare_qk_different_probabilities():
 def plot_comparison(qk_data, target_phi, output_dir):
     """绘制不同故障概率下的q_i对比图"""
     
-    # 设置字体以支持中文和数学符号
-    plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial Unicode MS', 'SimHei']
+    # --- 绘图参数设置 ---
+    FONT_SIZE_GLOBAL = 16
+    FONT_SIZE_TITLE = 36
+    FONT_SIZE_LABEL = 32
+    FONT_SIZE_TICK = 28
+    FONT_SIZE_LEGEND = 24
+    FONT_SIZE_LEGEND_TITLE = 28
+
+    # --- 绘图设置 (白色背景，大字体) ---
+    plt.style.use('default') # 使用默认样式（通常是白色背景）
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans'] # 确保兼容性
     plt.rcParams['axes.unicode_minus'] = False
+    plt.rcParams.update({
+        'font.size': FONT_SIZE_GLOBAL,              # 全局字体大小
+        'axes.titlesize': FONT_SIZE_TITLE,          # 标题字体大小
+        'axes.labelsize': FONT_SIZE_LABEL,          # 轴标签字体大小
+        'xtick.labelsize': FONT_SIZE_TICK,          # x轴刻度字体大小
+        'ytick.labelsize': FONT_SIZE_TICK,          # y轴刻度字体大小
+        'legend.fontsize': FONT_SIZE_LEGEND,        # 图例字体大小
+        'figure.facecolor': 'white',  # 图片背景色
+        'axes.facecolor': 'white',    # 坐标轴背景色
+        'axes.grid': True,            # 开启网格
+        'grid.alpha': 0.4,            # 网格透明度
+        'grid.linestyle': '--',       # 网格线型
+        'lines.linewidth': 2.5        # 线宽
+    })
     
-    fig, axes = plt.subplots(1, 2, figsize=(24, 8))
+    fig, axes = plt.subplots(1, 2, figsize=(30, 12))
     fig.suptitle(f'Comparison of Tracking Error $q_i$ under Different Prior Fault Probabilities (φ={target_phi})', 
-                 fontsize=18, fontweight='bold')
+                 fontsize=FONT_SIZE_TITLE, fontweight='bold')
     
     # 颜色映射
     colors = {
@@ -106,32 +129,32 @@ def plot_comparison(qk_data, target_phi, output_dir):
     ax1 = axes[0]
     for prob_name, q_i in qk_data.items():
         indices = range(1, len(q_i) + 1)
-        ax1.plot(indices, q_i, marker='o', linestyle='-', linewidth=1.5, 
-                markersize=2, color=colors[prob_name], label=labels[prob_name])
+        ax1.plot(indices, q_i, marker='o', linestyle='-', linewidth=2.5, 
+                markersize=6, color=colors[prob_name], label=labels[prob_name])
     
-    ax1.set_xlabel(r'$i$', fontsize=14)
-    ax1.set_ylabel(r'$q_i$', fontsize=14)
-    ax1.set_title('Linear Scale', fontsize=15, fontweight='bold')
-    ax1.grid(True, which="both", linestyle='--', linewidth=0.5, alpha=0.7)
-    ax1.legend(fontsize=12)
+    ax1.set_xlabel(r'$i$', fontsize=FONT_SIZE_LABEL)
+    ax1.set_ylabel(r'$q_i$', fontsize=FONT_SIZE_LABEL)
+    ax1.set_title('Linear Scale', fontsize=FONT_SIZE_TITLE, fontweight='bold')
+    ax1.grid(True, which="both", linestyle='--', linewidth=1.5, alpha=0.7)
+    ax1.legend(fontsize=FONT_SIZE_LEGEND)
     ax1.set_xlim(0, 201)
-    ax1.tick_params(axis='both', which='major', labelsize=12)
+    ax1.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
     
     # 2. 对数坐标对比图
     ax2 = axes[1]
     for prob_name, q_i in qk_data.items():
         indices = range(1, len(q_i) + 1)
-        ax2.plot(indices, q_i, marker='o', linestyle='-', linewidth=1.5, 
-                markersize=2, color=colors[prob_name], label=labels[prob_name])
+        ax2.plot(indices, q_i, marker='o', linestyle='-', linewidth=2.5, 
+                markersize=6, color=colors[prob_name], label=labels[prob_name])
     
-    ax2.set_xlabel(r'$i$', fontsize=14)
-    ax2.set_ylabel(r'$q_i$', fontsize=14)
-    ax2.set_title('Log Scale', fontsize=15, fontweight='bold')
+    ax2.set_xlabel(r'$i$', fontsize=FONT_SIZE_LABEL)
+    ax2.set_ylabel(r'$q_i$', fontsize=FONT_SIZE_LABEL)
+    ax2.set_title('Log Scale', fontsize=FONT_SIZE_TITLE, fontweight='bold')
     ax2.set_yscale('log')
-    ax2.grid(True, which="both", linestyle='--', linewidth=0.5, alpha=0.7)
-    ax2.legend(fontsize=12)
+    ax2.grid(True, which="both", linestyle='--', linewidth=1.5, alpha=0.7)
+    ax2.legend(fontsize=FONT_SIZE_LEGEND)
     ax2.set_xlim(0, 201)
-    ax2.tick_params(axis='both', which='major', labelsize=12)
+    ax2.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
 
     plt.tight_layout()
     output_file = os.path.join(output_dir, 'qk_comparison_1e-2_1e-3_1e-4.png')

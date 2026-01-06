@@ -39,10 +39,17 @@ add_subdirectory(third_party/rpg_svo)
 # RTKLIB
 add_definitions(-DENAGLO -DENACMP -DENAGAL -DNFREQ=3 -DNEXOBS=3 -DDLL)
 add_subdirectory(third_party/rtklib)
+# Find Python
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+# conda create --name gici_im
+# conda activate gici_im
+# pip install -U ultralytics
+
 
 include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
   include
 )
 
@@ -71,7 +78,8 @@ target_link_libraries(${PROJECT_NAME}
                       svo
                       glog
                       yaml-cpp
-                      ${OpenCV_LIBS})
+                      ${OpenCV_LIBS}
+                      ${Python3_LIBRARIES})
 target_include_directories(${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
 )

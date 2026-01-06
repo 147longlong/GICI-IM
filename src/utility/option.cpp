@@ -28,6 +28,7 @@
 #include "gici/gnss/gnss_loose_estimator_base.h"
 #include "gici/fusion/gnss_imu_lc_estimator.h"
 #include "gici/fusion/gnss_imu_initializer.h"
+#include "gici/vision/segmentator.h"
 #include "gici/fusion/spp_imu_tc_estimator.h"
 #include "gici/fusion/rtk_imu_tc_estimator.h"
 #include "gici/fusion/ppp_imu_tc_estimator.h"
@@ -578,6 +579,48 @@ void loadOptions<VisualInitializationOptions>(
 }
 
 template <>
+void loadOptions<SegmentatorOptions>(
+    YAML::Node& node, SegmentatorOptions& options)
+{
+  std::string model_type;
+  if (option_tools::safeGet(node, "segmentation_model", &model_type)) {
+    if (model_type == "MobileSAM") options.model_type = SegmentationModelType::MobileSAM;
+    else if (model_type == "FastSAM") options.model_type = SegmentationModelType::FastSAM;
+    else if (model_type == "OpenCV") options.model_type = SegmentationModelType::OpenCV;
+  }
+
+  if (checkSubOption(node, "mobilesam")) {
+    YAML::Node subnode = node["mobilesam"];
+    option_tools::safeGet(subnode, "encoder_path", &options.mobilesam_encoder_path);
+    option_tools::safeGet(subnode, "decoder_path", &options.mobilesam_decoder_path);
+    option_tools::safeGet(subnode, "confidence_threshold", &options.confidence_threshold);
+    option_tools::safeGet(subnode, "iou_threshold", &options.iou_threshold);
+    option_tools::safeGet(subnode, "use_gpu", &options.use_gpu);
+  }
+
+  if (checkSubOption(node, "fastsam")) {
+    YAML::Node subnode = node["fastsam"];
+    option_tools::safeGet(subnode, "model_path", &options.fastsam_model_path);
+    // Overwrite if present in fastsam block
+    option_tools::safeGet(subnode, "confidence_threshold", &options.confidence_threshold);
+    option_tools::safeGet(subnode, "iou_threshold", &options.iou_threshold);
+    option_tools::safeGet(subnode, "use_gpu", &options.use_gpu);
+  }
+
+  if (checkSubOption(node, "opencv")) {
+    YAML::Node subnode = node["opencv"];
+    option_tools::safeGet(subnode, "grabcut_iterations", &options.grabcut_iterations);
+    option_tools::safeGet(subnode, "watershed_threshold", &options.watershed_threshold);
+  }
+
+  if (checkSubOption(node, "performance")) {
+    YAML::Node subnode = node["performance"];
+    option_tools::safeGet(subnode, "max_batch_size", &options.max_batch_size);
+    option_tools::safeGet(subnode, "enable_cache", &options.enable_cache);
+  }
+}
+
+template <>
 void loadOptions<FeatureHandlerOptions>(
     YAML::Node& node, FeatureHandlerOptions& options)
 {
@@ -611,6 +654,13 @@ void loadOptions<FeatureHandlerOptions>(
   if (checkSubOption(node, "camera_parameters")) {
     YAML::Node subnode = node["camera_parameters"];
     options.cameras = CameraBundle::loadFromYaml(subnode);
+  }
+
+  if (checkSubOption(node, "segmentation")) {
+    YAML::Node subnode = node["segmentation"];
+    loadOptions(subnode, options.segmentator);
+    option_tools::safeGet(subnode, "use_segmentation_filter", &options.use_segmentation_filter);
+    option_tools::safeGet(subnode, "segmentation_model", &options.segmentation_model);
   }
 }
 

@@ -109,6 +109,8 @@ void Frame::resizeFeatureStorage(size_t num)
     landmark_vec_.resize(num, nullptr);
     seed_ref_vec_.resize(num);
     in_ba_graph_vec_.resize(num, false);
+    object_id_vec_.resize(num, -1);
+    object_name_vec_.resize(num, "");
 
     // initial values
     level_vec_.tail(n_new).setZero();
@@ -135,6 +137,8 @@ void Frame::clearFeatureStorage()
   landmark_vec_.clear();
   seed_ref_vec_.clear();
   in_ba_graph_vec_.clear();
+  object_id_vec_.clear();
+  object_name_vec_.clear();
   num_features_ = 0;
 }
 
