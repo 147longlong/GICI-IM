@@ -5,30 +5,39 @@ from collections import Counter
 import matplotlib.colors as mcolors
 
 # 设置文件路径
-file_path = '/home/dell/sunyulong/GICI-IM/results/subset_info_1e_12.txt'
+file_path_12 = '/home/dell/sunyulong/GICI-IM/results/subset_info_1e_12.txt'
+file_path_9 = '/home/dell/sunyulong/GICI-IM/results/subset_info_1e_9.txt'
 output_dir = '/home/dell/sunyulong/GICI-IM/results/'
 
-# 读取数据
-data = []
-try:
-    with open(file_path, 'r') as f:
-        for line in f:
-            if line.startswith('#'):
-                continue
-            parts = line.strip().split()
-            if len(parts) < 6:
-                continue
-            # 格式: time, num_meas, N_fault_max, subsetsize, num_residual, num_state_vars
-            data.append([float(x) for x in parts])
-except FileNotFoundError:
-    print(f"Error: File not found at {file_path}")
+def load_data_from_file(path):
+    d = []
+    if not os.path.exists(path):
+        print(f"Warning: File not found: {path}")
+        return np.array([])
+    try:
+        with open(path, 'r') as f:
+            for line in f:
+                if line.startswith('#'): continue
+                parts = line.strip().split()
+                if len(parts) < 6: continue
+                d.append([float(x) for x in parts])
+        return np.array(d)
+    except Exception as e:
+        print(f"Error loading {path}: {e}")
+        return np.array([])
+
+# 加载数据
+data_12 = load_data_from_file(file_path_12)
+data_9 = load_data_from_file(file_path_9)
+
+# 默认使用 1e_12 的数据用于图 1 和 图 2 (保持原有逻辑)
+# data = data_12 if data_12.size > 0 else data_9
+data = data_9
+
+if data.size == 0:
+    print("No data found in provided files.")
     exit()
 
-data = np.array(data)
-
-if data.shape[0] == 0:
-    print("No data found in subset_info.txt")
-    exit()
 
 # 提取各列数据
 time = data[:, 0]
@@ -44,7 +53,7 @@ complexity = subsetsize * (num_residual**3 + num_state_vars * (num_residual**2))
 
 # --- 绘图参数设置 ---
 FONT_SIZE_GLOBAL = 16
-FONT_SIZE_TITLE = 36
+FONT_SIZE_TITLE = 35
 FONT_SIZE_LABEL = 32
 FONT_SIZE_TICK = 28
 FONT_SIZE_LEGEND = 24
@@ -118,7 +127,7 @@ u_freq = unique_data[:, 3] / total_points # 计算相对频率
 fig2, ax3 = plt.subplots(figsize=(14, 12))
 
 # 定义形状映射
-markers = ['o', '^', 's', 'D', 'v', 'p', '*', 'h']
+markers = ['o', '^', '*', 's', 'D', 'p', '*', 'h']
 unique_faults = np.unique(u_n_fault)
 unique_faults.sort()
 
@@ -149,8 +158,8 @@ cbar.ax.tick_params(labelsize=FONT_SIZE_LEGEND)
 ax3.set_yscale('log')
 ax3.set_xlabel('Number of Measurements ($N_{meas}$)', fontsize=FONT_SIZE_LABEL)
 ax3.set_ylabel('Number of Subsets ($N_{subsets}$)', fontsize=FONT_SIZE_LABEL)
-ax3.set_title('$N_{meas}$, $N_{fault,max}$, and $N_{subsets}$', fontsize=FONT_SIZE_TITLE)
-ax3.legend(title='Max Faults ($N_{fault,max}$)', title_fontsize=FONT_SIZE_LEGEND_TITLE, fontsize=FONT_SIZE_LEGEND, loc='upper left', frameon=True, framealpha=0.9, borderpad=1)
+ax3.set_title('$N_{meas}$, $N_{fault,max}$, and $N_{subsets}$ with $P_{thres} = 1x10^{-9}$', fontsize=FONT_SIZE_TITLE)
+ax3.legend(loc='upper left', frameon=True, framealpha=0.9, borderpad=1)
 
 ax3.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
 ax3.grid(True, which="both", axis='y', linestyle='--', alpha=0.5)
@@ -161,3 +170,76 @@ plt.savefig(save_path2, dpi=100)
 print(f"Generated: {save_path2}")
 
 print("All plots generated successfully.")
+
+# --- 图表 3: 1e-9 与 1e-12 阈值对比 (量测数 vs 子集数) ---
+# 合并数据
+if data_9.size > 0 and data_12.size > 0:
+    data_combined = np.vstack((data_12, data_9))
+elif data_12.size > 0:
+    data_combined = data_12
+else:
+    data_combined = data_9
+
+if data_combined.size > 0:
+    # 提取合并数据的列
+    c_num_meas = data_combined[:, 1]
+    c_n_fault_max = data_combined[:, 2]
+    c_subsetsize = data_combined[:, 3]
+    
+    # 统计频次
+    c_points = list(zip(c_num_meas, c_subsetsize, c_n_fault_max))
+    c_counts = Counter(c_points)
+    c_total_points = len(c_points)
+    
+    # 解压
+    c_unique_data = []
+    for point, count in c_counts.items():
+        c_unique_data.append(point + (count,))
+    
+    c_unique_data = np.array(c_unique_data)
+    cu_num_meas = c_unique_data[:, 0]
+    cu_subsetsize = c_unique_data[:, 1]
+    cu_n_fault = c_unique_data[:, 2]
+    cu_freq = c_unique_data[:, 3] / c_total_points
+    
+    fig3, ax4 = plt.subplots(figsize=(14, 12))
+    
+    # 定义形状
+    c_unique_faults = np.unique(cu_n_fault)
+    c_unique_faults.sort()
+    
+    # 颜色
+    c_norm = mcolors.Normalize(vmin=np.min(cu_freq), vmax=np.max(cu_freq))
+    c_cmap = plt.cm.Reds # 使用红色系
+
+    sc_list_c = []
+    for i, fault_val in enumerate(c_unique_faults):
+        mask = (cu_n_fault == fault_val)
+        
+        x = cu_num_meas[mask]
+        y = cu_subsetsize[mask]
+        c = cu_freq[mask]
+        
+        marker = markers[i % len(markers)]
+        
+        sc = ax4.scatter(x, y, c=c, cmap=c_cmap, norm=c_norm, marker=marker, s=180, 
+                        label=f'$N_{{fault,max}}={int(fault_val)}$', edgecolors='k', alpha=0.9, zorder=10-i)
+        sc_list_c.append(sc)
+    
+    # Colorbar
+    cbar3 = plt.colorbar(sc_list_c[-1], ax=ax4)
+    cbar3.set_label('Relative Frequency', fontsize=FONT_SIZE_LABEL)
+    cbar3.ax.tick_params(labelsize=FONT_SIZE_LEGEND)
+    
+    ax4.set_yscale('log')
+    ax4.set_xlabel('Number of Measurements ($N_{meas}$)', fontsize=FONT_SIZE_LABEL)
+    ax4.set_ylabel('Number of Subsets ($N_{subsets}$)', fontsize=FONT_SIZE_LABEL)
+    ax4.set_title('Combined Complexity: $P_{thres}=10^{-9}$ vs $10^{-12}$', fontsize=FONT_SIZE_TITLE)
+    ax4.legend(loc='upper left', frameon=True, framealpha=0.9, borderpad=1)
+    
+    ax4.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
+    ax4.grid(True, which="both", axis='y', linestyle='--', alpha=0.5)
+    
+    save_path3 = os.path.join(output_dir, 'measurements_vs_subsets_combined.png')
+    plt.savefig(save_path3, dpi=300)
+    print(f"Generated: {save_path3}")
