@@ -354,6 +354,7 @@ NodeOptionHandle::IntegrityNode::IntegrityNode(const YAML::Node& yaml_node)
     option_tools::safeGet(int_opt_node, "post_processing", &i_opts.post_processing);
     option_tools::safeGet(int_opt_node, "snapshot_freq", &i_opts.snapshot_freq);
     option_tools::safeGet(int_opt_node, "snapshot_file", &i_opts.snapshot_file);
+    option_tools::safeGet(int_opt_node, "start_timestamp", &i_opts.start_timestamp);
   }
 
   // integrity_support_message
@@ -393,18 +394,18 @@ NodeOptionHandle::IntegrityNode::IntegrityNode(const YAML::Node& yaml_node)
               << ". Using default instead."; }
 
     LOAD_NAV_REQ(PHMI);
-    LOAD_NAV_REQ(PHMI_X);
-    LOAD_NAV_REQ(PHMI_Y);
+    LOAD_NAV_REQ(PHMI_La);
+    LOAD_NAV_REQ(PHMI_Lo);
     LOAD_NAV_REQ(PHMI_V);
     
     LOAD_NAV_REQ(PFA);
-    LOAD_NAV_REQ(PFA_X);
-    LOAD_NAV_REQ(PFA_Y);
+    LOAD_NAV_REQ(PFA_La);
+    LOAD_NAV_REQ(PFA_Lo);
     LOAD_NAV_REQ(PFA_V);
 
     LOAD_NAV_REQ(HAL);
-    LOAD_NAV_REQ(XAL);
-    LOAD_NAV_REQ(YAL);
+    LOAD_NAV_REQ(LaAL);
+    LOAD_NAV_REQ(LoAL);
     LOAD_NAV_REQ(VAL);
 
     LOAD_NAV_REQ(P_THRES);

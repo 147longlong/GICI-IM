@@ -5,9 +5,9 @@ from collections import Counter
 import matplotlib.colors as mcolors
 
 # 设置文件路径
-file_path_12 = '/home/dell/sunyulong/GICI-IM/results/subset_info_1e_12.txt'
-file_path_9 = '/home/dell/sunyulong/GICI-IM/results/subset_info_1e_9.txt'
-output_dir = '/home/dell/sunyulong/GICI-IM/results/'
+file_path_12 = '/home/syl/GICI-IM/results/subset_info_1e_12.txt'
+file_path_9 = '/home/syl/GICI-IM/results/subset_info_super.txt'
+output_dir = '/home/syl/GICI-IM/results/'
 
 def load_data_from_file(path):
     d = []
@@ -127,7 +127,7 @@ u_freq = unique_data[:, 3] / total_points # 计算相对频率
 fig2, ax3 = plt.subplots(figsize=(14, 12))
 
 # 定义形状映射
-markers = ['o', '^', '*', 's', 'D', 'p', '*', 'h']
+markers = ['^', '*', 's', 'D', 'p', '*', 'h'] #'o', 
 unique_faults = np.unique(u_n_fault)
 unique_faults.sort()
 
@@ -202,7 +202,7 @@ if data_combined.size > 0:
     cu_n_fault = c_unique_data[:, 2]
     cu_freq = c_unique_data[:, 3] / c_total_points
     
-    fig3, ax4 = plt.subplots(figsize=(14, 12))
+    fig3, ax4 = plt.subplots(figsize=(18, 12))
     
     # 定义形状
     c_unique_faults = np.unique(cu_n_fault)
@@ -234,7 +234,8 @@ if data_combined.size > 0:
     ax4.set_yscale('log')
     ax4.set_xlabel('Number of Measurements ($N_{meas}$)', fontsize=FONT_SIZE_LABEL)
     ax4.set_ylabel('Number of Subsets ($N_{subsets}$)', fontsize=FONT_SIZE_LABEL)
-    ax4.set_title('Combined Complexity: $P_{thres}=10^{-9}$ vs $10^{-12}$', fontsize=FONT_SIZE_TITLE)
+    # 有无超量测分割下
+    ax4.set_title('$N_{meas}$, $N_{fault,max}$, and $N_{subsets}$\n with/without Super-measurement', fontsize=FONT_SIZE_TITLE) #\nwith $P_{thres}=10^{-9}$ vs $10^{-12}$
     ax4.legend(loc='upper left', frameon=True, framealpha=0.9, borderpad=1)
     
     ax4.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)

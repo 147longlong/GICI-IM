@@ -397,7 +397,7 @@ protected:
   int encodeESD(const Solution& solution, uint8_t* buf);
 
   // Encode GNIM (self-defined Integrity Monitoring) message
-  // Format: $GNIM,tod,XPL,YPL,VPL,IR*checksum
+  // Format: $GNIM,tod,LaPL,LoPL,VPL,IR*checksum
   int encodeIM(const Solution& solution, uint8_t* buf);
 
   // Convert Solution to sol_t

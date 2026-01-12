@@ -261,45 +261,6 @@ void FeatureHandler::detectFeatures(const FramePtr& frame)
         frame->img_pyr_, frame->getMask(), max_n_features, new_px, new_scores,
         new_levels, new_grads, new_types);
 
-  // Semantic tagging
-  std::vector<int> new_object_ids(new_px.cols(), -1);
-  std::vector<std::string> new_object_names(new_px.cols(), "");
-
-  if (options_.use_segmentation_filter && segmentator_ && segmentator_->isLoaded()) {
-    cv::Mat img = frame->img_pyr_[0];
-    
-    if (segmentator_->getModelType() == SegmentationModelType::FastSAM) {
-       auto instances = segmentator_->segmentInstances(img);
-       for (int i = 0; i < new_px.cols(); ++i) {
-         cv::Point pt(static_cast<int>(new_px(0, i)), static_cast<int>(new_px(1, i)));
-         for (const auto& instance : instances) {
-           const cv::Mat& mask = instance.first;
-           int class_id = instance.second;
-           if (pt.x >= 0 && pt.x < mask.cols && pt.y >= 0 && pt.y < mask.rows) {
-             if (mask.at<uchar>(pt.y, pt.x) > 0) {
-               new_object_ids[i] = class_id;
-               new_object_names[i] = segmentator_->getClassName(class_id);
-               break; // Assume one object per point
-             }
-           }
-         }
-       }
-    } else {
-       // For MobileSAM or OpenCV, use binary mask
-       cv::Mat mask = segmentator_->segment(img);
-       if (!mask.empty()) {
-         for (int i = 0; i < new_px.cols(); ++i) {
-           cv::Point pt(static_cast<int>(new_px(0, i)), static_cast<int>(new_px(1, i)));
-           if (pt.x >= 0 && pt.x < mask.cols && pt.y >= 0 && pt.y < mask.rows) {
-               if (mask.at<uchar>(pt.y, pt.x) > 0) {
-                 new_object_ids[i] = 0; // Generic object
-                 new_object_names[i] = "object";
-               }
-           }
-         }
-       }
-    }
-  }
 
   frame_utils::computeBearingVectors(new_px, *frame->cam(), &new_f);
 
@@ -317,8 +278,25 @@ void FeatureHandler::detectFeatures(const FramePtr& frame)
     frame->type_vec_[j] = FeatureType::kCorner;
     
     // Set semantic info
-    frame->object_id_vec_[j] = new_object_ids[i];
-    frame->object_name_vec_[j] = new_object_names[i];
+    int label = -1;
+    std::string name = "none";
+    if (options_.use_segmentation_filter && !current_segmentation_mask_.empty()) {
+        cv::Point pt(static_cast<int>(new_px(0, i)), static_cast<int>(new_px(1, i)));
+        if (pt.x >= 0 && pt.x < current_segmentation_mask_.cols && pt.y >= 0 && pt.y < current_segmentation_mask_.rows) {
+             int mask_val = 0;
+             if (current_segmentation_mask_.type() == CV_32SC1) {
+                 mask_val = current_segmentation_mask_.at<int>(pt.y, pt.x);
+             } else if (current_segmentation_mask_.type() == CV_8UC1) {
+                 mask_val = current_segmentation_mask_.at<uchar>(pt.y, pt.x);
+             }
+             if (mask_val >= 0) {
+                 label = mask_val;
+                 name = segmentator_->getClassName(label);
+             }
+        }
+    }
+    frame->object_id_vec_[j] = label;
+    frame->object_name_vec_[j] = name;
 
     frame->landmark_vec_[j] = std::make_shared<Point>(Eigen::Vector3d::Zero());
     frame->track_id_vec_(j) = frame->landmark_vec_[j]->id();
@@ -508,6 +486,26 @@ void FeatureHandler::addObservation(const FramePtr& frame)
     PointPtr& landmark = ref_frame->landmark_vec_[matches[i].first];
     CHECK(landmark != nullptr);
 
+    int label = -1;
+    std::string name = "none";
+    if (options_.use_segmentation_filter && !current_segmentation_mask_.empty()) {
+          cv::Point pt(static_cast<int>(frame->px_vec_(0, matches[i].second)), static_cast<int>(frame->px_vec_(1, matches[i].second)));
+          if (pt.x >= 0 && pt.x < current_segmentation_mask_.cols && pt.y >= 0 && pt.y < current_segmentation_mask_.rows) {
+              int mask_val = 0;
+              if (current_segmentation_mask_.type() == CV_32SC1) {
+                  mask_val = current_segmentation_mask_.at<int>(pt.y, pt.x);
+              } else if (current_segmentation_mask_.type() == CV_8UC1) {
+                  mask_val = current_segmentation_mask_.at<uchar>(pt.y, pt.x);
+              }
+              if (mask_val >= 0) {
+                  label = mask_val;
+                  name = segmentator_->getClassName(label);
+              }
+          }
+    }
+    frame->object_id_vec_[matches[i].second] = label;
+    frame->object_name_vec_[matches[i].second] = name;
+
     frame->type_vec_[matches[i].second] = ref_frame->type_vec_[matches[i].first];
     frame->landmark_vec_[matches[i].second] = landmark;
     landmark->addObservation(frame, matches[i].second);
@@ -666,11 +664,43 @@ bool FeatureHandler::processFrame()
   // Reset grid
   detector_->grid_.reset();
 
+  // Perform Segmentation if enabled
+  if (options_.use_segmentation_filter && segmentator_ && segmentator_->isLoaded()) {
+      // LOG(INFO) << "Performing semantic segmentation in processFrame";
+      cv::Mat img = getCurrent(frame_bundles_)->at(0)->img_pyr_[0];
+      current_segmentation_mask_ = segmentator_->segment(img);
+  } else {
+      current_segmentation_mask_ = cv::Mat();
+  }
+
   // Track features
   if (frame_bundles_.size() > 1) trackFeatures();
 
   // Detect features in new frame
   detectFeatures(getCurrent(frame_bundles_)->at(0));
+
+  #if 0
+  // Visualization if segmentation executed
+  if (options_.use_segmentation_filter && !current_segmentation_mask_.empty() && segmentator_) {
+       static int vis_cnt = 0;
+       cv::Mat img = getCurrent(frame_bundles_)->at(0)->img_pyr_[0];
+       cv::Mat mask_vis = segmentator_->getVisualization(img, current_segmentation_mask_);
+       const FramePtr& frame = getCurrent(frame_bundles_)->at(0);
+       
+       for (size_t k = 0; k < frame->numFeatures(); ++k) {
+          cv::Point pt(static_cast<int>(frame->px_vec_(0, k)), static_cast<int>(frame->px_vec_(1, k)));
+          cv::circle(mask_vis, pt, 1, cv::Scalar(0, 0, 255), 1);
+          if (frame->object_id_vec_[k] >= 0) {
+             cv::putText(mask_vis, std::to_string(frame->object_id_vec_[k]), pt + cv::Point(5, -5), 
+                         cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+          }
+       }
+       std::string save_path = "/home/syl/GICI-IM/results/debug/mask_vis_" + std::to_string(vis_cnt) + ".png";
+       LOG(INFO) << "Saving to " << save_path;
+       cv::imwrite(save_path, mask_vis);
+       vis_cnt++;
+  }
+  #endif
 
   // Select keyframe
   if(!needKeyFrame(map_->getLastKeyframe(), curFrame())) return true;
@@ -681,39 +711,5 @@ bool FeatureHandler::processFrame()
   return true;
 }
 
-// Enable/disable segmentation filtering
-void FeatureHandler::setSegmentationFilter(bool enable) {
-  options_.use_segmentation_filter = enable;
-  
-  if (enable && !segmentator_) {
-    segmentator_ = std::make_shared<Segmentator>(options_.segmentator);
-  }
-  
-  LOG(INFO) << "Segmentation filter " << (enable ? "enabled" : "disabled");
-}
-
-// Change segmentation model
-void FeatureHandler::setSegmentationModel(const std::string& model_name) {
-  options_.segmentation_model = model_name;
-  
-  // Map string to enum
-  if (model_name == "MobileSAM") {
-    options_.segmentator.model_type = SegmentationModelType::MobileSAM;
-  } else if (model_name == "FastSAM") {
-    options_.segmentator.model_type = SegmentationModelType::FastSAM;
-  } else if (model_name == "OpenCV") {
-    options_.segmentator.model_type = SegmentationModelType::OpenCV;
-  } else {
-    LOG(WARNING) << "Unknown segmentation model: " << model_name 
-                 << ". Using MobileSAM.";
-    options_.segmentator.model_type = SegmentationModelType::MobileSAM;
-  }
-  
-  // Recreate segmentator
-  if (options_.use_segmentation_filter) {
-    segmentator_ = std::make_shared<Segmentator>(options_.segmentator);
-    LOG(INFO) << "Changed segmentation model to: " << model_name;
-  }
-}
 
 }

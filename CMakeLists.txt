@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 2.8)
 project(gici)
 
+# ==========================================
+# User Configuration for Python - Paths
+# ==========================================
+# 1. Conda Environment Path (Used for Python, RPATH, and libstdc++)
+set(CONDA_ENV_PATH "/home/syl/miniconda3/envs/gici")
+
+# 2. System Libraries Paths (To avoid conflict with Conda libs)
+set(OPENCV_SYSTEM_DIR "/usr/local/lib/cmake/opencv4")
+set(YAML_SYSTEM_DIR "/usr/local/lib/cmake/yaml-cpp")
+
+# ==========================================
+
 # Set build flags. 
 set(CMAKE_CXX_FLAGS "-std=c++11" )
 set(CMAKE_CXX_FLAGS "-fpermissive")
@@ -17,8 +29,10 @@ endif()
 # Eigen
 find_package(Eigen3 REQUIRED NO_MODULE)
 # Opencv
+set(OpenCV_DIR ${OPENCV_SYSTEM_DIR})
 find_package(OpenCV 4 REQUIRED)
 # Yaml-cpp 
+set(yaml-cpp_DIR ${YAML_SYSTEM_DIR})
 find_package(yaml-cpp REQUIRED)
 # Glog
 find_package(glog REQUIRED)
@@ -40,10 +54,8 @@ add_subdirectory(third_party/rpg_svo)
 add_definitions(-DENAGLO -DENACMP -DENAGAL -DNFREQ=3 -DNEXOBS=3 -DDLL)
 add_subdirectory(third_party/rtklib)
 # Find Python
+set(Python3_EXECUTABLE "${CONDA_ENV_PATH}/bin/python3")
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-# conda create --name gici_im
-# conda activate gici_im
-# pip install -U ultralytics
 
 
 include_directories(
@@ -79,10 +91,17 @@ target_link_libraries(${PROJECT_NAME}
                       glog
                       yaml-cpp
                       ${OpenCV_LIBS}
-                      ${Python3_LIBRARIES})
+                      ${Python3_LIBRARIES}
+                      ${CONDA_ENV_PATH}/lib/libstdc++.so.6 # Force link against Conda libstdc++
+                      )
 target_include_directories(${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
 )
+
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_INSTALL_RPATH "${CONDA_ENV_PATH}/lib")
 
 # executable
 add_executable(gici_main src/gici_main.cpp)

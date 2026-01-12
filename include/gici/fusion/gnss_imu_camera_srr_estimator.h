@@ -105,16 +105,16 @@ protected:
 
   // Integrity results
   double hpl_ = std::numeric_limits<double>::quiet_NaN();
-  double xpl_ = std::numeric_limits<double>::quiet_NaN();
-  double ypl_ = std::numeric_limits<double>::quiet_NaN();
+  double lapl_ = std::numeric_limits<double>::quiet_NaN();
+  double lopl_ = std::numeric_limits<double>::quiet_NaN();
   double vpl_ = std::numeric_limits<double>::quiet_NaN();
   double ir_ = std::numeric_limits<double>::quiet_NaN();
   std::unique_ptr<VisualIntegrity> visual_integrity_;
 
 public:
   double getHPL() const { return hpl_; }
-  double getXPL() const { return xpl_; }
-  double getYPL() const { return ypl_; }
+  double getLaPL() const { return lapl_; }
+  double getLoPL() const { return lopl_; }
   double getVPL() const { return vpl_; }
   double getIR() const { return ir_; }
 };

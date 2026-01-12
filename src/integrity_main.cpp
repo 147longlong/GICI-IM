@@ -65,6 +65,7 @@ int main(int argc, char** argv) {
         if (opts["snapshot_file"]) snapshot_file = opts["snapshot_file"].as<std::string>();
         if (opts["output_post_processing_csv"]) csv_file = opts["output_post_processing_csv"].as<std::string>();
         if (opts["output_post_processing_nmea"]) nmea_file = opts["output_post_processing_nmea"].as<std::string>();
+        if (opts["use_segment"]) options.use_segment = opts["use_segment"].as<bool>();
     }
     if (options.yaml_options){
         LOG(INFO) << "Read options from yaml file";
@@ -105,18 +106,18 @@ int main(int argc, char** argv) {
                     << ". Using default instead."; }
 
             LOAD_NAV_REQ(PHMI);
-            LOAD_NAV_REQ(PHMI_X);
-            LOAD_NAV_REQ(PHMI_Y);
+            LOAD_NAV_REQ(PHMI_La);
+            LOAD_NAV_REQ(PHMI_Lo);
             LOAD_NAV_REQ(PHMI_V);
             
             LOAD_NAV_REQ(PFA);
-            LOAD_NAV_REQ(PFA_X);
-            LOAD_NAV_REQ(PFA_Y);
+            LOAD_NAV_REQ(PFA_La);
+            LOAD_NAV_REQ(PFA_Lo);
             LOAD_NAV_REQ(PFA_V);
 
             LOAD_NAV_REQ(HAL);
-            LOAD_NAV_REQ(XAL);
-            LOAD_NAV_REQ(YAL);
+            LOAD_NAV_REQ(LaAL);
+            LOAD_NAV_REQ(LoAL);
             LOAD_NAV_REQ(VAL);
 
             LOAD_NAV_REQ(P_THRES);

@@ -107,12 +107,6 @@ public:
 
   // Initialize landmarks 
   void initializeLandmarks(const FramePtr& keyframe);
-  
-  // Enable/disable segmentation filtering
-  void setSegmentationFilter(bool enable);
-  
-  // Change segmentation model
-  void setSegmentationModel(const std::string& model_name);
 
   // Set pose for a frame and adjust the frames behind
   void setPoseAndAdjust(const double timestamp, const Transformation& T_WS);
@@ -228,6 +222,7 @@ protected:
   
   // Segmentation module
   std::shared_ptr<Segmentator> segmentator_;
+  cv::Mat current_segmentation_mask_;
 
   // Map that handles keyframes and keypoints
   MapPtr map_;

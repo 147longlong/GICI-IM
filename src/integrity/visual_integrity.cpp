@@ -14,7 +14,7 @@ namespace gici {
 
 
 VisualIntegrity::VisualIntegrity(const VisualIntegrityOptions& options)
-    : options_(options), XPL_(std::numeric_limits<double>::quiet_NaN()), YPL_(std::numeric_limits<double>::quiet_NaN()), VPL_(std::numeric_limits<double>::quiet_NaN()), IR_(std::numeric_limits<double>::quiet_NaN())
+    : options_(options), LaPL_(std::numeric_limits<double>::quiet_NaN()), LoPL_(std::numeric_limits<double>::quiet_NaN()), VPL_(std::numeric_limits<double>::quiet_NaN()), IR_(std::numeric_limits<double>::quiet_NaN())
 {   
     is_first_ = true;
 }
@@ -39,24 +39,25 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
     std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
+    std::map<uint64_t, int> curr_lm_to_object_ids;
     std::vector<int> curr_pose_J_cols;
 
     if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, 
-                             J_all, r_all, sig2_int, sig2_acc, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_pose_to_J_cols, curr_pose_J_cols)) {
+                             J_all, r_all, sig2_int, sig2_acc, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_to_object_ids, curr_pose_to_J_cols, curr_pose_J_cols)) {
         return false;
     }
     
 
-    computeIntegrityMetrics(J_all, r_all, sig2_int, sig2_acc, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_pose_J_cols);
+    computeIntegrityMetrics(J_all, r_all, sig2_int, sig2_acc, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_to_object_ids, curr_pose_J_cols);
 
     // Log results
     LOG(INFO) << std::scientific << std::setprecision(4)
-              << "[VisualIntegrity] timestamp: " << timestamp_
-              << ", XPL: " << XPL_ << " m"
-              << ", YPL: " << YPL_ << " m"
+              << "timestamp: " << timestamp_
+              << ", LaPL: " << LaPL_ << " m"
+              << ", LoPL: " << LoPL_ << " m"
               << ", VPL: " << VPL_ << " m";
 
-    return (XPL_ < options_.XAL && YPL_ < options_.YAL && VPL_ < options_.VAL);
+    return (LaPL_ < options_.LaAL && LoPL_ < options_.LoAL && VPL_ < options_.VAL);
 }
 
 // Function to save integrity input information for post-processing
@@ -67,8 +68,8 @@ void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State
         if (ofs.is_open()) {
             serializeOptions(options_, ofs);
             ofs.close();
-            LOG(INFO) << "[VisualIntegrity] Created snapshot file: " << options_.snapshot_file;
-            LOG(INFO) << "[VisualIntegrity] Serialized options to snapshot file.";
+            LOG(INFO) << "Created snapshot file: " << options_.snapshot_file;
+            LOG(INFO) << "Serialized options to snapshot file.";
             is_first_ = false;
         }
     }
@@ -78,7 +79,7 @@ void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State
 
     timestamp_ = state.timestamp;
     if (last_timestamp_ > 0 && (timestamp_ - last_timestamp_) < 1/options_.snapshot_freq) {
-        LOG(INFO) << "[VisualIntegrity] The save snapshot frequency: " << options_.snapshot_freq << ", skipped timestamp: " << std::setprecision(6) << std::fixed << timestamp_;
+        LOG(INFO) << "The save snapshot frequency: " << options_.snapshot_freq << ", skipped timestamp: " << std::setprecision(6) << std::fixed << timestamp_;
         return;
     }
     last_timestamp_ = timestamp_;
@@ -89,7 +90,7 @@ void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State
 
     if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, 
                              snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, 
-                             snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, 
+                             snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_lm_to_object_ids,
                              snapshot.curr_pose_to_J_cols, snapshot.curr_pose_J_cols)) {
         return;
     }
@@ -99,27 +100,27 @@ void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State
         if (ofs.is_open()) {
             serializeSnapshot(snapshot, ofs);
             ofs.close();
-            LOG(INFO) << std::fixed << std::setprecision(6) << "[VisualIntegrity] Snapshot serialized to " << options_.snapshot_file << " for timestamp " << snapshot.timestamp;
+            LOG(INFO) << std::fixed << std::setprecision(6) << "Snapshot serialized to " << options_.snapshot_file << " for timestamp " << snapshot.timestamp;
         } else {
-            LOG(ERROR) << "[VisualIntegrity] Failed to open snapshot file: " << options_.snapshot_file;
+            LOG(ERROR) << "Failed to open snapshot file: " << options_.snapshot_file;
         }
     } else {
-        LOG(WARNING) << "[VisualIntegrity] Snapshot file not set, skipping save.";
+        LOG(WARNING) << "Snapshot file not set, skipping save.";
     }
 }
 
 
 void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
 {
-    LOG(INFO) << "[VisualIntegrity] Processing snapshots from file: " << filename;
+    LOG(INFO) << "Processing snapshots from file: " << filename;
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs.is_open()) {
-        LOG(ERROR) << "[VisualIntegrity] Failed to open snapshot file: " << filename;
+        LOG(ERROR) << "Failed to open snapshot file: " << filename;
         return;
     }
     if (is_first_ && ifs.peek() != EOF && !options_.yaml_options) {
         deserializeOptions(options_, ifs);
-        LOG(INFO) << "[VisualIntegrity] Read options from snapshot file: " << filename;
+        LOG(INFO) << "Read options from snapshot file: " << filename;
         is_first_ = false;
     } else{
         VisualIntegrityOptions temp_opts;
@@ -130,7 +131,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
     std::ofstream csv_out;
     if (!csv_output_file_.empty()) {
         csv_out.open(csv_output_file_, std::ios::trunc);
-        csv_out << "Timestamp,HPL,VPL,XPL,YPL,IR" << std::endl;
+        csv_out << "Timestamp,HPL,VPL,LaPL,LoPL,IR" << std::endl;
     }
 
     struct IntegrityResult {
@@ -148,7 +149,6 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         IntegritySnapshot snapshot;
         deserializeSnapshot(snapshot, ifs);
         if (ifs.fail()) break;
-
         timestamp_ = snapshot.timestamp;
 
         if (last_processed_timestamp > 0 && (timestamp_ - last_processed_timestamp) < 1.0/options_.snapshot_freq) {
@@ -157,57 +157,122 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         last_processed_timestamp = timestamp_;
                     
         if (timestamp_ < options_.start_timestamp) {
-            LOG(WARNING) << std::fixed << std::setprecision(6)  << "[VisualIntegrity] Skipped Timestamp: " << timestamp_;
+            LOG(WARNING) << std::fixed << std::setprecision(6)  << "Skipped Timestamp: " << timestamp_;
             continue;
         }
 
         VPL_ = std::numeric_limits<double>::quiet_NaN();
-        XPL_ = std::numeric_limits<double>::quiet_NaN();
-        YPL_ = std::numeric_limits<double>::quiet_NaN();
+        LaPL_ = std::numeric_limits<double>::quiet_NaN();
+        LoPL_ = std::numeric_limits<double>::quiet_NaN();
         HPL_ = std::numeric_limits<double>::quiet_NaN();
         IR_ = 0;
 
-        LOG(INFO) << std::fixed << std::setprecision(6) << "[VisualIntegrity] Timestamp: " << timestamp_;
-        computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_pose_J_cols);
+        LOG(INFO) << std::fixed << std::setprecision(6) << "Timestamp: " << timestamp_;
+        computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_lm_to_object_ids, snapshot.curr_pose_J_cols);
 
+        #if 0
+        int num_residual = snapshot.r_all.size();
+        int num_state_vars = snapshot.J_all.cols();
+        int num_meas = snapshot.curr_lm_to_J_rows.size();
 
-        // int num_residual = snapshot.r_all.size();
-        // int num_state_vars = snapshot.J_all.cols();
-        // int num_meas = snapshot.curr_lm_to_J_rows.size();
+        // Group measurements by object ID
+        std::map<int, int> object_counts;
+        int independent_faults = 0;
 
-        // std::vector<double> p_prior(num_meas, options_.prior_fault_probability);
-        // int N_fault_max = determineNfaultmax(p_prior, options_.P_THRES);
-        // LOG(INFO) << "[VisualIntegrity] Info: The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << options_.P_THRES;
-        // int subsetsize = 0;
-        // for(int j = 0; j <= N_fault_max;++j){
-        //     subsetsize = subsetsize + nchoosek((num_meas),j);
-        // }
-        // LOG(INFO) << "[VisualIntegrity] Info: The total subset size = " << subsetsize;
+        for (const auto& kv : snapshot.curr_lm_to_J_rows) {
+            uint64_t lm_id = kv.first;
+            int object_id = -1;
+            if (snapshot.curr_lm_to_object_ids.count(lm_id)) {
+                object_id = snapshot.curr_lm_to_object_ids.at(lm_id);
+            }
+            
+            // Assuming object_id >= 0 indicates a valid group/object
+            if (object_id >= 0) {
+                object_counts[object_id]++;
+            } else {
+                independent_faults++;
+            }
+        }
+        
+        std::vector<double> p_prior_groups;
+        p_prior_groups.reserve(object_counts.size() + independent_faults);
+        LOG(INFO) << "Number of object groups with multiple measurements: " << object_counts.size();
+        LOG(INFO) << "Number of independent measurements: " << independent_faults;
 
-        // std::ofstream debug_file("/home/dell/sunyulong/GICI-IM/results/subset_info_1e_12.txt", std::ios::app);
-        // if (debug_file.is_open()) {
-        //     //# time, num_meas, N_fault_max, subsetsize, num_residual, num_state_vars
-        //     debug_file << std::fixed << std::setprecision(6) << timestamp_ << " " 
-        //                << num_meas << " " 
-        //                << N_fault_max << " " 
-        //                << subsetsize << " "
-        //                << num_residual << " " 
-        //                << num_state_vars << std::endl;
-        //     debug_file.close();
-        // }
+        // Add probabilities for object groups: P = 1 - (1 - p)^n
+        for (const auto& pair : object_counts) {
+            int n_ms = pair.second;
+            double p_group = 1.0 - std::pow(1.0 - options_.prior_fault_probability, n_ms);
+            p_prior_groups.push_back(p_group);
+        }
+        // Add probabilities for independent faults
+        for (int i = 0; i < independent_faults; ++i) {
+            p_prior_groups.push_back(options_.prior_fault_probability);
+        }
+
+        int num_groups = p_prior_groups.size();
+        int N_fault_max = determineNfaultmax(p_prior_groups, options_.P_THRES);
+        LOG(INFO) << "The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << options_.P_THRES;
+        
+        long long subsetsize = 0;
+        for(int j = 0; j <= N_fault_max; ++j){
+            subsetsize = subsetsize + nchoosek(num_groups, j);
+        }
+        LOG(INFO) << "The total subset size = " << subsetsize << " (Groups: " << num_groups << ", Meas: " << num_meas << ")";
+
+        std::ofstream debug_file("/home/syl/GICI-IM/results/subset_info_super.txt", std::ios::app);
+        if (debug_file.is_open()) {
+            //# time, num_meas, num_groups, N_fault_max, subsetsize, num_residual, num_state_vars
+            debug_file << std::fixed << std::setprecision(6) << timestamp_ << " " 
+                       << num_meas << " " 
+                    //    << num_groups << " "
+                       << N_fault_max << " " 
+                       << subsetsize << " "
+                       << num_residual << " " 
+                       << num_state_vars << std::endl;
+            debug_file.close();
+        }
+        #endif
+
+        #if 0
+        int num_residual = snapshot.r_all.size();
+        int num_state_vars = snapshot.J_all.cols();
+        int num_meas = snapshot.curr_lm_to_J_rows.size();
+
+        std::vector<double> p_prior(num_meas, options_.prior_fault_probability);
+        int N_fault_max = determineNfaultmax(p_prior, options_.P_THRES);
+        LOG(INFO) << "The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << options_.P_THRES;
+        int subsetsize = 0;
+        for(int j = 0; j <= N_fault_max;++j){
+            subsetsize = subsetsize + nchoosek((num_meas),j);
+        }
+        LOG(INFO) << "The total subset size = " << subsetsize;
+
+        std::ofstream debug_file("/home/dell/sunyulong/GICI-IM/results/subset_info_1e_12.txt", std::ios::app);
+        if (debug_file.is_open()) {
+            //# time, num_meas, N_fault_max, subsetsize, num_residual, num_state_vars
+            debug_file << std::fixed << std::setprecision(6) << timestamp_ << " " 
+                       << num_meas << " " 
+                       << N_fault_max << " " 
+                       << subsetsize << " "
+                       << num_residual << " " 
+                       << num_state_vars << std::endl;
+            debug_file.close();
+        }
+        #endif
         LOG(INFO) << std::fixed << std::setprecision(6) 
-                  << "[VisualIntegrity] Timestamp: " << timestamp_
-                  << ", XPL: " << XPL_ << " m"
-                  << ", YPL: " << YPL_ << " m"
+                  << "Timestamp: " << timestamp_
+                  << ", LaPL: " << LaPL_ << " m"
+                  << ", LoPL: " << LoPL_ << " m"
                   << ", VPL: " << VPL_ << " m";
 
         if (csv_out.is_open()) {
             csv_out << std::fixed << std::setprecision(6) << timestamp_ << "," 
-                << HPL_ << "," << VPL_ << "," << XPL_ << "," << YPL_ << "," << IR_ << std::endl;
+                << HPL_ << "," << VPL_ << "," << LaPL_ << "," << LoPL_ << "," << IR_ << std::endl;
         }
 
-        if (XPL_ > 1e4 || YPL_ > 1e4 || VPL_ > 1e4 || std::isnan(VPL_) || std::isnan(XPL_) || std::isnan(YPL_)) {
-            LOG(WARNING) << "[VisualIntegrity] Abnormally large VPL detected, at timestamp: "<< std::fixed << std::setprecision(6) << timestamp_;
+        if (LaPL_ > 1e4 || LoPL_ > 1e4 || VPL_ > 1e4 || std::isnan(VPL_) || std::isnan(LaPL_) || std::isnan(LoPL_)) {
+            LOG(WARNING) << "Abnormally large VPL detected, at timestamp: "<< std::fixed << std::setprecision(6) << timestamp_;
             LOG(WARNING) << "===========================================================================";
             // LOG(WARNING) << "p_not_monitored_: " << p_not_monitored_;
             // LOG(WARNING) << "sigma_.size(): " << sigma_.rows() << " x " << sigma_.cols();
@@ -240,7 +305,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         time2epoch(t, ep);
         
         double sod = ep[3] * 3600.0 + ep[4] * 60.0 + ep[5];
-        results_list.push_back({sod, snapshot.timestamp, HPL_, VPL_, XPL_, YPL_, IR_});
+        results_list.push_back({sod, snapshot.timestamp, HPL_, VPL_, LaPL_, LoPL_, IR_});
     }
 
     if (csv_out.is_open()) csv_out.close();
@@ -248,10 +313,10 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
     // Update NMEA file
     if (output_file_.empty()) return;
     
-    LOG(INFO) << "[VisualIntegrity] Updating NMEA file: " << output_file_;
+    LOG(INFO) << "Updating NMEA file: " << output_file_;
     std::ifstream in(output_file_);
     if (!in.is_open()) {
-        LOG(ERROR) << "[VisualIntegrity] Cannot open output file for reading: " << output_file_;
+        LOG(ERROR) << "Cannot open output file for reading: " << output_file_;
         return;
     }
     
@@ -264,7 +329,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
 
     std::ofstream out(output_file_, std::ios::trunc);
     if (!out.is_open()) {
-        LOG(ERROR) << "[VisualIntegrity] Cannot open output file for writing: " << output_file_;
+        LOG(ERROR) << "Cannot open output file for writing: " << output_file_;
         return;
     }
 
@@ -299,7 +364,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
                                 sprintf(p, "*%02X", sum);
                                 
                                 l = std::string(buf);
-                                LOG(INFO) << "[VisualIntegrity] Updated NMEA line for timestamp " << ts_str;
+                                LOG(INFO) << "Updated NMEA line for timestamp " << ts_str;
                                 break; // Stop searching for this line
                             }
                         }
@@ -313,7 +378,278 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
     }
     out.close();
     
-    LOG(INFO) << "[VisualIntegrity] Finished processing snapshots and updating file.";
+    LOG(INFO) << "Finished processing snapshots and updating file.";
+}
+
+namespace {
+    struct BalancePoint {
+        double x, y;
+        int id;
+    };
+
+    void balanceObjectIds(std::vector<BalancePoint>& points) {
+        if (points.empty()) return;
+
+        const double MAX_MERGE_DIST_SQ = 200.0 * 200.0;
+        const int SMALL_CLUSTER_THRESHOLD = 2;
+        const int LARGE_CLUSTER_THRESHOLD = 4;
+        const int MIN_TOTAL_IDS_THRESHOLD = 18;
+
+        // 1. Handling Large Clusters
+        // Use a multi-pass approach to stabilize offloading
+        bool unstable = true;
+        int pass = 0;
+        const int MAX_PASSES = 5;
+        
+        while(unstable && pass < MAX_PASSES) {
+            unstable = false;
+            pass++;
+            
+            // Re-build cluster map
+            std::map<int, std::vector<size_t>> clusters;
+            int max_id = 0;
+            for (const auto& p : points) if (p.id > max_id) max_id = p.id;
+            
+            for (size_t i = 0; i < points.size(); ++i) {
+                if (points[i].id >= 0) clusters[points[i].id].push_back(i);
+            }
+
+            // Iterate over clusters
+            // Note: modifying points[i].id invalidates subsequent lookups provided we iterate safely
+            for (auto& pair : clusters) {
+                int pid = pair.first;
+                std::vector<size_t>& members = pair.second;
+                
+                if (members.size() > LARGE_CLUSTER_THRESHOLD) {
+                    
+                    // Strategy 1: Offload to nearby small clusters
+                    // Find a candidate point to move (one that is closest to a small cluster)
+                    int best_mem_idx = -1;
+                    int target_id = -1;
+                    double best_dist = MAX_MERGE_DIST_SQ;
+
+                    for(size_t idx : members) {
+                        for(size_t j = 0; j < points.size(); ++j) {
+                            if (points[j].id == pid || points[j].id < 0) continue;
+                            
+                            // Check target cluster size (must be small)
+                            // We need real-time size, but approximation from map is okay for this pass
+                            size_t target_size = 0;
+                            if (clusters.count(points[j].id)) target_size = clusters[points[j].id].size();
+                            
+                            if (target_size < SMALL_CLUSTER_THRESHOLD) {
+                                double dist = (points[idx].x - points[j].x)*(points[idx].x - points[j].x) + 
+                                              (points[idx].y - points[j].y)*(points[idx].y - points[j].y);
+                                if (dist < best_dist) {
+                                    best_dist = dist;
+                                    best_mem_idx = idx;
+                                    target_id = points[j].id;
+                                }
+                            }
+                        }
+                    }
+
+                    if (best_mem_idx != -1) {
+                         // Found a move
+                         points[best_mem_idx].id = target_id;
+                         unstable = true;
+                         // We modified the state, simple break to re-evaluate or continue to next cluster?
+                         // Let's continue to next cluster to avoid iterator issues with 'clusters' loop if we were more aggressive
+                         continue; 
+                    }
+                    
+                    // Strategy 2: Split in two (New ID)
+                    // No nearby small cluster found, so we must split.
+                    
+                    // Calculate Centroid
+                    double sum_x = 0, sum_y = 0;
+                    for(size_t idx : members) { sum_x += points[idx].x; sum_y += points[idx].y; }
+                    double mean_x = sum_x / members.size();
+                    double mean_y = sum_y / members.size();
+                    
+                    // Find seed (farthest from mean)
+                    size_t seed_idx = members[0];
+                    double max_dummy_dist = -1.0;
+                    for(size_t idx : members) {
+                         double d = (points[idx].x - mean_x)*(points[idx].x - mean_x) + (points[idx].y - mean_y)*(points[idx].y - mean_y);
+                         if(d > max_dummy_dist) { max_dummy_dist = d; seed_idx = idx; }
+                    }
+                    
+                    // Sort members by distance to seed
+                    std::vector<std::pair<double, size_t>> dists;
+                    for(size_t idx : members) {
+                        double d = (points[idx].x - points[seed_idx].x)*(points[idx].x - points[seed_idx].x) + 
+                                   (points[idx].y - points[seed_idx].y)*(points[idx].y - points[seed_idx].y);
+                        dists.push_back({d, idx});
+                    }
+                    std::sort(dists.begin(), dists.end());
+                    
+                    // Assign half (closest to seed) to NEW ID
+                    int new_id = ++max_id;
+                    size_t split_count = members.size() / 2; 
+                    // Ensure at least one point stays? yes members.size() > 8 implies split > 4
+                    
+                    for(size_t k = 0; k < split_count; ++k) {
+                        points[dists[k].second].id = new_id;
+                    }
+                    
+                    unstable = true; 
+                    // Break outer loop to rebuild map? Or just continue? 
+                    // Rebuilding is safer because we introduced a new ID
+                    // But we can just continue to next cluster in the map
+                }
+            }
+        }
+
+        // 2. Handling Small Clusters
+        // Only if we have enough total IDs
+        std::map<int, int> counts;
+        for (const auto& p : points) if (p.id >= 0) counts[p.id]++;
+        
+        if (counts.size() < MIN_TOTAL_IDS_THRESHOLD) return;
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            int pid = points[i].id;
+            if (pid < 0) continue;
+            
+            // Check count
+            if (counts[pid] < SMALL_CLUSTER_THRESHOLD) {
+                // Find nearest neighbor
+                double min_dist = MAX_MERGE_DIST_SQ;
+                int best_id = -1;
+                
+                for (size_t j = 0; j < points.size(); ++j) {
+                     if (points[j].id == pid || points[j].id < 0) continue;
+                     
+                     // Distance check
+                     double dist = (points[i].x - points[j].x)*(points[i].x - points[j].x) + 
+                                   (points[i].y - points[j].y)*(points[i].y - points[j].y);
+                     
+                     if (dist < min_dist) {
+                         min_dist = dist;
+                         best_id = points[j].id;
+                     }
+                }
+                
+                if (best_id != -1) {
+                    // Update
+                    counts[pid]--;
+                    points[i].id = best_id;
+                    counts[best_id]++;
+                }
+            }
+        }
+    }
+}
+
+void VisualIntegrity::saveDebugImage(const FramePtr& frame, const PointMap& landmarks_map, const std::string& identifier) 
+{
+    // Ensure we have an image
+    if (frame->img_pyr_.empty()) return;
+
+    cv::Mat img_color;
+    // Check if grayscale
+    if (frame->img_pyr_[0].channels() == 1) {
+        cv::cvtColor(frame->img_pyr_[0], img_color, cv::COLOR_GRAY2BGR);
+    } else {
+        img_color = frame->img_pyr_[0].clone();
+    }
+
+    // Prepare to count features per Object ID
+    std::map<int, int> id_counts;
+    
+    // Quick lookup for landmarks
+    // Let's iterate over landmarks_map to find which features in THIS frame are used.
+    std::vector<bool> is_landmark_obs(frame->numFeatures(), false);
+    std::vector<BalancePoint> points_to_balance;
+    std::vector<size_t> feat_indices_for_points;
+    
+    for (const auto& kv : landmarks_map) {
+        const auto& landmark = kv.second;
+        // Check observations
+        for (const auto& obs : landmark.observations) {
+            // obs.first is FrameID (BackendId), obs.second is Keypoint Index (uint64_t)
+            // We need to match frame->id() with obs.first
+            if (obs.first.frame_id == frame->id()) {
+                // obs.second is the feature index in the frame
+                size_t feat_idx = obs.first.keypoint_index_;
+                if (feat_idx < is_landmark_obs.size()) {
+                    is_landmark_obs[feat_idx] = true;
+                    
+                    int obj_id_curr = -1;
+                    if (feat_idx < frame->object_id_vec_.size()) {
+                        obj_id_curr = frame->object_id_vec_[feat_idx];
+                    }
+                    points_to_balance.push_back({frame->px_vec_(0, feat_idx), frame->px_vec_(1, feat_idx), obj_id_curr});
+                    feat_indices_for_points.push_back(feat_idx);
+                }
+            }
+        }
+    }
+    
+    // Balance IDs
+    balanceObjectIds(points_to_balance);
+
+    // Create lookup for new IDs
+    std::map<size_t, int> balanced_id_map;
+    for (size_t i = 0; i < points_to_balance.size(); ++i) {
+        balanced_id_map[feat_indices_for_points[i]] = points_to_balance[i].id;
+    }
+
+    for (size_t k = 0; k < frame->numFeatures(); ++k) {
+        cv::Point pt(static_cast<int>(frame->px_vec_(0, k)), static_cast<int>(frame->px_vec_(1, k)));
+        
+        // Color: Red (BGR: 0, 0, 255) if landmark observation, else Black (0, 0, 0)
+        cv::Scalar color = is_landmark_obs[k] ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 0, 0);
+        
+        // Draw point
+        cv::circle(img_color, pt, 2, color, -1); // Filled circle
+        
+        // Count ID
+        int obj_id = frame->object_id_vec_[k];
+        int final_id = obj_id;
+
+        // Check for balanced ID
+        std::string label = "";
+        
+        if (balanced_id_map.find(k) != balanced_id_map.end()) {
+            final_id = balanced_id_map[k];
+            if (final_id != obj_id) {
+                label = std::to_string(obj_id) + "->" + std::to_string(final_id);
+            } else {
+                label = std::to_string(obj_id);
+            }
+        } else {
+             if (obj_id >= 0) label = std::to_string(obj_id);
+        }
+        
+        // Draw ID text
+        if (!label.empty()) {
+            // Tiny text offset
+            cv::putText(img_color, label, pt + cv::Point(3, -3), 
+                        cv::FONT_HERSHEY_SIMPLEX, 0.4, color, 1);
+        }
+
+        if (is_landmark_obs[k]) {
+            id_counts[final_id]++;
+        }
+    }
+
+
+    int y_offset = 20;
+    for (const auto& pair : id_counts) {
+        std::string info = "ID " + std::to_string(pair.first) + ": " + std::to_string(pair.second);
+        
+        // Draw legend on top-left
+        cv::putText(img_color, info, cv::Point(10, y_offset), 
+                    cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 0), 2);
+        y_offset += 25;
+    }
+    
+    static int debug_save_cnt = 0;
+    std::string save_path = "/home/syl/GICI-IM/results/debug/debug_" + identifier + ".png";
+    cv::imwrite(save_path, img_color);
+    LOG(INFO) << "Saved debug image to: " << save_path;
 }
 
 bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame, 
@@ -327,6 +663,7 @@ bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame,
                              Eigen::MatrixXd&  sig2_acc,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                             std::map<uint64_t, int>& curr_lm_to_object_ids,
                              std::map<uint64_t, std::vector<int>>& curr_pose_to_J_cols,
                              std::vector<int>& curr_pose_J_cols)
 {
@@ -341,16 +678,17 @@ bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame,
 
     if (!extractFullLinearSystem(frame, states, state_index, graph, landmarks_map,
                              J_all, r_all, sig2_int, sig2_acc, row_ids_all, col_ids_all, pose_timestamps, rows_curr, cols_curr)) {
-        LOG(ERROR) << "[VisualIntegrity] Failed to extract linear system.";
+        LOG(ERROR) << "Failed to extract linear system.";
         return false;
     }
     
-    // saveEigenMatrixToFile(sig2_int, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
-    // saveEigenMatrixToFile(sig2_acc, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_acc_output" + std::to_string(state.timestamp)  + ".txt");
+    saveDebugImage(frame, landmarks_map, std::to_string(state.timestamp));
+    // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
+    // saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/debug/sig2_acc_output" + std::to_string(state.timestamp)  + ".txt");
     // saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, "/home/syl/GICI-IM/results/factor_graph.dot");
     // printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, "/home/syl/GICI-IM/results/jacobian_visualization.txt");
 
-    extractLandmarkRelatedRowsCols(landmarks_map, row_ids_all, cols_curr, curr_lm_to_J_rows, curr_lm_to_J_cols);
+    extractLandmarkRelatedRowsCols(frame, landmarks_map, row_ids_all, cols_curr, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_to_object_ids);
     extractPoseRelatedRowsCols(state.id.asInteger(), cols_curr, curr_pose_to_J_cols, curr_pose_J_cols); 
     
     return true;
@@ -362,6 +700,7 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
                                  const Eigen::MatrixXd& sig2_acc,
                                  const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
                                  const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                                 const std::map<uint64_t, int>& curr_lm_to_object_ids,
                                  const std::vector<int>& curr_pose_J_cols)
 {
     subsets_.clear();
@@ -372,7 +711,7 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
 
     int N_meas = curr_lm_to_J_rows.size();
     if (N_meas < 6) {
-        LOG(ERROR) << "[VisualIntegrity] Not enough measurements: " << N_meas;
+        LOG(ERROR) << "Not enough measurements: " << N_meas;
         return false;
     }
 
@@ -383,14 +722,56 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
     // 2. Define Prior Probabilities
     // Assuming independent faults for each feature with a fixed probability
     double p_feat_fault = options_.prior_fault_probability; 
-    std::vector<double> p_prior(N_meas, p_feat_fault);
+    
+    // Construct fault groups
+    std::vector<std::vector<uint64_t>> fault_groups;
+    std::vector<double> p_prior_groups;
+
+    if (options_.use_segment) {
+        std::map<int, std::vector<uint64_t>> object_groups;
+        std::vector<uint64_t> independent_lms;
+
+        for (uint64_t lm_id : curr_lm_ids) {
+             int obj_id = -1;
+             if (curr_lm_to_object_ids.count(lm_id)) {
+                 obj_id = curr_lm_to_object_ids.at(lm_id);
+             }
+             if (obj_id >= 0) {
+                 object_groups[obj_id].push_back(lm_id);
+             } else {
+                 independent_lms.push_back(lm_id);
+             }
+        }
+
+        // Add object groups
+        for (const auto& pair : object_groups) {
+             fault_groups.push_back(pair.second);
+             double p = 1.0 - std::pow(1.0 - p_feat_fault, pair.second.size());
+             p_prior_groups.push_back(p);
+        }
+        // Add independent lms
+        for (uint64_t lm_id : independent_lms) {
+             fault_groups.push_back({lm_id});
+             p_prior_groups.push_back(p_feat_fault);
+        }
+        LOG(INFO) << "Defined " << object_groups.size() << " object groups and " << independent_lms.size() << " independent measurements.";
+
+    } else {
+         for (uint64_t lm_id : curr_lm_ids) {
+             fault_groups.push_back({lm_id});
+             p_prior_groups.push_back(p_feat_fault);
+         }
+    }
+
 
     // 3. Determine Subsets
-    determineSubsets(p_prior, subsets_, pap_subset_, p_not_monitored_);
-    CHECK_EQ(N_meas, subsets_[0].size());
+    determineSubsets(p_prior_groups, subsets_, pap_subset_, p_not_monitored_);
+    CHECK_EQ(fault_groups.size(), subsets_[0].size());
+
+    LOG(INFO) << "Total subsets to monitor: " << subsets_.size();
 
     // 4. Compute Subset Solutions
-    computeSubsetSolution(J_all, r_all, sig2_int, sig2_acc, subsets_, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_ids, curr_pose_J_cols, sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_);
+    computeSubsetSolution(J_all, r_all, sig2_int, sig2_acc, subsets_, fault_groups, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_ids, curr_pose_J_cols, sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_);
 
     // 5. Filter out unmonitorable subsets
     filteroutSubsets(sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_, subsets_, pap_subset_, p_not_monitored_);
@@ -408,15 +789,15 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
                 fault_detected = true;
                 fault_detected_num++;
                 break;
-                // LOG(WARNING) << "[VisualIntegrity] Fault detected in subset " << i << " axis " << q << std::endl;
+                // LOG(WARNING) << "Fault detected in subset " << i << " axis " << q << std::endl;
             }
         }
     }
-    if (fault_detected) LOG(WARNING) << std::fixed << std::setprecision(6)<< "[VisualIntegrity] Fault detected num: " << fault_detected_num << ", for timestamp: " << timestamp_;
-    if (!fault_detected)  LOG(INFO) << std::fixed << std::setprecision(6)<< "[VisualIntegrity] No fault detected for timestamp: " << timestamp_;
+    if (fault_detected) LOG(WARNING) << std::fixed << std::setprecision(6)<< "Fault detected num: " << fault_detected_num << ", for timestamp: " << timestamp_;
+    if (!fault_detected)  LOG(INFO) << std::fixed << std::setprecision(6)<< "No fault detected for timestamp: " << timestamp_;
 
     // 8. Compute PL and IR
-    computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, HPL_, XPL_, YPL_);
+    computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, HPL_, LaPL_, LoPL_);
     IR_ = computeIR(sigma_, bias_, T_, pap_subset_, p_not_monitored_);
 
     return fault_detected;
@@ -813,12 +1194,12 @@ double VisualIntegrity::computeDualExpOverboundingSig2(std::vector<double> prm, 
     return sig_overbound;
 }
 
-
-void VisualIntegrity::extractLandmarkRelatedRowsCols(const PointMap& landmarks_map,
+void VisualIntegrity::extractLandmarkRelatedRowsCols(const FramePtr& frame, const PointMap& landmarks_map,
                                                   const std::vector<std::pair<uint64_t, std::string>>& row_ids_all,
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
                                                   std::map<uint64_t, std::vector<int>>& landmark_observation_rows,
-                                                  std::map<uint64_t, std::vector<int>>& landmark_observation_cols)
+                                                  std::map<uint64_t, std::vector<int>>& landmark_observation_cols,
+                                                  std::map<uint64_t, int>& landmark_object_ids)
 {
 
     // Pre-build lookup maps for O(1) access
@@ -831,6 +1212,9 @@ void VisualIntegrity::extractLandmarkRelatedRowsCols(const PointMap& landmarks_m
     for (const auto& pair : cols_curr) {
         lm_to_cols_map[pair.first].push_back(pair.second);
     }
+
+    std::vector<BalancePoint> current_frame_points;
+    std::vector<uint64_t> current_frame_lm_ids;
 
     // Iterate through landmarks map once
     for (const auto& lm_pair : landmarks_map) {
@@ -852,9 +1236,31 @@ void VisualIntegrity::extractLandmarkRelatedRowsCols(const PointMap& landmarks_m
                 if (row_it != resid_to_rows_map.end()) {
                     rows_vec.insert(rows_vec.end(), row_it->second.begin(), row_it->second.end());
                 }
+
+                if (obs_pair.first.frame_id == frame->id()) {
+                    size_t feat_idx_curr = obs_pair.first.keypoint_index_;
+                    int obj_id_curr = -1;
+                    if (feat_idx_curr < frame->object_id_vec_.size()) {
+                        obj_id_curr = frame->object_id_vec_[feat_idx_curr];
+                    }
+                    current_frame_points.push_back({frame->px_vec_(0, feat_idx_curr), frame->px_vec_(1, feat_idx_curr), obj_id_curr});
+                    current_frame_lm_ids.push_back(lm_id);
+                    
+                }else{
+                    landmark_object_ids[lm_id] = -1;
+                }
             }
         }
     }
+    
+    // Balance IDs
+    balanceObjectIds(current_frame_points);
+
+    // Apply balanced IDs
+    for (size_t i = 0; i < current_frame_points.size(); ++i) {
+        landmark_object_ids[current_frame_lm_ids[i]] = current_frame_points[i].id;
+    }
+
     CHECK_EQ(landmark_observation_rows.size(), landmark_observation_cols.size());
 }
 
@@ -909,7 +1315,7 @@ void VisualIntegrity::determineSubsets(const std::vector<double>& p_prior,
     //Deterimine the maximum simultanous faults need to monitor.
     std::vector<double> p_sum = p_prior;
     int N_fault_max = determineNfaultmax(p_sum, P_THRES);
-    LOG(INFO) << "[VisualIntegrity] Info: The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << P_THRES;
+    LOG(INFO) << "The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << P_THRES;
 
     //Calculate the number of subsets.
     int N_used = N;
@@ -1026,6 +1432,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                                             const Eigen::MatrixXd& sig2_int,
                                             const Eigen::MatrixXd& sig2_acc,
                                             const std::vector<std::vector<int>>& subsets,
+                                            const std::vector<std::vector<uint64_t>>& fault_groups,
                                             const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
                                             const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
                                             const std::vector<uint64_t>& curr_lm_ids,
@@ -1046,7 +1453,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     int N_J_rows = J.rows();
     int N_J_cols = J.cols();
     int N_state = 3;
-    int N_meas_curr = subsets[0].size(); //landmarks is corresponding to col of subsets
+    int N_meas_curr = subsets[0].size(); // Number of fault groups
 
     // Initialize outputs
     using MatrixRowMaj    = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
@@ -1066,12 +1473,12 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     bool diag_force = false;
     Eigen::MatrixXd sig2_int_copy = sig2_int; //convert const
     Eigen::MatrixXd sig2_acc_copy = sig2_acc;
-    LOG(INFO) << "[VisualIntegrity] Compute the inverse of sig2_int:";
+    LOG(INFO) << "Compute the inverse of sig2_int:";
     bool weight_computed = computeRobustWeightMatrix(sig2_int_copy, W, diag_force);
-    LOG(INFO) << "[VisualIntegrity] Compute the inverse of sig2_acc:";
+    LOG(INFO) << "Compute the inverse of sig2_acc:";
     bool weight_acc_computed = computeRobustWeightMatrix(sig2_acc_copy, W_acc, diag_force);
     if (!weight_computed) {
-        LOG(ERROR) << "[VisualIntegrity] Failed to compute valid weight matrix";
+        LOG(ERROR) << "Failed to compute valid weight matrix";
         return;
     }
     const bool W_is_diagonal = W.isDiagonal(0.0);
@@ -1091,10 +1498,10 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     // Robust Cholesky decomposition with fallback mechanisms
     Eigen::LLT<Eigen::MatrixXd> llt_all;
     double used_damping = 0.0;
-    LOG(INFO) << "[VisualIntegrity] Compute the Cholesky decomposition of JtWJ:";
+    LOG(INFO) << "Compute the Cholesky decomposition of JtWJ:";
     bool cholesky_success = computeRobustCholesky(JtWJ_all, llt_all, used_damping);
     if (!cholesky_success) {
-        LOG(ERROR) << "[VisualIntegrity] All Cholesky decomposition attempts failed!";
+        LOG(ERROR) << "All Cholesky decomposition attempts failed!";
         return;
     }
     Eigen::MatrixXd P_all = llt_all.solve(Eigen::MatrixXd::Identity(N_J_cols, N_J_cols));
@@ -1120,14 +1527,21 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
         bias_ss(0, k) = 0.0;
     }
 
-    LOG(INFO) << "[VisualIntegrity] Info: Computing subset solutions for " << N_sets - 1 << " subsets.";
+    LOG(INFO) << "Computing subset solutions for " << N_sets - 1 << " subsets.";
     
     // Progress tracking for subset computation
     std::atomic<int> subsets_processed{0};
     std::atomic<int> last_progress{0};
     std::vector<std::vector<int>> lm_rows_cache(N_meas_curr);
+
+    // Pre-cache rows for each fault group
     for(int j=0; j<N_meas_curr; ++j) {
-        lm_rows_cache[j] = curr_lm_to_J_rows.at(curr_lm_ids[j]);
+        for (uint64_t lm_id : fault_groups[j]) {
+            if (curr_lm_to_J_rows.count(lm_id)) {
+                 const auto& rows = curr_lm_to_J_rows.at(lm_id);
+                 lm_rows_cache[j].insert(lm_rows_cache[j].end(), rows.begin(), rows.end());
+            }
+        }
     }
     
     // Pre-allocate thread-local storage to avoid dynamic allocation in parallel loop
@@ -1150,12 +1564,13 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                     ++lm_to_remove;
                     const auto& rows = lm_rows_cache[j];
                     rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
+                    // LOG(INFO) << "Subset " << i << ": Excluding landmark group " << j << " with " << rows.size() << " rows.";
                 }
             }
 
             // Check observability roughly
             if (!rows_to_remove.empty() && (N_meas_curr - lm_to_remove < 6)) {
-                LOG(WARNING) << "[VisualIntegrity] Info: Subset " << i << " skipped due to insufficient measurements for observability.";
+                LOG(WARNING) << "Subset " << i << " skipped due to insufficient measurements for observability.";
                 continue;
             }
 
@@ -1235,11 +1650,11 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                     for (int idx = 0; idx < s_row.size(); ++idx) {
                         if (std::isnan(s_row(idx))) {
                             s_row_has_nan = true;
-                            LOG(WARNING) << "[VisualIntegrity] NaN found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
+                            LOG(WARNING) << "NaN found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
                         }
                         if (std::isinf(s_row(idx))) {
                             s_row_has_inf = true;
-                            LOG(WARNING) << "[VisualIntegrity] Inf found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
+                            LOG(WARNING) << "Inf found in s_row at index " << idx << " for subset " << i << ", dimension " << k;
                         }
                     }
                     
@@ -1249,11 +1664,11 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                     for (int idx = 0; idx < ds.size(); ++idx) {
                         if (std::isnan(ds(idx))) {
                             ds_has_nan = true;
-                            LOG(WARNING) << "[VisualIntegrity] NaN found in ds at index " << idx << " for subset " << i << ", dimension " << k;
+                            LOG(WARNING) << "NaN found in ds at index " << idx << " for subset " << i << ", dimension " << k;
                         }
                         if (std::isinf(ds(idx))) {
                             ds_has_inf = true;
-                            LOG(WARNING) << "[VisualIntegrity] Inf found in ds at index " << idx << " for subset " << i << ", dimension " << k;
+                            LOG(WARNING) << "Inf found in ds at index " << idx << " for subset " << i << ", dimension " << k;
                         }
                     }
                     
@@ -1264,14 +1679,14 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                         for (int idx = 0; idx < sig2_int_copy.rows(); ++idx) {
                             if (std::isnan(sig2_int_copy(idx, idx)) || std::isinf(sig2_int_copy(idx, idx)) || sig2_int_copy(idx, idx) <= 0.0) {
                                 sig2_int_has_issue = true;
-                                LOG(WARNING) << "[VisualIntegrity] sig2_int_copy has issue at diagonal index " << idx << ": " << sig2_int_copy(idx, idx);
+                                LOG(WARNING) << "sig2_int_copy has issue at diagonal index " << idx << ": " << sig2_int_copy(idx, idx);
                             }
                         }
                     } else {
                         for (int idx = 0; idx < sig2_int_diag.size(); ++idx) {
                             if (std::isnan(sig2_int_diag(idx)) || std::isinf(sig2_int_diag(idx)) || sig2_int_diag(idx) <= 0.0) {
                                 sig2_int_has_issue = true;
-                                LOG(WARNING) << "[VisualIntegrity] sig2_int_diag has issue at index " << idx << ": " << sig2_int_diag(idx);
+                                LOG(WARNING) << "sig2_int_diag has issue at index " << idx << ": " << sig2_int_diag(idx);
                             }
                         }
                     }
@@ -1280,58 +1695,58 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                         for (int idx = 0; idx < sig2_acc_copy.rows(); ++idx) {
                             if (std::isnan(sig2_acc_copy(idx, idx)) || std::isinf(sig2_acc_copy(idx, idx)) || sig2_acc_copy(idx, idx) <= 0.0) {
                                 sig2_acc_has_issue = true;
-                                LOG(WARNING) << "[VisualIntegrity] sig2_acc_copy has issue at diagonal index " << idx << ": " << sig2_acc_copy(idx, idx);
+                                LOG(WARNING) << "sig2_acc_copy has issue at diagonal index " << idx << ": " << sig2_acc_copy(idx, idx);
                             }
                         }
                     } else {
                         for (int idx = 0; idx < sig2_acc_diag.size(); ++idx) {
                             if (std::isnan(sig2_acc_diag(idx)) || std::isinf(sig2_acc_diag(idx)) || sig2_acc_diag(idx) <= 0.0) {
                                 sig2_acc_has_issue = true;
-                                LOG(WARNING) << "[VisualIntegrity] sig2_acc_diag has issue at index " << idx << ": " << sig2_acc_diag(idx);
+                                LOG(WARNING) << "sig2_acc_diag has issue at index " << idx << ": " << sig2_acc_diag(idx);
                             }
                         }
                     }
                 
                     // Debug: Check intermediate computation results
                     if (std::isnan(var) || std::isinf(var)) {
-                        LOG(WARNING) << "[VisualIntegrity] var is NaN/Inf for subset " << i << ", dimension " << k;
-                        LOG(INFO) << "[VisualIntegrity] var computation details: is_sig2_int_diag=" << is_sig2_int_diag 
+                        LOG(WARNING) << "var is NaN/Inf for subset " << i << ", dimension " << k;
+                        LOG(INFO) << "var computation details: is_sig2_int_diag=" << is_sig2_int_diag 
                                 << ", s_row.norm()=" << s_row.norm() 
                                 << ", sig2_int_diag.norm()=" << (is_sig2_int_diag ? sig2_int_diag.norm() : -1.0);
                         if (!is_sig2_int_diag) {
-                            LOG(INFO) << "[VisualIntegrity] sig2_int_copy matrix norm: " << sig2_int_copy.norm();
+                            LOG(INFO) << "sig2_int_copy matrix norm: " << sig2_int_copy.norm();
                         }
                     }
                     
                     if (std::isnan(var_ss) || std::isinf(var_ss)) {
-                        LOG(WARNING) << "[VisualIntegrity] var_ss is NaN/Inf for subset " << i << ", dimension " << k;
-                        LOG(INFO) << "[VisualIntegrity] var_ss computation details: is_sig2_acc_diag=" << is_sig2_acc_diag 
+                        LOG(WARNING) << "var_ss is NaN/Inf for subset " << i << ", dimension " << k;
+                        LOG(INFO) << "var_ss computation details: is_sig2_acc_diag=" << is_sig2_acc_diag 
                                 << ", ds.norm()=" << ds.norm() 
                                 << ", sig2_acc_diag.norm()=" << (is_sig2_acc_diag ? sig2_acc_diag.norm() : -1.0);
                         if (!is_sig2_acc_diag) {
-                            LOG(INFO) << "[VisualIntegrity] sig2_acc_copy matrix norm: " << sig2_acc_copy.norm();
+                            LOG(INFO) << "sig2_acc_copy matrix norm: " << sig2_acc_copy.norm();
                         }
                     }
-                    LOG(WARNING) << "[VisualIntegrity] Warning: NaN encountered in sigma computation for subset " << i << ", dimension " << k;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: var = " << var << ", var_ss = " << var_ss;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row norm = " << s_row.norm() << ", ds norm = " << ds.norm();
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: s_row has NaN = " << s_row_has_nan << ", s_row has Inf = " << s_row_has_inf;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: ds has NaN = " << ds_has_nan << ", ds has Inf = " << ds_has_inf;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: sig2_int has issue = " << sig2_int_has_issue << ", sig2_acc has issue = " << sig2_acc_has_issue;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: subset index = " << i << ", dimension = " << k << ", lm_to_remove = " << lm_to_remove;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: rows_to_remove size = " << rows_to_remove.size() << ", N_meas_curr = " << N_meas_curr;
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: P_all norm = " << P_all.norm() << ", JtW_all norm = " << JtW_all.norm();
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: JP norm = " << JP.norm() << ", W_rem_inv norm = " << W_rem_inv.norm();
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: Middle norm = " << Middle.norm() << ", Kernel norm = " << Kernel.norm();
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: UpdateBlock norm = " << UpdateBlock.norm() << ", b_sub norm = " << b_sub.norm();
-                    LOG(WARNING) << "[VisualIntegrity] Debug Info: x_curr_full norm = " << x_curr_full.norm() << ", P_sub_row norm = " << P_sub_row.norm();
-                    saveEigenMatrixToFile(sig2_int, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    saveEigenMatrixToFile(sig2_acc, "/home/dell/sunyulong/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    // saveEigenMatrixToFile(s1vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s1vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    // saveEigenMatrixToFile(s2vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s2vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    // saveEigenMatrixToFile(s3vec_out, "/home/dell/sunyulong/GICI-IM/results/debug/s3vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    saveEigenMatrixToFile(sigma_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    saveEigenMatrixToFile(sigma_ss_out, "/home/dell/sunyulong/GICI-IM/results/debug/sigma_ss_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    LOG(WARNING) << "Warning: NaN encountered in sigma computation for subset " << i << ", dimension " << k;
+                    LOG(WARNING) << "Debug Info: var = " << var << ", var_ss = " << var_ss;
+                    LOG(WARNING) << "Debug Info: s_row norm = " << s_row.norm() << ", ds norm = " << ds.norm();
+                    LOG(WARNING) << "Debug Info: s_row has NaN = " << s_row_has_nan << ", s_row has Inf = " << s_row_has_inf;
+                    LOG(WARNING) << "Debug Info: ds has NaN = " << ds_has_nan << ", ds has Inf = " << ds_has_inf;
+                    LOG(WARNING) << "Debug Info: sig2_int has issue = " << sig2_int_has_issue << ", sig2_acc has issue = " << sig2_acc_has_issue;
+                    LOG(WARNING) << "Debug Info: subset index = " << i << ", dimension = " << k << ", lm_to_remove = " << lm_to_remove;
+                    LOG(WARNING) << "Debug Info: rows_to_remove size = " << rows_to_remove.size() << ", N_meas_curr = " << N_meas_curr;
+                    LOG(WARNING) << "Debug Info: P_all norm = " << P_all.norm() << ", JtW_all norm = " << JtW_all.norm();
+                    LOG(WARNING) << "Debug Info: JP norm = " << JP.norm() << ", W_rem_inv norm = " << W_rem_inv.norm();
+                    LOG(WARNING) << "Debug Info: Middle norm = " << Middle.norm() << ", Kernel norm = " << Kernel.norm();
+                    LOG(WARNING) << "Debug Info: UpdateBlock norm = " << UpdateBlock.norm() << ", b_sub norm = " << b_sub.norm();
+                    LOG(WARNING) << "Debug Info: x_curr_full norm = " << x_curr_full.norm() << ", P_sub_row norm = " << P_sub_row.norm();
+                    saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(s1vec_out, "/home/syl/GICI-IM/results/debug/s1vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(s2vec_out, "/home/syl/GICI-IM/results/debug/s2vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(s3vec_out, "/home/syl/GICI-IM/results/debug/s3vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    saveEigenMatrixToFile(sigma_out, "/home/syl/GICI-IM/results/debug/sigma_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    saveEigenMatrixToFile(sigma_ss_out, "/home/syl/GICI-IM/results/debug/sigma_ss_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                 }
             }
             
@@ -1339,8 +1754,8 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
             int current_count = subsets_processed.fetch_add(1) + 1;
             int progress = static_cast<int>((static_cast<double>(current_count)/ (N_sets - 1)) * 100);
             int last_prog = last_progress.load();
-            if (progress != last_prog && progress % 1 == 0 && last_progress.compare_exchange_strong(last_prog, progress)) {
-                LOG(INFO) << "[VisualIntegrity] Subset computation progress: " << progress << "% (" << current_count << "/" << N_sets - 1 << ")";
+            if (progress != last_prog && progress % 20 == 0 && last_progress.compare_exchange_strong(last_prog, progress)) {
+                LOG(INFO) << "Subset computation progress: " << progress << "% (" << current_count << "/" << N_sets - 1 << ")";
             }
         }
         
@@ -1348,7 +1763,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     // about time taken
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
-    LOG(INFO) << "[VisualIntegrity] Compute subset solution, number of subsets: " << N_sets << ", measurement dimension: " << sig2_int.rows() << ", time taken(s): " << elapsed.count();
+    LOG(INFO) << "Compute subset solution, number of subsets: " << N_sets << ", measurement dimension: " << sig2_int.rows() << ", time taken(s): " << elapsed.count();
     
     // Cast back to standard MatrixXd if necessary (Eigen handles implicit copy)
     sigma_out = sigma;
@@ -1367,7 +1782,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
 // sig2 is both input and output: it will be modified to be positive definite if needed
 bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::MatrixXd& W, bool& diag_force) {
     if (sig2.rows() == 0 || sig2.cols() == 0) {
-        LOG(ERROR) << "[VisualIntegrity]    - Empty sig2 matrix";
+        LOG(ERROR) << "   - Empty sig2 matrix";
         return false;
     }
     
@@ -1387,9 +1802,9 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
         bool modified = false;
         for (int i = 0; i < diag_elements.size(); ++i) {
             if (diag_elements(i) <= 0.0 || !std::isfinite(diag_elements(i))) {
-                LOG(WARNING) << "[VisualIntegrity]    - Invalid variance at index " << i << ": " << diag_elements(i) 
+                LOG(WARNING) << "   - Invalid variance at index " << i << ": " << diag_elements(i) 
                            << ", using regularization";
-                LOG(ERROR) << "[VisualIntegrity]    - Something wrong in sig2_int/sig2_acc, maybe in saveSnap process!";
+                LOG(ERROR) << "   - Something wrong in sig2_int/sig2_acc, maybe in saveSnap process!";
                 diag_elements(i) = 1e-6; // Apply regularization
                 modified = true;
             }
@@ -1402,7 +1817,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
         
         // Create diagonal weight matrix (inverse of variances)
         W = diag_elements.cwiseInverse().asDiagonal();
-        LOG(INFO) << "[VisualIntegrity]    - Using diagonal weight matrix from sig2";
+        LOG(INFO) << "   - Using diagonal weight matrix from sig2";
         return true;
     }
     
@@ -1424,7 +1839,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
             if (relative_diff > 0.1) { // More than 10% difference
                 double scale_factor = trace_original / trace_diag;
                 diag_elements *= scale_factor;
-                LOG(WARNING) << "[VisualIntegrity]    - Scaling diagonal elements by factor " << scale_factor 
+                LOG(WARNING) << "   - Scaling diagonal elements by factor " << scale_factor 
                         << " to preserve trace (relative diff: " << relative_diff << ")";
             }
         }
@@ -1436,7 +1851,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
                 double original_val = sig2_original(i, i);
                 diag_elements(i) = (std::isfinite(original_val) && original_val > 0) ? 
                                 std::max(1e-6, original_val) : 1e-6;
-                LOG(WARNING) << "[VisualIntegrity]    - Regularizing diagonal element " << i 
+                LOG(WARNING) << "   - Regularizing diagonal element " << i 
                             << " to " << diag_elements(i);
             }
         }
@@ -1445,7 +1860,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
         sig2 = diag_elements.asDiagonal();
         W = diag_elements.cwiseInverse().asDiagonal();
         
-        LOG(WARNING) << "[VisualIntegrity]    - Because sig2_int uses diag, forcing sig2_acc to diagonal matrix with trace";
+        LOG(WARNING) << "   - Because sig2_int uses diag, forcing sig2_acc to diagonal matrix with trace";
         return true;
     }
     
@@ -1457,7 +1872,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
     for (int i = 0; i < sig2_sym.rows(); ++i) {
         double diag_val = sig2_sym(i, i);
         if (diag_val <= 0.0 || !std::isfinite(diag_val)) {
-            LOG(WARNING) << "[VisualIntegrity]    - Invalid variance at index " << i << ": " << diag_val;
+            LOG(WARNING) << "   - Invalid variance at index " << i << ": " << diag_val;
             needs_regularization = true;
             break;
         }
@@ -1470,14 +1885,14 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
         try {
             W = robustInverse(sig2_sym);
             sig2 = sig2_sym; // Update to symmetric version
-            LOG(INFO) << "[VisualIntegrity]    - Successfully inverted positive definite matrix";
+            LOG(INFO) << "   - Successfully inverted positive definite matrix";
             return true;
         } catch (...) {
-            LOG(WARNING) << "[VisualIntegrity]    - Failed to invert positive definite matrix";
+            LOG(WARNING) << "   - Failed to invert positive definite matrix";
             needs_regularization = true;
         }
     } else {
-        LOG(WARNING) << "[VisualIntegrity]    - sig2 is not positive definite, attempting regularization";
+        LOG(WARNING) << "   - sig2 is not positive definite, attempting regularization";
         needs_regularization = true;
     }
     
@@ -1505,7 +1920,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
                     W = robustInverse(regularized);
                     sig2 = regularized;
                     regularization_success = true;
-                    LOG(WARNING) << "[VisualIntegrity]    - Regularization succeeded with epsilon = " << epsilon;
+                    LOG(WARNING) << "   - Regularization succeeded with epsilon = " << epsilon;
                     break;
                 } catch (...) {
                     // Continue to next attempt with larger epsilon
@@ -1519,7 +1934,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
     }
     
     // Step 5: Attempt to find nearest positive definite matrix using eigenvalue correction
-    LOG(WARNING) << "[VisualIntegrity]    - Regularization failed, attempting nearest positive definite approximation";
+    LOG(WARNING) << "   - Regularization failed, attempting nearest positive definite approximation";
     
     try {
         // Ensure symmetry
@@ -1548,7 +1963,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
         }
         
         if (eigenvalues_corrected) {
-            LOG(WARNING) << "[VisualIntegrity]    - Corrected " << eigenvalues_corrected 
+            LOG(WARNING) << "   - Corrected " << eigenvalues_corrected 
                         << " eigenvalues, min eigenvalue was: " << min_eigenvalue;
         }
         
@@ -1564,20 +1979,20 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
             try {
                 W = robustInverse(nearest_pd);
                 sig2 = nearest_pd;
-                LOG(WARNING) << "[VisualIntegrity]    - Successfully inverted positive definite matrix using nearest positive definite matrix approximation";
+                LOG(WARNING) << "   - Successfully inverted positive definite matrix using nearest positive definite matrix approximation";
                 return true;
             } catch (...) {
-                LOG(WARNING) << "[VisualIntegrity]    - Failed to invert nearest PD matrix";
+                LOG(WARNING) << "   - Failed to invert nearest PD matrix";
             }
         }
     } catch (const std::exception& e) {
-        LOG(WARNING) << "[VisualIntegrity]    - Nearest PD computation failed: " << e.what();
+        LOG(WARNING) << "   - Nearest PD computation failed: " << e.what();
     } catch (...) {
-        LOG(WARNING) << "[VisualIntegrity]    - Unknown error in nearest PD computation";
+        LOG(WARNING) << "   - Unknown error in nearest PD computation";
     }
     
     // Step 6: Final fallback - diagonal approximation with trace preservation
-    LOG(WARNING) << "[VisualIntegrity]    - All methods failed, falling back to diagonal approximation";
+    LOG(WARNING) << "   - All methods failed, falling back to diagonal approximation";
     
     // Extract diagonal elements from original matrix
     Eigen::VectorXd diag_elements = sig2_original.diagonal();
@@ -1592,7 +2007,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
         if (relative_diff > 0.1) { // More than 10% difference
             double scale_factor = trace_original / trace_diag;
             diag_elements *= scale_factor;
-            LOG(WARNING) << "[VisualIntegrity]    - Scaling diagonal elements by factor " << scale_factor 
+            LOG(WARNING) << "   - Scaling diagonal elements by factor " << scale_factor 
                      << " to preserve trace (relative diff: " << relative_diff << ")";
         }
     }
@@ -1604,7 +2019,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
             double original_val = sig2_original(i, i);
             diag_elements(i) = (std::isfinite(original_val) && original_val > 0) ? 
                               std::max(1e-6, original_val) : 1e-6;
-            LOG(WARNING) << "[VisualIntegrity]    - Regularizing diagonal element " << i 
+            LOG(WARNING) << "   - Regularizing diagonal element " << i 
                         << " to " << diag_elements(i);
         }
     }
@@ -1613,7 +2028,7 @@ bool VisualIntegrity::computeRobustWeightMatrix(Eigen::MatrixXd& sig2, Eigen::Ma
     sig2 = diag_elements.asDiagonal();
     W = diag_elements.cwiseInverse().asDiagonal();
     
-    LOG(WARNING) << "[VisualIntegrity]    - Fallback to diagonal matrix with trace: " << sig2.trace() << ", and will force sig2_acc to diag";
+    LOG(WARNING) << "   - Fallback to diagonal matrix with trace: " << sig2.trace() << ", and will force sig2_acc to diag";
     diag_force = true;
     
     return true;
@@ -1650,7 +2065,7 @@ Eigen::MatrixXd VisualIntegrity::robustInverse(const Eigen::MatrixXd& M, double 
                 return inv;
             }
         } catch (...) {
-            LOG(WARNING) << "[VisualIntegrity]    - Direct inverse failed, trying alternatives.";
+            LOG(WARNING) << "   - Direct inverse failed, trying alternatives.";
         }
         
         // Try Cholesky for symmetric positive definite
@@ -1710,7 +2125,7 @@ bool VisualIntegrity::computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT
     // Start with small damping and increase gradually until success
     double base_damping = 1e-9;
     double adaptive_damping = base_damping * N_cols; //base_damping * max_diag * N_cols
-    LOG(INFO) << "[VisualIntegrity]    - max_diag: " << max_diag << ", N_cols: " << N_cols;
+    LOG(INFO) << "   - max_diag: " << max_diag << ", N_cols: " << N_cols;
     double start_damping = std::max(base_damping, adaptive_damping);
     
     // Try increasing damping factors: 1x, 10x, 100x, 1000x, 10000x
@@ -1724,22 +2139,22 @@ bool VisualIntegrity::computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT
         if (llt_out.info() == Eigen::Success) {
             used_damping = damping;
             if (factor == 1.0) {
-                LOG(INFO) << "[VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: " << std::setprecision(6) << damping;
+                LOG(INFO) << "   - Cholesky decomposition succeeded with adaptive damping: " << std::setprecision(6) << damping;
             } else {
-                LOG(WARNING) << "[VisualIntegrity]    - Cholesky decomposition succeeded with increased damping (factor " << factor << "): " << damping;
+                LOG(WARNING) << "   - Cholesky decomposition succeeded with increased damping (factor " << factor << "): " << damping;
             }
             return true;
         } else{
-            LOG(ERROR) << "[VisualIntegrity]    - Cholesky decomposition failed with damping factor " << factor << ": " << damping;
+            LOG(ERROR) << "   - Cholesky decomposition failed with damping factor " << factor << ": " << damping;
         }
     }
     
     // Strategy 2: Eigenvalue Reconstruction
-    LOG(WARNING) << "[VisualIntegrity]    - LLT failed with damping, applying Eigenvalue Reconstruction (SVD-like approach)";
+    LOG(WARNING) << "   - LLT failed with damping, applying Eigenvalue Reconstruction (SVD-like approach)";
     // 使用 SelfAdjointEigenSolver (针对对称矩阵优化，比 SVD 快)
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(A);
     if (es.info() != Eigen::Success) {
-        LOG(ERROR) << "[VisualIntegrity]    - Eigen decomposition failed!";
+        LOG(ERROR) << "   - Eigen decomposition failed!";
         return false;
     }
 
@@ -1765,17 +2180,17 @@ bool VisualIntegrity::computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT
         
         if (llt_out.info() == Eigen::Success) {
             used_damping = 0.0;
-            LOG(INFO) << "[VisualIntegrity]    - Successfully recovered using Eigenvalue Clamping, with eigenvalue threshold: "<< min_threshold;
+            LOG(INFO) << "   - Successfully recovered using Eigenvalue Clamping, with eigenvalue threshold: "<< min_threshold;
             return true;
         }
     }
     
-    LOG(ERROR) << "[VisualIntegrity]    - All decomposition attempts failed.";
+    LOG(ERROR) << "   - All decomposition attempts failed.";
     double condition_number = computeConditionNumber(A);
-    LOG(ERROR) << "[VisualIntegrity]    - Matrix condition number: " << condition_number;
-    LOG(ERROR) << "[VisualIntegrity]    - Matrix size: " << N_cols << "x" << N_cols;
-    LOG(ERROR) << "[VisualIntegrity]    - Min diagonal: " << A.diagonal().minCoeff();
-    LOG(ERROR) << "[VisualIntegrity]    - Max diagonal: " << A.diagonal().maxCoeff();
+    LOG(ERROR) << "   - Matrix condition number: " << condition_number;
+    LOG(ERROR) << "   - Matrix size: " << N_cols << "x" << N_cols;
+    LOG(ERROR) << "   - Min diagonal: " << A.diagonal().minCoeff();
+    LOG(ERROR) << "   - Max diagonal: " << A.diagonal().maxCoeff();
     
     used_damping = 0.0;
     return false;
@@ -1801,7 +2216,7 @@ std::vector<int> VisualIntegrity::filteroutSubsets(Eigen::MatrixXd& sigma,
         {
             idx.push_back(i);
         } else {
-            LOG(WARNING) << "[VisualIntegrity] Warning: Excluding subset " << i 
+            LOG(WARNING) << "Warning: Excluding subset " << i 
                          << " due to invalid sigma values (sigma: [" << sigma(i,0) << ", " << sigma(i,1) << ", " << sigma(i,2) 
                          << "], sigma_ss: [" << sigma_ss(i,0) << ", " << sigma_ss(i,1) << ", " << sigma_ss(i,2) << "])";
         }
@@ -1861,14 +2276,14 @@ Eigen::MatrixXd VisualIntegrity::computeTestThresholds(const Eigen::MatrixXd& si
     boost::math::normal_distribution<double> normal_d(0.0, 1.0);
     
     // Allocation of PFA
-    double Kfa_x = -boost::math::quantile(normal_d, 0.5 * options_.PFA_X / (N_sets - 1));
-    double Kfa_y = -boost::math::quantile(normal_d, 0.5 * options_.PFA_Y / (N_sets - 1));
+    double Kfa_la = -boost::math::quantile(normal_d, 0.5 * options_.PFA_La / (N_sets - 1));
+    double Kfa_lo = -boost::math::quantile(normal_d, 0.5 * options_.PFA_Lo / (N_sets - 1));
     double Kfa_vert = -boost::math::quantile(normal_d, 0.5 * options_.PFA_V / (N_sets - 1));
     
     Eigen::MatrixXd T = Eigen::MatrixXd::Zero(N_sets, 3);
     
-    T.col(0).array() = Kfa_x * sigma_ss.col(0).array() + bias_ss.col(0).array();
-    T.col(1).array() = Kfa_y * sigma_ss.col(1).array() + bias_ss.col(1).array();
+    T.col(0).array() = Kfa_la * sigma_ss.col(0).array() + bias_ss.col(0).array();
+    T.col(1).array() = Kfa_lo * sigma_ss.col(1).array() + bias_ss.col(1).array();
     T.col(2).array() = Kfa_vert * sigma_ss.col(2).array() + bias_ss.col(2).array();
 
     return T;
@@ -1880,14 +2295,14 @@ void VisualIntegrity::computePL(const Eigen::MatrixXd& sigma,
                                 const std::vector<double>& pap_subset,
                                 double p_not_monitored,
                                 double& VPL,
-                                double& XPL,
-                                double& YPL,
+                                double& LaPL,
+                                double& LoPL,
                                 double& HPL)
 {
     if (pap_subset.empty()) {
         VPL = std::numeric_limits<double>::quiet_NaN();
-        XPL = std::numeric_limits<double>::quiet_NaN();
-        YPL = std::numeric_limits<double>::quiet_NaN();
+        LaPL = std::numeric_limits<double>::quiet_NaN();
+        LoPL = std::numeric_limits<double>::quiet_NaN();
         HPL = std::numeric_limits<double>::quiet_NaN();
         return;
     }
@@ -1898,13 +2313,13 @@ void VisualIntegrity::computePL(const Eigen::MatrixXd& sigma,
 
     // Allocation of PHMI
     double phmi_vert = options_.PHMI_V * (1.0 - p_not_monitored / options_.PHMI);
-    double phmi_x = options_.PHMI_X * (1.0 - p_not_monitored / options_.PHMI);
-    double phmi_y = options_.PHMI_Y * (1.0 - p_not_monitored / options_.PHMI);
+    double phmi_la = options_.PHMI_La * (1.0 - p_not_monitored / options_.PHMI);
+    double phmi_lo = options_.PHMI_Lo * (1.0 - p_not_monitored / options_.PHMI);
     
     VPL = computeVPL(sigma.col(2), bias.col(2), T.col(2), p_fault, phmi_vert);
-    XPL = computeVPL(sigma.col(0), bias.col(0), T.col(0), p_fault, phmi_x);
-    YPL = computeVPL(sigma.col(1), bias.col(1), T.col(1), p_fault, phmi_y);
-    HPL = std::sqrt(XPL*XPL + YPL*YPL);
+    LaPL = computeVPL(sigma.col(0), bias.col(0), T.col(0), p_fault, phmi_la);
+    LoPL = computeVPL(sigma.col(1), bias.col(1), T.col(1), p_fault, phmi_lo);
+    HPL = std::sqrt(LaPL*LaPL + LoPL*LoPL);
 }
 
 double VisualIntegrity::computeVPL(const Eigen::VectorXd& sigma_in,
@@ -2173,45 +2588,71 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     in.read(reinterpret_cast<char*>(&options.enable), sizeof(bool));
     in.read(reinterpret_cast<char*>(&options.sigma_pixel), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.prior_fault_probability), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.use_segment), sizeof(bool));
     in.read(reinterpret_cast<char*>(&options.meas_dim), sizeof(int));
     
     // overbounding_func string
     size_t len;
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 1024) {
+        LOG(ERROR) << "Invalid overbounding_func length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     options.overbounding_func.resize(len);
     if (len > 0) in.read(&options.overbounding_func[0], len);
 
     // overbounding_parameters vector
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 10000) {
+        LOG(ERROR) << "Invalid overbounding_parameters length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     options.overbounding_parameters.resize(len);
     if (len > 0) in.read(reinterpret_cast<char*>(options.overbounding_parameters.data()), len * sizeof(double));
 
     // normal_func string
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 1024) {
+        LOG(ERROR) << "Invalid normal_func length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     options.normal_func.resize(len);
     if (len > 0) in.read(&options.normal_func[0], len);
 
     // normal_parameters vector
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 10000) {
+        LOG(ERROR) << "Invalid normal_parameters length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     options.normal_parameters.resize(len);
     if (len > 0) in.read(reinterpret_cast<char*>(options.normal_parameters.data()), len * sizeof(double));
 
     // Other doubles
     in.read(reinterpret_cast<char*>(&options.PHMI), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.PHMI_X), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.PHMI_Y), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.PHMI_La), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.PHMI_Lo), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.PHMI_V), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.PFA), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.PFA_X), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.PFA_Y), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.PFA_La), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.PFA_Lo), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.PFA_V), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.HAL), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.VAL), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.XAL), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.YAL), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.LaAL), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.LoAL), sizeof(double));
     
     // snapshot_file string
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 4096) {
+        LOG(ERROR) << "Invalid snapshot_file string length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     options.snapshot_file.resize(len);
     if (len > 0) in.read(&options.snapshot_file[0], len);
 }
@@ -2221,6 +2662,7 @@ void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, st
     out.write(reinterpret_cast<const char*>(&options.enable), sizeof(bool));
     out.write(reinterpret_cast<const char*>(&options.sigma_pixel), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.prior_fault_probability), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.use_segment), sizeof(bool));
     out.write(reinterpret_cast<const char*>(&options.meas_dim), sizeof(int));
     
     // overbounding_func string
@@ -2249,17 +2691,17 @@ void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, st
 
     // Other doubles
     out.write(reinterpret_cast<const char*>(&options.PHMI), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.PHMI_X), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.PHMI_Y), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.PHMI_La), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.PHMI_Lo), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.PHMI_V), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.PFA), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.PFA_X), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.PFA_Y), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.PFA_La), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.PFA_Lo), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.PFA_V), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.HAL), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.VAL), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.XAL), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.YAL), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.LaAL), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.LoAL), sizeof(double));
     
     // snapshot_file string
     size_t snap_file_len = options.snapshot_file.size();
@@ -2316,6 +2758,15 @@ void VisualIntegrity::serializeSnapshot(const IntegritySnapshot& snapshot, std::
         out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
     }
 
+    // curr_lm_to_object_ids
+    map_size = snapshot.curr_lm_to_object_ids.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.curr_lm_to_object_ids) {
+        out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
+        int val = pair.second;
+        out.write(reinterpret_cast<const char*>(&val), sizeof(int));
+    }
+
     // curr_pose_to_J_cols
     map_size = snapshot.curr_pose_to_J_cols.size();
     out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
@@ -2341,41 +2792,72 @@ double VisualIntegrity::computeConditionNumber(const Eigen::MatrixXd& A) {
 
 void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifstream& in) {
     in.read(reinterpret_cast<char*>(&snapshot.timestamp), sizeof(double));
+    if (in.fail()) return;
 
     // J_all
     long rows, cols;
     in.read(reinterpret_cast<char*>(&rows), sizeof(long));
     in.read(reinterpret_cast<char*>(&cols), sizeof(long));
+    if (rows < 0 || rows > 100000 || cols < 0 || cols > 10000) {
+        LOG(ERROR) << "Invalid J_all dimensions: " << rows << "x" << cols;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     snapshot.J_all.resize(rows, cols);
     in.read(reinterpret_cast<char*>(snapshot.J_all.data()), rows * cols * sizeof(double));
 
     // r_all
     long size;
     in.read(reinterpret_cast<char*>(&size), sizeof(long));
+    if (size < 0 || size > 100000) {
+        LOG(ERROR) << "Invalid r_all size: " << size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     snapshot.r_all.resize(size);
     in.read(reinterpret_cast<char*>(snapshot.r_all.data()), size * sizeof(double));
 
     // sig2_int
     in.read(reinterpret_cast<char*>(&rows), sizeof(long));
     in.read(reinterpret_cast<char*>(&cols), sizeof(long));
+    if (rows < 0 || rows > 100000 || cols < 0 || cols > 100000) {
+        LOG(ERROR) << "Invalid sig2_int dimensions: " << rows << "x" << cols;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     snapshot.sig2_int.resize(rows, cols);
     in.read(reinterpret_cast<char*>(snapshot.sig2_int.data()), rows * cols * sizeof(double));
 
     // sig2_acc
     in.read(reinterpret_cast<char*>(&rows), sizeof(long));
     in.read(reinterpret_cast<char*>(&cols), sizeof(long));
+    if (rows < 0 || rows > 100000 || cols < 0 || cols > 100000) {
+        LOG(ERROR) << "Invalid sig2_acc dimensions: " << rows << "x" << cols;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     snapshot.sig2_acc.resize(rows, cols);
     in.read(reinterpret_cast<char*>(snapshot.sig2_acc.data()), rows * cols * sizeof(double));
 
     // curr_lm_to_J_rows
     size_t map_size;
     in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for curr_lm_to_J_rows: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     snapshot.curr_lm_to_J_rows.clear();
     for (size_t i = 0; i < map_size; ++i) {
         uint64_t key;
         size_t vec_size;
         in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
         in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        if (vec_size > 100000) {
+            LOG(ERROR) << "Invalid vec_size in curr_lm_to_J_rows: " << vec_size;
+            in.setstate(std::ios::failbit);
+            return;
+        }
         std::vector<int> vec(vec_size);
         in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
         snapshot.curr_lm_to_J_rows[key] = vec;
@@ -2383,15 +2865,36 @@ void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifst
 
     // curr_lm_to_J_cols
     in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for curr_lm_to_J_cols: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
     snapshot.curr_lm_to_J_cols.clear();
     for (size_t i = 0; i < map_size; ++i) {
         uint64_t key;
         size_t vec_size;
         in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
         in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        if (vec_size > 100000) {
+            LOG(ERROR) << "Invalid vec_size in curr_lm_to_J_cols: " << vec_size;
+            in.setstate(std::ios::failbit);
+            return;
+        }
         std::vector<int> vec(vec_size);
         in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
         snapshot.curr_lm_to_J_cols[key] = vec;
+    }
+
+    // curr_lm_to_object_ids
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    snapshot.curr_lm_to_object_ids.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint64_t key;
+        int val;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&val), sizeof(int));
+        snapshot.curr_lm_to_object_ids[key] = val;
     }
 
     // curr_pose_to_J_cols

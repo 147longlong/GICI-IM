@@ -1,0 +1,1108 @@
+Log file created at: 2026/01/09 09:59:51
+Running on machine: Ubuntu-SYL
+Running duration (h:mm:ss): 0:00:00
+Log line format: [IWEF]yyyymmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I20260109 09:59:51.433730 1665415 integrity_main.cpp:70] Read options from yaml file
+I20260109 09:59:51.435034 1665415 integrity_main.cpp:118] Unable to load integrity option HAL. Using default instead.
+I20260109 09:59:51.435061 1665415 integrity_main.cpp:136] Starting Integrity Monitoring Post-Processing...
+I20260109 09:59:51.435065 1665415 integrity_main.cpp:137] Snapshot File: /home/syl/integrity_snapshots.bin
+I20260109 09:59:51.435067 1665415 integrity_main.cpp:138] Output CSV: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_results.csv
+I20260109 09:59:51.435070 1665415 integrity_main.cpp:139] Update NMEA: /media/syl/longlong/GICI-Dataset/2.1/super/srr_solution.txt
+I20260109 09:59:51.435096 1665415 visual_integrity.cpp:115] [VisualIntegrity] Processing snapshots from file: /home/syl/integrity_snapshots.bin
+I20260109 09:59:51.439397 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304413.314000
+I20260109 09:59:51.439723 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 09:59:51.439730 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 09:59:51.445751 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 9147
+I20260109 09:59:51.465919 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 09:59:51.501802 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 09:59:51.502031 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 09:59:51.522446 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 09:59:51.526098 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 09:59:51.526108 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 303
+I20260109 09:59:51.526741 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 3.03e-07
+I20260109 09:59:51.529793 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 9146 subsets.
+I20260109 09:59:51.711967 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1830/9146)
+I20260109 09:59:51.960047 1665519 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3659/9146)
+I20260109 09:59:52.212806 1665512 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (5488/9146)
+I20260109 09:59:52.471055 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (7317/9146)
+I20260109 09:59:52.864729 1665517 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (9146/9146)
+I20260109 09:59:52.864810 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 9147, measurement dimension: 427, time taken(s): 1.41902
+I20260109 09:59:52.964097 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304413.314000
+I20260109 09:59:52.980896 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304413.314000, XPL: 0.030800 m, YPL: 0.054731 m, VPL: 0.045130 m
+I20260109 09:59:52.994186 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304413.514000
+I20260109 09:59:52.994287 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 12 object groups and 0 independent measurements.
+I20260109 09:59:52.994292 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 09:59:52.994874 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 1562
+I20260109 09:59:52.996971 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 09:59:53.057456 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 09:59:53.057925 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 09:59:53.112821 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 09:59:53.117121 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 09:59:53.117136 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90494e+13, N_cols: 345
+I20260109 09:59:53.117970 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 3.45e-07
+I20260109 09:59:53.122509 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 1561 subsets.
+I20260109 09:59:53.202580 1665740 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (313/1561)
+I20260109 09:59:53.327674 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (625/1561)
+I20260109 09:59:53.478773 1665742 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (937/1561)
+I20260109 09:59:53.654582 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (1249/1561)
+I20260109 09:59:53.832048 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (1561/1561)
+I20260109 09:59:53.834774 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 1562, measurement dimension: 627, time taken(s): 0.839878
+I20260109 09:59:53.867122 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304413.514000
+I20260109 09:59:53.869738 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304413.514000, XPL: 0.029161 m, YPL: 0.051789 m, VPL: 0.044419 m
+I20260109 09:59:53.885430 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304413.814000
+I20260109 09:59:53.885813 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 18 object groups and 0 independent measurements.
+I20260109 09:59:53.885824 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 09:59:53.901765 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 24472
+I20260109 09:59:54.005666 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 09:59:54.081231 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 09:59:54.081307 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 09:59:54.153827 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 09:59:54.160475 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 09:59:54.160504 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 429
+I20260109 09:59:54.162055 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 4.29e-07
+I20260109 09:59:54.169896 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 24471 subsets.
+I20260109 09:59:56.551401 1665937 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (4895/24471)
+I20260109 09:59:59.594961 1665933 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (9789/24471)
+I20260109 10:00:02.925223 1665932 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (14683/24471)
+I20260109 10:00:06.981709 1665929 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (19577/24471)
+I20260109 10:00:10.865800 1665938 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (24471/24471)
+I20260109 10:00:10.865893 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 24472, measurement dimension: 735, time taken(s): 16.9641
+I20260109 10:00:11.503093 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304413.814000
+I20260109 10:00:11.549162 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304413.814000, XPL: 0.029341 m, YPL: 0.050587 m, VPL: 0.041792 m
+I20260109 10:00:11.579376 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304414.014000
+I20260109 10:00:11.579742 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 21 object groups and 0 independent measurements.
+I20260109 10:00:11.579756 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:00:11.622973 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 73319
+I20260109 10:00:12.075063 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:00:12.250468 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:00:12.250530 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:00:12.620709 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:00:12.638720 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:00:12.638751 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 504
+I20260109 10:00:12.640919 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 5.04e-07
+I20260109 10:00:12.655834 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 73318 subsets.
+I20260109 10:00:33.385823 1666226 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (14664/73318)
+I20260109 10:00:54.603338 1666224 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (29328/73318)
+I20260109 10:01:26.775413 1666227 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (43991/73318)
+I20260109 10:01:52.539528 1666231 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (58655/73318)
+I20260109 10:02:15.195365 1666225 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (73318/73318)
+I20260109 10:02:15.195734 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 73319, measurement dimension: 1012, time taken(s): 123.573
+I20260109 10:02:18.710584 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304414.014000
+I20260109 10:02:18.848510 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304414.014000, XPL: 0.031038 m, YPL: 0.052144 m, VPL: 0.042176 m
+I20260109 10:02:18.877038 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304414.114000
+I20260109 10:02:18.878906 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 18 object groups and 0 independent measurements.
+I20260109 10:02:18.878983 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:02:18.896255 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 25641
+I20260109 10:02:19.042258 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:02:19.218195 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:02:19.218236 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:02:19.384076 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:02:19.398720 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:02:19.398746 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 501
+I20260109 10:02:19.401201 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 5.01e-07
+I20260109 10:02:19.414671 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 25640 subsets.
+I20260109 10:02:26.133253 1666519 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (5128/25640)
+I20260109 10:02:34.453708 1666512 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (10256/25640)
+I20260109 10:02:44.379757 1666517 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (15384/25640)
+I20260109 10:02:55.574237 1666519 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (20512/25640)
+I20260109 10:03:05.939275 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (25640/25640)
+I20260109 10:03:05.939373 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 25641, measurement dimension: 1017, time taken(s): 47.043
+I20260109 10:03:06.975333 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304414.114000
+I20260109 10:03:07.022024 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304414.114000, XPL: 0.032292 m, YPL: 0.053760 m, VPL: 0.041871 m
+I20260109 10:03:07.053391 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304414.314000
+I20260109 10:03:07.053804 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:03:07.053828 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:03:07.064414 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 12136
+I20260109 10:03:07.143024 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:03:07.369089 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:03:07.369130 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:03:07.572476 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:03:07.589212 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:03:07.589241 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 546
+I20260109 10:03:07.592037 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 5.46e-07
+I20260109 10:03:07.607841 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 12135 subsets.
+I20260109 10:03:11.568315 1666747 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (2427/12135)
+I20260109 10:03:17.910719 1666746 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (4854/12135)
+I20260109 10:03:23.817296 1666747 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (7281/12135)
+I20260109 10:03:32.258327 1666746 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (9708/12135)
+I20260109 10:03:40.157928 1666746 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (12135/12135)
+I20260109 10:03:40.158224 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 12136, measurement dimension: 1154, time taken(s): 33.0937
+I20260109 10:03:40.680877 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304414.314000
+I20260109 10:03:40.702345 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304414.314000, XPL: 0.035262 m, YPL: 0.057440 m, VPL: 0.042538 m
+I20260109 10:03:40.739629 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304414.614000
+I20260109 10:03:40.739878 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 17 object groups and 0 independent measurements.
+I20260109 10:03:40.739892 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:03:40.752823 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 17342
+I20260109 10:03:40.874279 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:03:41.157646 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:03:41.157685 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:03:41.424726 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:03:41.454875 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:03:41.454903 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90494e+13, N_cols: 594
+I20260109 10:03:41.458431 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 5.94e-07
+I20260109 10:03:41.478560 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 17341 subsets.
+I20260109 10:03:47.743471 1666964 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (3469/17341)
+I20260109 10:03:56.673043 1666955 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (6937/17341)
+I20260109 10:04:05.812367 1666959 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (10405/17341)
+I20260109 10:04:18.083451 1666968 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (13873/17341)
+I20260109 10:04:29.409323 1666968 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (17341/17341)
+I20260109 10:04:29.409428 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 17342, measurement dimension: 1270, time taken(s): 48.6566
+I20260109 10:04:30.262804 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304414.614000
+I20260109 10:04:30.294325 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304414.614000, XPL: 0.036589 m, YPL: 0.055023 m, VPL: 0.044109 m
+I20260109 10:04:30.339334 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304414.814000
+I20260109 10:04:30.339640 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 17 object groups and 0 independent measurements.
+I20260109 10:04:30.339665 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:04:30.350438 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 17917
+I20260109 10:04:30.491083 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:04:30.836341 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:04:30.836381 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:04:31.179539 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:04:31.206955 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:04:31.207000 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 636
+I20260109 10:04:31.211961 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.36e-07
+I20260109 10:04:31.238297 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 17916 subsets.
+I20260109 10:04:40.040253 1667172 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (3584/17916)
+I20260109 10:04:52.754890 1667172 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (7167/17916)
+I20260109 10:05:07.327926 1667174 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (10750/17916)
+I20260109 10:05:24.932261 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (14333/17916)
+I20260109 10:05:39.949434 1667166 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (17916/17916)
+I20260109 10:05:39.949558 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 17917, measurement dimension: 1387, time taken(s): 69.5991
+I20260109 10:05:41.026054 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304414.814000
+I20260109 10:05:41.059245 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304414.814000, XPL: 0.037146 m, YPL: 0.052559 m, VPL: 0.047047 m
+I20260109 10:05:41.113895 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304415.014000
+I20260109 10:05:41.114269 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:05:41.114295 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:05:41.126215 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 10004
+I20260109 10:05:41.214203 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:05:41.634580 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:05:41.634621 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:05:42.025215 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:05:42.065315 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:05:42.065344 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 669
+I20260109 10:05:42.071305 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.69e-07
+I20260109 10:05:42.099104 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 10003 subsets.
+I20260109 10:05:47.222580 1667375 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (2001/10003)
+I20260109 10:05:54.389899 1667381 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (4002/10003)
+I20260109 10:06:01.447664 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (6002/10003)
+I20260109 10:06:10.868280 1667384 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (8003/10003)
+I20260109 10:06:21.465562 1667382 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (10003/10003)
+I20260109 10:06:21.465705 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 10004, measurement dimension: 1466, time taken(s): 40.3394
+I20260109 10:06:22.238027 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304415.014000
+I20260109 10:06:22.258705 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304415.014000, XPL: 0.041877 m, YPL: 0.056586 m, VPL: 0.046760 m
+I20260109 10:06:22.372607 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304415.214000
+I20260109 10:06:22.372768 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:06:22.372776 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:06:22.379441 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 8684
+I20260109 10:06:22.501134 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:06:23.042227 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:06:23.042268 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:06:23.504272 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:06:23.551227 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:06:23.551255 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.9049e+13, N_cols: 705
+I20260109 10:06:23.557190 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 7.05e-07
+I20260109 10:06:23.594090 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 8683 subsets.
+I20260109 10:06:28.375612 1667590 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1737/8683)
+I20260109 10:06:34.668174 1667588 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3474/8683)
+I20260109 10:06:40.756008 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (5210/8683)
+I20260109 10:06:46.026199 1667591 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (6947/8683)
+I20260109 10:06:55.625157 1667583 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (8683/8683)
+I20260109 10:06:55.629245 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 8684, measurement dimension: 1504, time taken(s): 33.2497
+I20260109 10:06:56.294926 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304415.214000
+I20260109 10:06:56.309806 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304415.214000, XPL: 0.041768 m, YPL: 0.053573 m, VPL: 0.046906 m
+I20260109 10:06:56.359349 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304415.314000
+I20260109 10:06:56.359453 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 12 object groups and 0 independent measurements.
+I20260109 10:06:56.359458 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:06:56.360054 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 1549
+I20260109 10:06:56.380810 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:06:56.805006 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:06:56.805069 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:06:57.157562 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:06:57.195456 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:06:57.195483 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90492e+13, N_cols: 639
+I20260109 10:06:57.199977 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.39e-07
+I20260109 10:06:57.228354 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 1548 subsets.
+I20260109 10:06:57.851830 1667799 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (310/1548)
+I20260109 10:06:58.801481 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (620/1548)
+I20260109 10:06:59.863487 1667792 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (929/1548)
+I20260109 10:07:01.036631 1667798 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (1239/1548)
+I20260109 10:07:01.882344 1667792 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (1548/1548)
+I20260109 10:07:01.882453 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 1549, measurement dimension: 1389, time taken(s): 5.52237
+I20260109 10:07:01.932942 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304415.314000
+I20260109 10:07:01.935488 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304415.314000, XPL: 0.040444 m, YPL: 0.050452 m, VPL: 0.045546 m
+I20260109 10:07:01.990864 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304415.614000
+I20260109 10:07:01.990976 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:07:01.990986 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:07:01.999410 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 9548
+I20260109 10:07:02.065076 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:07:02.487573 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:02.488447 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:07:02.923750 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:02.956709 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:07:02.956754 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76161e+13, N_cols: 687
+I20260109 10:07:02.962673 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.87e-07
+I20260109 10:07:02.997212 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 9547 subsets.
+I20260109 10:07:07.310264 1667996 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1910/9547)
+I20260109 10:07:12.528945 1668006 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3819/9547)
+I20260109 10:07:17.860183 1668003 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (5729/9547)
+I20260109 10:07:23.739450 1667998 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (7638/9547)
+I20260109 10:07:30.859237 1668008 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (9547/9547)
+I20260109 10:07:30.859339 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 9548, measurement dimension: 1468, time taken(s): 28.8599
+I20260109 10:07:31.385250 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304415.614000
+I20260109 10:07:31.401530 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304415.614000, XPL: 0.041591 m, YPL: 0.049605 m, VPL: 0.052949 m
+I20260109 10:07:31.466321 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304415.814000
+I20260109 10:07:31.466522 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 14 object groups and 0 independent measurements.
+I20260109 10:07:31.466533 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:07:31.472158 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 3854
+I20260109 10:07:31.511421 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:07:31.909335 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:31.909375 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:07:32.279335 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:32.310706 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:07:32.310755 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76162e+13, N_cols: 696
+I20260109 10:07:32.316534 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.96e-07
+I20260109 10:07:32.349793 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 3853 subsets.
+I20260109 10:07:33.728665 1668219 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (771/3853)
+I20260109 10:07:35.315188 1668215 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (1542/3853)
+I20260109 10:07:37.594408 1668209 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (2312/3853)
+I20260109 10:07:39.635721 1668220 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (3083/3853)
+I20260109 10:07:42.124424 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (3853/3853)
+I20260109 10:07:42.125983 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 3854, measurement dimension: 1449, time taken(s): 10.6538
+I20260109 10:07:42.354490 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304415.814000
+I20260109 10:07:42.362299 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304415.814000, XPL: 0.040995 m, YPL: 0.047605 m, VPL: 0.051932 m
+I20260109 10:07:42.420753 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304415.914000
+I20260109 10:07:42.420903 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 15 object groups and 0 independent measurements.
+I20260109 10:07:42.420913 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 5, in P_THRES = 1.67e-12
+I20260109 10:07:42.426357 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 4699
+I20260109 10:07:42.469519 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:07:42.789047 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:42.789088 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:07:43.079275 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:43.112340 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:07:43.112368 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90492e+13, N_cols: 636
+I20260109 10:07:43.116593 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.36e-07
+I20260109 10:07:43.141683 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 4698 subsets.
+I20260109 10:07:44.552069 1668417 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (940/4698)
+I20260109 10:07:45.864764 1668421 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (1880/4698)
+I20260109 10:07:48.431393 1668416 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (2819/4698)
+I20260109 10:07:50.213889 1668420 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (3759/4698)
+I20260109 10:07:51.714520 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (4698/4698)
+I20260109 10:07:51.714635 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 4699, measurement dimension: 1321, time taken(s): 9.28818
+I20260109 10:07:51.928952 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304415.914000
+I20260109 10:07:51.937227 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304415.914000, XPL: 0.045967 m, YPL: 0.051004 m, VPL: 0.048653 m
+I20260109 10:07:52.041220 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304416.114000
+I20260109 10:07:52.041478 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 14 object groups and 0 independent measurements.
+I20260109 10:07:52.041501 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 5, in P_THRES = 1.67e-12
+I20260109 10:07:52.043618 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 3334
+I20260109 10:07:52.086866 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:07:52.464686 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:52.464761 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:07:52.844975 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:52.868638 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:07:52.868664 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90493e+13, N_cols: 642
+I20260109 10:07:52.873057 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.42e-07
+I20260109 10:07:52.898339 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 3333 subsets.
+I20260109 10:07:53.787987 1668635 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (667/3333)
+I20260109 10:07:54.745595 1668631 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (1334/3333)
+I20260109 10:07:56.013315 1668637 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (2000/3333)
+I20260109 10:07:57.297534 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (2667/3333)
+I20260109 10:07:58.320497 1668634 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (3333/3333)
+I20260109 10:07:58.320600 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 3334, measurement dimension: 1315, time taken(s): 6.2769
+I20260109 10:07:58.419067 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304416.114000
+I20260109 10:07:58.423991 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304416.114000, XPL: 0.052457 m, YPL: 0.056328 m, VPL: 0.044814 m
+I20260109 10:07:58.518190 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304416.414000
+I20260109 10:07:58.518334 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 17 object groups and 0 independent measurements.
+I20260109 10:07:58.518344 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:07:58.530010 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 12358
+I20260109 10:07:58.617126 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:07:59.011718 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:59.011757 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:07:59.399811 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:07:59.433557 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:07:59.433586 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76175e+13, N_cols: 693
+I20260109 10:07:59.439863 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.93e-07
+I20260109 10:07:59.474236 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 12357 subsets.
+I20260109 10:08:03.703042 1668847 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (2472/12357)
+I20260109 10:08:09.403049 1668836 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (4943/12357)
+I20260109 10:08:15.229525 1668834 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (7415/12357)
+I20260109 10:08:20.849130 1668843 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (9886/12357)
+I20260109 10:08:29.293941 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (12357/12357)
+I20260109 10:08:29.294039 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 12358, measurement dimension: 1353, time taken(s): 30.764
+I20260109 10:08:29.897373 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304416.414000
+I20260109 10:08:29.918628 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304416.414000, XPL: 0.054911 m, YPL: 0.058442 m, VPL: 0.051968 m
+I20260109 10:08:29.966238 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304416.614000
+I20260109 10:08:29.966470 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 17 object groups and 0 independent measurements.
+I20260109 10:08:29.966482 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:08:29.977984 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 9913
+I20260109 10:08:30.027890 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:08:30.347962 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:08:30.348002 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:08:30.653782 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:08:30.684501 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:08:30.684542 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76183e+13, N_cols: 696
+I20260109 10:08:30.690353 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.96e-07
+I20260109 10:08:30.724519 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 9912 subsets.
+I20260109 10:08:33.388491 1669058 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1983/9912)
+I20260109 10:08:36.687119 1669045 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3965/9912)
+I20260109 10:08:40.414827 1669053 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (5948/9912)
+I20260109 10:08:43.805970 1669057 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (7930/9912)
+I20260109 10:08:47.265694 1669058 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (9912/9912)
+I20260109 10:08:47.265805 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 9913, measurement dimension: 1339, time taken(s): 17.2877
+I20260109 10:08:47.764070 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304416.614000
+I20260109 10:08:47.779763 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304416.614000, XPL: 0.033956 m, YPL: 0.039498 m, VPL: 0.051773 m
+I20260109 10:08:47.825716 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304416.814000
+I20260109 10:08:47.825996 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 17 object groups and 0 independent measurements.
+I20260109 10:08:47.826018 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:08:47.838070 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 10577
+I20260109 10:08:47.908038 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:08:48.218101 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:08:48.218142 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:08:48.514159 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:08:48.541237 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:08:48.541283 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76214e+13, N_cols: 696
+I20260109 10:08:48.547178 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.96e-07
+I20260109 10:08:48.578507 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 10576 subsets.
+I20260109 10:08:51.646828 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (2116/10576)
+I20260109 10:08:55.203637 1669266 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (4231/10576)
+I20260109 10:08:59.109408 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (6346/10576)
+I20260109 10:09:02.543287 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (8461/10576)
+I20260109 10:09:06.948139 1669263 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (10576/10576)
+I20260109 10:09:06.948236 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 10577, measurement dimension: 1314, time taken(s): 19.1101
+I20260109 10:09:07.590999 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304416.814000
+I20260109 10:09:07.607810 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304416.814000, XPL: 0.033313 m, YPL: 0.038754 m, VPL: 0.051033 m
+I20260109 10:09:07.660032 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304416.914000
+I20260109 10:09:07.660573 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 12 object groups and 0 independent measurements.
+I20260109 10:09:07.660602 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:09:07.662107 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 1556
+I20260109 10:09:07.678745 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:09:07.964722 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:07.964762 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:09:08.236306 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:08.255961 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:09:08.255988 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90517e+13, N_cols: 657
+I20260109 10:09:08.260969 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.57e-07
+I20260109 10:09:08.287808 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 1555 subsets.
+I20260109 10:09:08.651949 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (312/1555)
+I20260109 10:09:09.122522 1669479 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (622/1555)
+I20260109 10:09:09.649711 1669476 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (933/1555)
+I20260109 10:09:10.230993 1669468 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (1244/1555)
+I20260109 10:09:10.754349 1669479 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (1555/1555)
+I20260109 10:09:10.754896 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 1556, measurement dimension: 1256, time taken(s): 3.09275
+I20260109 10:09:10.797797 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304416.914000
+I20260109 10:09:10.800151 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304416.914000, XPL: 0.031317 m, YPL: 0.036014 m, VPL: 0.047402 m
+I20260109 10:09:10.845038 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304417.114000
+I20260109 10:09:10.845151 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 10 object groups and 0 independent measurements.
+I20260109 10:09:10.845160 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 5, in P_THRES = 1.67e-12
+I20260109 10:09:10.845706 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 617
+I20260109 10:09:10.847754 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:09:11.103502 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:11.103540 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:09:11.358747 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:11.376698 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:09:11.376726 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90571e+13, N_cols: 651
+I20260109 10:09:11.381729 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.51e-07
+I20260109 10:09:11.409415 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 616 subsets.
+I20260109 10:09:11.581197 1669682 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (124/616)
+I20260109 10:09:11.775090 1669691 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (247/616)
+W20260109 10:09:11.776074 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 386 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780225 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 387 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780330 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 388 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780383 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 389 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780462 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 390 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780491 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 391 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780519 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 392 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780542 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 393 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780594 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 394 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780617 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 395 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780646 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 396 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.780669 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 397 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781044 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 398 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781093 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 399 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781597 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 400 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781709 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 417 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781769 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 418 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781800 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 419 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781833 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 420 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781867 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 421 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.781894 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 422 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.778878 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 401 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782498 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 402 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782462 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 423 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782552 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 403 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782681 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 424 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782714 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 404 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782891 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 405 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782919 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 406 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782943 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 407 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782964 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 408 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.782996 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 409 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783041 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 410 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783062 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 411 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783082 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 412 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783102 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 413 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783120 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 414 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783131 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 425 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783252 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 415 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783390 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 416 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783286 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 426 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783440 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 427 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783465 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 428 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783488 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 429 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783510 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 430 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783536 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 431 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783563 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 432 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783588 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 449 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783614 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 450 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783638 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 451 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783659 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 452 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783685 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 453 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783737 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 454 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783771 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 455 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783421 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 433 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783799 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 456 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783834 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 434 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783855 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 457 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783880 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 435 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783901 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 458 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783931 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 436 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783953 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 459 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.783977 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 437 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784000 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 460 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784027 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 438 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784145 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 439 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784188 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 440 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784053 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 461 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784233 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 441 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784258 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 462 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784281 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 442 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784304 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 463 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784329 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 443 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784350 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 464 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784395 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 465 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784372 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 444 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784418 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 466 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784444 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 445 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784463 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 467 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784518 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 446 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784540 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 468 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784565 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 447 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784583 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 469 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784607 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 448 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784628 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 470 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784648 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 481 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784667 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 471 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784685 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 482 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784705 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 472 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784724 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 483 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784744 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 473 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784766 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 484 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784852 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 474 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784884 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 485 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784907 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 475 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784932 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 486 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784955 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 476 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.784981 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 487 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785006 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 477 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785032 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 488 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785056 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 478 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785084 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 489 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785108 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 479 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785130 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 490 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785147 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 480 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785209 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 491 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785231 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 497 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785261 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 492 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785292 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 498 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785317 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 493 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785339 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 499 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785358 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 494 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785384 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 500 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785405 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 495 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785429 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 501 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785449 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 496 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785470 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 502 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785492 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 513 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785593 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 514 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785630 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 515 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785508 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 503 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785656 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 516 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785677 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 504 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785702 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 517 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785722 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 505 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785742 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 518 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785761 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 506 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785782 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 519 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785805 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 507 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785826 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 520 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785844 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 508 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785866 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 521 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785915 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 509 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785961 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 510 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785986 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 511 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.785941 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 522 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786008 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 512 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786036 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 523 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786059 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 529 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786080 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 524 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786100 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 530 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786124 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 525 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786149 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 531 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786178 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 526 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786319 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 527 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786199 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 532 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786362 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 528 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786386 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 533 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786482 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 545 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786499 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 534 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786522 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 546 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786540 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 535 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786566 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 547 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786584 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 536 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786608 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 548 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786625 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 537 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786649 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 549 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786671 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 538 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786741 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 550 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786788 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 539 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786810 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 551 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786959 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 552 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787587 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 553 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787674 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 554 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787707 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 555 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787732 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 556 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787755 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 557 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.786830 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 540 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787849 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 541 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787884 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 542 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.787988 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 543 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788036 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 544 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788503 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 561 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788560 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 558 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788630 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 562 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788674 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 559 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788694 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 563 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788740 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 560 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788769 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 564 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788789 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 577 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788815 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 565 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788839 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 578 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788865 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 566 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788883 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 579 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.788990 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 567 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789014 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 580 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789039 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 568 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789055 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 581 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789076 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 569 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789095 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 582 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789115 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 570 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789132 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 583 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789152 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 571 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789171 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 584 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789193 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 572 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789211 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 585 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789235 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 573 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789405 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 574 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789357 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 586 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789430 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 575 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789450 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 587 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789474 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 576 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789492 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 588 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789516 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 593 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789533 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 589 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789561 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 594 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789580 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 590 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789602 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 595 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789623 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 591 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789646 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 596 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789706 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 592 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789736 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 597 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789757 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 609 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789775 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 598 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789794 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 610 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789815 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 599 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789832 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 611 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789849 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 600 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789865 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 612 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789881 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 601 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789898 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 613 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789919 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 602 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789937 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 614 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.789956 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 603 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790096 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 604 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790052 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 615 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790132 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 605 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790154 1669683 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 616 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790175 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 606 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790215 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 607 skipped due to insufficient measurements for observability.
+W20260109 10:09:11.790238 1669691 visual_integrity.cpp:1573] [VisualIntegrity] Info: Subset 608 skipped due to insufficient measurements for observability.
+I20260109 10:09:12.016855 1669687 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (370/616)
+I20260109 10:09:12.063359 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 617, measurement dimension: 1246, time taken(s): 1.21763
+W20260109 10:09:12.068935 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 386 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069167 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 387 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069376 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 388 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069533 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 389 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069600 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 390 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069612 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 391 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069623 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 392 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069634 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 393 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069646 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 394 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069657 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 395 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069669 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 396 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069679 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 397 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069690 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 398 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069726 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 399 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069777 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 400 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069808 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 401 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069831 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 402 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069854 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 403 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069876 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 404 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069890 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 405 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069900 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 406 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069912 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 407 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069923 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 408 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069934 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 409 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069944 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 410 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069957 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 411 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069981 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 412 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.069993 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 413 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070004 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 414 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070016 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 415 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070029 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 416 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070040 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 417 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070051 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 418 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070063 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 419 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070075 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 420 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070104 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 421 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070115 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 422 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070125 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 423 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070137 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 424 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070149 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 425 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070160 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 426 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070180 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 427 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070199 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 428 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070217 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 429 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070235 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 430 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070253 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 431 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070272 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 432 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070307 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 433 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070325 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 434 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070344 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 435 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070363 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 436 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070382 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 437 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070401 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 438 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070420 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 439 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070439 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 440 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070457 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 441 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070477 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 442 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070528 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 443 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070547 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 444 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070566 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 445 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070585 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 446 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070604 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 447 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070622 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 448 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070641 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 449 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070660 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 450 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070678 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 451 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070698 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 452 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070716 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 453 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070734 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 454 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070868 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 455 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070928 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 456 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070950 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 457 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.070992 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 458 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071031 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 459 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071067 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 460 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071103 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 461 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071141 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 462 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071159 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 463 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071218 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 464 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071238 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 465 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071257 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 466 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071276 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 467 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071295 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 468 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071314 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 469 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071332 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 470 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071352 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 471 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071370 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 472 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071388 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 473 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071408 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 474 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071427 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 475 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071445 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 476 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071480 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 477 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071499 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 478 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071518 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 479 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071537 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 480 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071556 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 481 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071575 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 482 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071594 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 483 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071612 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 484 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071631 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 485 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071683 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 486 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071704 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 487 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071723 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 488 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071741 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 489 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071760 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 490 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071779 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 491 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071798 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 492 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071816 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 493 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071835 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 494 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071854 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 495 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071873 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 496 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071892 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 497 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071925 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 498 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071944 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 499 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071964 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 500 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.071982 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 501 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072000 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 502 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072019 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 503 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072039 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 504 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072057 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 505 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072077 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 506 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072095 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 507 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072153 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 508 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072172 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 509 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072191 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 510 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072209 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 511 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072228 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 512 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072247 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 513 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072266 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 514 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072283 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 515 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072302 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 516 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072321 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 517 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072340 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 518 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072360 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 519 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072394 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 520 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072413 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 521 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072432 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 522 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072451 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 523 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072470 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 524 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072489 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 525 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072508 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 526 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072527 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 527 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072546 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 528 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072577 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 529 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072588 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 530 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072598 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 531 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072628 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 532 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072651 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 533 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072662 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 534 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072674 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 535 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072685 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 536 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072695 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 537 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072707 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 538 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072718 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 539 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072729 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 540 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072739 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 541 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072775 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 542 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072814 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 543 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072842 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 544 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072853 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 545 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072865 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 546 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072875 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 547 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072886 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 548 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072897 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 549 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072908 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 550 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072940 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 551 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072952 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 552 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072962 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 553 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.072988 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 554 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073000 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 555 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073010 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 556 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073021 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 557 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073047 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 558 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073069 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 559 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073092 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 560 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073103 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 561 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073115 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 562 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073136 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 563 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073146 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 564 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073158 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 565 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073170 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 566 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073204 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 567 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073228 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 568 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073238 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 569 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073251 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 570 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073261 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 571 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073271 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 572 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073302 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 573 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073312 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 574 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073323 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 575 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073349 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 576 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073372 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 577 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073396 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 578 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073419 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 579 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073431 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 580 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073442 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 581 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073453 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 582 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073464 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 583 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073474 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 584 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073494 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 585 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073520 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 586 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073544 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 587 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073570 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 588 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073580 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 589 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073590 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 590 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073601 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 591 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073612 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 592 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073623 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 593 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073654 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 594 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073665 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 595 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073675 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 596 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073702 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 597 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073725 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 598 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073750 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 599 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073776 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 600 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073786 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 601 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073797 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 602 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073808 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 603 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073819 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 604 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073829 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 605 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073841 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 606 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073912 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 607 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073938 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 608 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073949 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 609 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073961 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 610 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073971 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 611 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073982 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 612 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.073993 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 613 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.074004 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 614 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.074015 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 615 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+W20260109 10:09:12.074046 1665415 visual_integrity.cpp:2219] [VisualIntegrity] Warning: Excluding subset 616 due to invalid sigma values (sigma: [nan, nan, nan], sigma_ss: [nan, nan, nan])
+I20260109 10:09:12.078677 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304417.114000
+I20260109 10:09:12.079515 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304417.114000, XPL: 0.030407 m, YPL: 0.034771 m, VPL: 0.043014 m
+I20260109 10:09:12.130707 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304417.414000
+I20260109 10:09:12.130893 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:09:12.130903 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:09:12.137424 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 9082
+I20260109 10:09:12.190687 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:09:12.481693 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:12.481734 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:09:12.752657 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:12.778412 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:09:12.778455 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76214e+13, N_cols: 699
+I20260109 10:09:12.784483 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.99e-07
+I20260109 10:09:12.816358 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 9081 subsets.
+I20260109 10:09:15.412953 1669898 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1817/9081)
+I20260109 10:09:18.584785 1669896 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3633/9081)
+I20260109 10:09:21.871007 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (5449/9081)
+I20260109 10:09:25.130151 1669899 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (7265/9081)
+I20260109 10:09:29.629499 1669888 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (9081/9081)
+I20260109 10:09:29.634900 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 9082, measurement dimension: 1300, time taken(s): 17.4974
+I20260109 10:09:30.079854 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304417.414000
+I20260109 10:09:30.094085 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304417.414000, XPL: 0.031279 m, YPL: 0.037632 m, VPL: 0.049886 m
+I20260109 10:09:30.142247 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304417.614000
+I20260109 10:09:30.142961 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:09:30.142990 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:09:30.150897 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 7723
+I20260109 10:09:30.200100 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:09:30.566385 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:30.566430 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:09:30.883463 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:30.947356 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:09:30.947419 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76214e+13, N_cols: 690
+I20260109 10:09:30.953622 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.9e-07
+I20260109 10:09:30.990236 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 7722 subsets.
+I20260109 10:09:33.440295 1670103 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1545/7722)
+I20260109 10:09:36.161705 1670097 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3089/7722)
+I20260109 10:09:39.335224 1670097 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (4634/7722)
+I20260109 10:09:42.114636 1670100 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (6179/7722)
+I20260109 10:09:45.925735 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (7722/7722)
+I20260109 10:09:45.926573 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 7723, measurement dimension: 1334, time taken(s): 15.7756
+I20260109 10:09:46.310228 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304417.614000
+I20260109 10:09:46.322567 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304417.614000, XPL: 0.030809 m, YPL: 0.037347 m, VPL: 0.049408 m
+I20260109 10:09:46.384060 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304417.814000
+I20260109 10:09:46.384253 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 19 object groups and 0 independent measurements.
+I20260109 10:09:46.384260 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:09:46.407866 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 28598
+I20260109 10:09:46.576119 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:09:46.975597 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:46.975639 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:09:47.331879 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:09:47.361723 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:09:47.361752 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76214e+13, N_cols: 711
+I20260109 10:09:47.367673 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 7.11e-07
+I20260109 10:09:47.403025 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 28597 subsets.
+I20260109 10:09:58.513917 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (5720/28597)
+I20260109 10:10:12.184368 1670332 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (11439/28597)
+I20260109 10:10:22.971135 1670340 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (17159/28597)
+I20260109 10:10:41.729763 1670338 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (22878/28597)
+I20260109 10:10:57.481302 1670336 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (28597/28597)
+I20260109 10:10:57.481812 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 28598, measurement dimension: 1404, time taken(s): 71.0738
+I20260109 10:10:59.055294 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304417.814000
+I20260109 10:10:59.103541 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304417.814000, XPL: 0.029869 m, YPL: 0.036415 m, VPL: 0.049326 m
+I20260109 10:10:59.173717 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304418.014000
+I20260109 10:10:59.175715 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 19 object groups and 0 independent measurements.
+I20260109 10:10:59.175750 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:10:59.195116 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 31280
+I20260109 10:10:59.373684 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:10:59.800509 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:10:59.800550 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:11:00.194540 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:11:00.231026 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:11:00.231055 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.76214e+13, N_cols: 717
+I20260109 10:11:00.236985 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 7.17e-07
+I20260109 10:11:00.272260 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 31279 subsets.
+I20260109 10:11:13.518177 1670542 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (6256/31279)
+I20260109 10:11:28.386824 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (12512/31279)
+I20260109 10:11:44.108727 1670543 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (18768/31279)
+I20260109 10:12:03.301718 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (25024/31279)
+I20260109 10:12:20.704571 1670549 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (31279/31279)
+I20260109 10:12:20.704679 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 31280, measurement dimension: 1449, time taken(s): 81.5095
+I20260109 10:12:22.881505 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304418.014000
+I20260109 10:12:22.934607 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304418.014000, XPL: 0.029406 m, YPL: 0.036258 m, VPL: 0.049718 m
+I20260109 10:12:23.040454 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304418.114000
+I20260109 10:12:23.041023 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 15 object groups and 0 independent measurements.
+I20260109 10:12:23.041034 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:12:23.049450 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 5139
+I20260109 10:12:23.095739 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:12:23.481791 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:12:23.481830 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:12:23.903860 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:12:23.930452 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:12:23.930480 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 678
+I20260109 10:12:23.935684 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.78e-07
+I20260109 10:12:23.966145 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 5138 subsets.
+I20260109 10:12:26.164829 1670782 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1028/5138)
+I20260109 10:12:28.413556 1670795 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (2056/5138)
+I20260109 10:12:31.566110 1670792 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (3083/5138)
+I20260109 10:12:34.386860 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (4111/5138)
+I20260109 10:12:37.281224 1670790 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (5138/5138)
+I20260109 10:12:37.281328 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 5139, measurement dimension: 1429, time taken(s): 14.2318
+I20260109 10:12:37.590799 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304418.114000
+I20260109 10:12:37.598456 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304418.114000, XPL: 0.029508 m, YPL: 0.036118 m, VPL: 0.047252 m
+I20260109 10:12:37.664546 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304418.414000
+I20260109 10:12:37.664708 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 21 object groups and 0 independent measurements.
+I20260109 10:12:37.664719 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:12:37.707147 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 69876
+I20260109 10:12:38.215776 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:12:38.668906 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:12:38.668951 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:12:39.093348 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:12:39.124678 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:12:39.124708 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 720
+I20260109 10:12:39.130630 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 7.2e-07
+I20260109 10:12:39.165483 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 69875 subsets.
+I20260109 10:13:16.194979 1670993 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (13975/69875)
+I20260109 10:13:52.214526 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (27950/69875)
+I20260109 10:14:49.335060 1670990 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (41925/69875)
+I20260109 10:15:37.344555 1670987 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (55900/69875)
+I20260109 10:16:20.778184 1670988 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (69875/69875)
+I20260109 10:16:20.778656 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 69876, measurement dimension: 1523, time taken(s): 223.071
+I20260109 10:16:26.252808 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304418.414000
+I20260109 10:16:26.372416 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304418.414000, XPL: 0.026944 m, YPL: 0.033203 m, VPL: 0.045132 m
+I20260109 10:16:26.448186 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304418.614000
+I20260109 10:16:26.448853 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 22 object groups and 0 independent measurements.
+I20260109 10:16:26.448873 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:16:26.509378 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 96773
+I20260109 10:16:27.217363 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:16:27.773226 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:16:27.773268 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:16:28.308120 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:16:28.340342 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:16:28.340387 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 711
+I20260109 10:16:28.346374 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 7.11e-07
+I20260109 10:16:28.383102 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 96772 subsets.
+I20260109 10:17:38.059955 1671205 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (19355/96772)
+I20260109 10:18:48.842461 1671203 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (38709/96772)
+I20260109 10:20:35.712836 1671205 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (58064/96772)
+I20260109 10:21:53.539139 1671202 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (77418/96772)
+I20260109 10:23:03.346953 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (96772/96772)
+I20260109 10:23:03.347638 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 96773, measurement dimension: 1639, time taken(s): 396.838
+I20260109 10:23:11.987808 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304418.614000
+I20260109 10:23:12.153275 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304418.614000, XPL: 0.025969 m, YPL: 0.032250 m, VPL: 0.044952 m
+I20260109 10:23:12.225255 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304418.814000
+I20260109 10:23:12.230466 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 16 object groups and 0 independent measurements.
+I20260109 10:23:12.230509 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:23:12.238253 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 9498
+I20260109 10:23:12.328796 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:23:12.975692 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:23:12.975731 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:23:13.572031 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:23:13.613768 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:23:13.613827 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 675
+I20260109 10:23:13.619194 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.75e-07
+I20260109 10:23:13.648459 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 9497 subsets.
+I20260109 10:23:21.824121 1671427 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1900/9497)
+I20260109 10:23:35.127657 1671425 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (3799/9497)
+I20260109 10:23:43.757274 1671432 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (5699/9497)
+I20260109 10:23:57.079191 1671424 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (7598/9497)
+I20260109 10:24:17.214253 1671423 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (9497/9497)
+I20260109 10:24:17.218814 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 9498, measurement dimension: 1707, time taken(s): 64.9805
+I20260109 10:24:18.008198 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304418.814000
+I20260109 10:24:18.021747 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304418.814000, XPL: 0.024422 m, YPL: 0.030693 m, VPL: 0.042574 m
+I20260109 10:24:18.096555 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304419.014000
+I20260109 10:24:18.096771 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 20 object groups and 0 independent measurements.
+I20260109 10:24:18.096783 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:24:18.129812 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 45544
+I20260109 10:24:18.505055 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:24:19.182404 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:24:19.182443 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:24:19.829762 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:24:19.876984 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:24:19.877012 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 669
+I20260109 10:24:19.882166 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.69e-07
+I20260109 10:24:19.912606 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 45543 subsets.
+I20260109 10:26:09.113867 1671634 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (9109/45543)
+I20260109 10:27:19.414848 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (18218/45543)
+I20260109 10:31:22.362003 1671631 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (27326/45543)
+I20260109 10:36:42.715818 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (36435/45543)
+I20260109 10:37:54.855763 1671640 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (45543/45543)
+I20260109 10:37:54.862895 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 45544, measurement dimension: 1758, time taken(s): 816.733
+I20260109 10:37:58.675598 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304419.014000
+I20260109 10:37:58.745554 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304419.014000, XPL: 0.023090 m, YPL: 0.029374 m, VPL: 0.040939 m
+I20260109 10:37:58.812460 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304419.114000
+I20260109 10:37:58.813230 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 15 object groups and 0 independent measurements.
+I20260109 10:37:58.813256 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:37:58.821587 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 6520
+I20260109 10:37:58.884406 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:37:59.720156 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:37:59.720196 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:38:00.471439 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:38:00.508607 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:38:00.508636 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 657
+I20260109 10:38:00.513502 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.57e-07
+I20260109 10:38:00.542071 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 6519 subsets.
+I20260109 10:38:16.276471 1671872 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (1304/6519)
+I20260109 10:38:59.600780 1671871 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (2608/6519)
+I20260109 10:39:37.383711 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (3912/6519)
+I20260109 10:40:20.892443 1671876 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (5216/6519)
+I20260109 10:43:06.057170 1665415 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (6519/6519)
+I20260109 10:43:06.059175 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 6520, measurement dimension: 1766, time taken(s): 307.238
+I20260109 10:43:06.591651 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304419.114000
+I20260109 10:43:06.600103 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304419.114000, XPL: 0.023183 m, YPL: 0.029280 m, VPL: 0.041347 m
+I20260109 10:43:06.681789 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304419.314000
+I20260109 10:43:06.681994 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 21 object groups and 0 independent measurements.
+I20260109 10:43:06.682006 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 10:43:06.720824 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 64756
+I20260109 10:43:07.258925 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 10:43:08.092854 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:43:08.092900 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 10:43:08.850996 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 10:43:08.896819 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 10:43:08.896847 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 684
+I20260109 10:43:08.902232 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.84e-07
+I20260109 10:43:08.935096 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 64755 subsets.
+I20260109 10:52:26.546022 1672383 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (12951/64755)
+I20260109 10:53:47.479707 1672395 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (25902/64755)
+I20260109 11:29:15.191642 1672382 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (38853/64755)
+I20260109 11:40:47.524561 1672394 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (51804/64755)
+I20260109 11:42:40.001045 1665418 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (64755/64755)
+I20260109 11:42:40.001425 1665415 visual_integrity.cpp:1766] [VisualIntegrity] Compute subset solution, number of subsets: 64756, measurement dimension: 1863, time taken(s): 3573.28
+I20260109 11:42:45.049155 1665415 visual_integrity.cpp:797] [VisualIntegrity] No fault detected for timestamp: 1679304419.314000
+I20260109 11:42:45.140591 1665415 visual_integrity.cpp:263] [VisualIntegrity] Timestamp: 1679304419.314000, XPL: 0.512522 m, YPL: 0.588864 m, VPL: 0.044902 m
+I20260109 11:42:45.216691 1665415 visual_integrity.cpp:172] [VisualIntegrity] Timestamp: 1679304419.514000
+I20260109 11:42:45.217733 1665415 visual_integrity.cpp:757] [VisualIntegrity] Defined 19 object groups and 0 independent measurements.
+I20260109 11:42:45.217772 1665415 visual_integrity.cpp:1318] [VisualIntegrity] Info: The maximum simultanous faults need to monitor = 6, in P_THRES = 1.67e-12
+I20260109 11:42:45.239622 1665415 visual_integrity.cpp:771] [VisualIntegrity] Total subsets to monitor: 32652
+I20260109 11:42:45.511722 1665415 visual_integrity.cpp:1476] [VisualIntegrity] Compute the inverse of sig2_int:
+I20260109 11:42:46.317917 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 11:42:46.317953 1665415 visual_integrity.cpp:1478] [VisualIntegrity] Compute the inverse of sig2_acc:
+I20260109 11:42:47.098145 1665415 visual_integrity.cpp:1888] [VisualIntegrity]    - Successfully inverted positive definite matrix
+I20260109 11:42:47.147120 1665415 visual_integrity.cpp:1501] [VisualIntegrity] Compute the Cholesky decomposition of JtWJ:
+I20260109 11:42:47.147143 1665415 visual_integrity.cpp:2128] [VisualIntegrity]    - max_diag: 1.90491e+13, N_cols: 693
+I20260109 11:42:47.153160 1665415 visual_integrity.cpp:2142] [VisualIntegrity]    - Cholesky decomposition succeeded with adaptive damping: 6.93e-07
+I20260109 11:42:47.184544 1665415 visual_integrity.cpp:1530] [VisualIntegrity] Info: Computing subset solutions for 32651 subsets.
+I20260109 11:50:08.329356 1672779 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 20% (6531/32651)
+I20260109 11:54:19.954329 1672783 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 40% (13061/32651)
+I20260109 12:15:14.941331 1672781 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 60% (19591/32651)
+I20260109 12:29:38.154134 1672783 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 80% (26121/32651)
+I20260109 12:38:28.522219 1672774 visual_integrity.cpp:1758] [VisualIntegrity] Subset computation progress: 100% (32651/32651)

@@ -402,7 +402,7 @@ void RosStream::solutionOutputCallback(std::string tag, Solution& solution)
   }
   else if (data_format_ == RosDataFormat::ProtectionLevel) {
     publishProtectionLevel(publishers_[0], solution.pose, 
-      solution.protection_level_x, solution.protection_level_y, solution.protection_level_v,
+      solution.protection_level_la, solution.protection_level_lo, solution.protection_level_v,
       ros::Time(solution.timestamp), frame_id_);
   }
 }

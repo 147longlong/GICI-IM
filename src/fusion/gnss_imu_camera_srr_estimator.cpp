@@ -242,8 +242,8 @@ bool GnssImuCameraSrrEstimator::estimate()
 {
   // Reset integrity results to NaN
   hpl_ = std::numeric_limits<double>::quiet_NaN();
-  xpl_ = std::numeric_limits<double>::quiet_NaN();
-  ypl_ = std::numeric_limits<double>::quiet_NaN();
+  lapl_ = std::numeric_limits<double>::quiet_NaN();
+  lopl_ = std::numeric_limits<double>::quiet_NaN();
   vpl_ = std::numeric_limits<double>::quiet_NaN();
   ir_ = std::numeric_limits<double>::quiet_NaN();
 
@@ -278,8 +278,8 @@ bool GnssImuCameraSrrEstimator::estimate()
       } else {
         visual_integrity_->monitor(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
         hpl_ = visual_integrity_->getHPL();
-        xpl_ = visual_integrity_->getXPL();
-        ypl_ = visual_integrity_->getYPL();
+        lapl_ = visual_integrity_->getLaPL();
+        lopl_ = visual_integrity_->getLoPL();
         vpl_ = visual_integrity_->getVPL();
         ir_ = visual_integrity_->getIR();
       }

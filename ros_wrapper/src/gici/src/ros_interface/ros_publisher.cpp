@@ -660,7 +660,7 @@ void publishGnssSsrEphemerides(
 
 // Publish Protection Level
 void publishProtectionLevel(ros::Publisher& pub, 
-  const Transformation& pose, double xpl, double ypl, double vpl, 
+  const Transformation& pose, double lapl, double lopl, double vpl, 
   const ros::Time time, std::string frame_id)
 {
   visualization_msgs::Marker marker;
@@ -681,8 +681,8 @@ void publishProtectionLevel(ros::Publisher& pub,
   marker.pose.orientation.w = pose.getRotation().w();
   
   // the 10 is for better visualization
-  marker.scale.x = xpl * 2.0 * 10.0; // Diameter
-  marker.scale.y = ypl * 2.0 * 10.0; // Diameter
+  marker.scale.x = lapl * 2.0 * 10.0; // Diameter
+  marker.scale.y = lopl * 2.0 * 10.0; // Diameter
   marker.scale.z = vpl * 2.0 * 10.0; // Diameter
   
   marker.color.a = 0.5; // Semi-transparent

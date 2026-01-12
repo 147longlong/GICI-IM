@@ -38,7 +38,7 @@ def compare_qk_different_probabilities():
     """比较不同故障概率下的q_i结果"""
     
     # 配置路径
-    base_dir = '/home/dell/sunyulong/GICI-IM/visual_ism'
+    base_dir = '/home/syl/GICI-IM/visual_ism'
     result_files = {
         '1e-2': os.path.join(base_dir, 'qk_results1e-2.json'),
         '1e-3': os.path.join(base_dir, 'qk_results1e-3.json'),

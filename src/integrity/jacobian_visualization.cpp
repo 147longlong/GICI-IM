@@ -239,7 +239,7 @@ void saveFactorGraphDot(const Graph* graph, uint64_t current_pose_id, const std:
 
     out << "}\n";
     out.close();
-    LOG(INFO) << "[VisualIntegrity] Factor graph saved to " << filename;
+    LOG(INFO) << "Factor graph saved to " << filename;
 }
 void printJacobianInfo(const Eigen::MatrixXd& J, const Eigen::VectorXd& r,
                               const std::vector<std::pair<uint64_t, std::string>>& row_ids, const std::vector<std::pair<uint64_t, std::string>>& col_ids,
@@ -602,9 +602,9 @@ void saveEigenMatrixToFile(const Eigen::MatrixXd& Matrix_eigen, const std::strin
         m << "Matrix:\n" << Matrix_eigen << "\n";
         m << "----------------------------------------\n";
         m.close();
-        LOG(INFO) << "[VisualIntegrity] Matrix printed to " << filename;
+        LOG(INFO) << "Matrix printed to " << filename;
     } else {
-        LOG(ERROR) << "[VisualIntegrity] Failed to open matrix output file: " << filename;
+        LOG(ERROR) << "Failed to open matrix output file: " << filename;
     }
 }
 

@@ -61,4 +61,5 @@ lib/
 factor_graph.dot
 jacobian_visualization.txt
 results/debug/*
+results/results_images/*
 third_party/segmentation/*.pt

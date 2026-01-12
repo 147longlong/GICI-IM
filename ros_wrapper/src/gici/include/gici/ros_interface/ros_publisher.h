@@ -102,7 +102,7 @@ void publishError3d(ros::Publisher& pub,
 
 // Publish Protection Level
 void publishProtectionLevel(ros::Publisher& pub, 
-  const Transformation& pose, double xpl, double ypl, double vpl, 
+  const Transformation& pose, double lapl, double lopl, double vpl, 
   const ros::Time time, std::string frame_id);
 
 // Publish IMU message

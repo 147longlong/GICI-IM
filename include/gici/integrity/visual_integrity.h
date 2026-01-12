@@ -30,6 +30,7 @@ struct VisualIntegrityOptions {
 
     // Enable/Disable Integrity Monitoring
     bool enable = true;
+    bool use_segment = false; // Whether to use segmentation for fault grouping
 
     // Integrtiy Support Message 
     double sigma_pixel = 1.0; // Pixel noise std
@@ -46,18 +47,18 @@ struct VisualIntegrityOptions {
 
     // Nvigation requirements
     double PHMI = 1.0e-7;
-    double PHMI_X = 1.0e-7 * 0.33; // Allocation
-    double PHMI_Y = 1.0e-7 * 0.34; // Allocation
+    double PHMI_La = 1.0e-7 * 0.33; // Allocation
+    double PHMI_Lo = 1.0e-7 * 0.34; // Allocation
     double PHMI_V = 1.0e-7 * 0.33; // Allocation
     
     double PFA = 1.0e-5;
-    double PFA_X = 1.0e-5 * 0.33;
-    double PFA_Y = 1.0e-5 * 0.34;
+    double PFA_La = 1.0e-5 * 0.33;
+    double PFA_Lo = 1.0e-5 * 0.34;
     double PFA_V = 1.0e-5 * 0.33;
 
     double HAL = 2.0;
-    double XAL = 1.50;
-    double YAL = 0.55;
+    double LaAL = 0.55;
+    double LoAL = 0.50;
     double VAL = 1.40;
 
     // MHSS parameters
@@ -82,6 +83,7 @@ struct IntegritySnapshot {
     Eigen::MatrixXd sig2_acc;
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
+    std::map<uint64_t, int> curr_lm_to_object_ids;
     std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
     std::vector<int> curr_pose_J_cols;
 };
@@ -105,14 +107,15 @@ public:
 
     // New methods for post-processing
     void saveSnapshot(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index);
+    void saveDebugImage(const FramePtr& frame, const PointMap& landmarks_map, const std::string& identifier);
     void processSnapshotsFromFile(const std::string& filename);
     
     void setOutputFile(const std::string& filename) { output_file_ = filename; }
     void setCsvOutputFile(const std::string& filename) { csv_output_file_ = filename; }
 
     double getHPL() const { return HPL_; }
-    double getXPL() const { return XPL_; }
-    double getYPL() const { return YPL_; }
+    double getLaPL() const { return LaPL_; }
+    double getLoPL() const { return LoPL_; }
     double getVPL() const { return VPL_; }
     double getIR() const { return IR_; }
 
@@ -140,6 +143,7 @@ private:
                              Eigen::MatrixXd&  sig2_acc,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                             std::map<uint64_t, int>& curr_lm_to_object_ids,
                              std::map<uint64_t, std::vector<int>>& curr_pose_to_J_cols,
                              std::vector<int>& curr_pose_J_cols);
 
@@ -149,6 +153,7 @@ private:
                                  const Eigen::MatrixXd&  sig2_acc,
                                  const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
                                  const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                                 const std::map<uint64_t, int>& curr_lm_to_object_ids,
                                  const std::vector<int>& curr_pose_J_cols);
 
 
@@ -184,6 +189,7 @@ private:
                                const Eigen::MatrixXd& sig2_int,
                                const Eigen::MatrixXd& sig2_acc,
                                const std::vector<std::vector<int>>& subsets,
+                               const std::vector<std::vector<uint64_t>>& fault_groups,
                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
                                const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
                                const std::vector<uint64_t>& curr_lm_ids,
@@ -221,8 +227,8 @@ private:
                    const std::vector<double>& pap_subset,
                    double p_not_monitored,
                    double& VPL,
-                   double& XPL,
-                   double& YPL,
+                   double& LaPL,
+                   double& LoPL,
                    double& HPL);
 
     double computeVPL(const Eigen::VectorXd& sigma,
@@ -254,11 +260,12 @@ private:
                                  std::vector<std::pair<uint64_t, std::string>>& row_ids_all, std::vector<std::pair<uint64_t, std::string>>& col_ids_all, std::vector<std::pair<uint64_t, double>>& pose_timestamps,
                                 std::vector<std::pair<uint64_t, int>>& rows_curr, std::vector<std::pair<uint64_t, int>>& cols_curr);
     
-    void extractLandmarkRelatedRowsCols(const PointMap& landmarks_map,
+    void extractLandmarkRelatedRowsCols(const FramePtr& frame, const PointMap& landmarks_map,
                                                   const std::vector<std::pair<uint64_t, std::string>>& row_ids_all,
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
                                                   std::map<uint64_t, std::vector<int>>& landmark_observation_rows,
-                                                  std::map<uint64_t, std::vector<int>>& landmark_observation_cols);
+                                                  std::map<uint64_t, std::vector<int>>& landmark_observation_cols,
+                                                  std::map<uint64_t, int>& landmark_object_ids);
     void extractPoseRelatedRowsCols(uint64_t current_pose_id,
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
                                                   std::map<uint64_t, std::vector<int>>& pose_related_cols,
@@ -283,8 +290,8 @@ private:
     double last_timestamp_ = 0;
     
     double HPL_;
-    double XPL_;
-    double YPL_;
+    double LaPL_;
+    double LoPL_;
     double VPL_;
     double IR_;
 

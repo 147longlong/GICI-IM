@@ -584,40 +584,17 @@ void loadOptions<SegmentatorOptions>(
 {
   std::string model_type;
   if (option_tools::safeGet(node, "segmentation_model", &model_type)) {
-    if (model_type == "MobileSAM") options.model_type = SegmentationModelType::MobileSAM;
-    else if (model_type == "FastSAM") options.model_type = SegmentationModelType::FastSAM;
-    else if (model_type == "OpenCV") options.model_type = SegmentationModelType::OpenCV;
-  }
-
-  if (checkSubOption(node, "mobilesam")) {
-    YAML::Node subnode = node["mobilesam"];
-    option_tools::safeGet(subnode, "encoder_path", &options.mobilesam_encoder_path);
-    option_tools::safeGet(subnode, "decoder_path", &options.mobilesam_decoder_path);
-    option_tools::safeGet(subnode, "confidence_threshold", &options.confidence_threshold);
-    option_tools::safeGet(subnode, "iou_threshold", &options.iou_threshold);
-    option_tools::safeGet(subnode, "use_gpu", &options.use_gpu);
+    if (model_type == "FastSAM") options.model_type = SegmentationModelType::FastSAM;
+    else if (model_type == "SLIC") options.model_type = SegmentationModelType::SLIC;
   }
 
   if (checkSubOption(node, "fastsam")) {
     YAML::Node subnode = node["fastsam"];
     option_tools::safeGet(subnode, "model_path", &options.fastsam_model_path);
     // Overwrite if present in fastsam block
-    option_tools::safeGet(subnode, "confidence_threshold", &options.confidence_threshold);
-    option_tools::safeGet(subnode, "iou_threshold", &options.iou_threshold);
     option_tools::safeGet(subnode, "use_gpu", &options.use_gpu);
   }
 
-  if (checkSubOption(node, "opencv")) {
-    YAML::Node subnode = node["opencv"];
-    option_tools::safeGet(subnode, "grabcut_iterations", &options.grabcut_iterations);
-    option_tools::safeGet(subnode, "watershed_threshold", &options.watershed_threshold);
-  }
-
-  if (checkSubOption(node, "performance")) {
-    YAML::Node subnode = node["performance"];
-    option_tools::safeGet(subnode, "max_batch_size", &options.max_batch_size);
-    option_tools::safeGet(subnode, "enable_cache", &options.enable_cache);
-  }
 }
 
 template <>

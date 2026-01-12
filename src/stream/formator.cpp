@@ -1163,7 +1163,6 @@ int NmeaFormator::encodeESD(const Solution& solution, uint8_t* buf)
 }
 
 // Encode GNIM (self-defined Integrity Monitoring) message
-// Format: $GNIM,tod,XPL,YPL,VPL,IR*checksum
 int NmeaFormator::encodeIM(const Solution& solution, uint8_t* buf)
 {
   sol_t sol;
@@ -1183,7 +1182,7 @@ int NmeaFormator::encodeIM(const Solution& solution, uint8_t* buf)
   time2epoch(time,ep);
   p+=sprintf(p,"$%sIM,%02.0f%02.0f%06.3f,%.3f,%.3f,%.3f,%.3e",
              option_.talker_id.data(),ep[3],ep[4],ep[5],
-             solution.protection_level_x, solution.protection_level_y, solution.protection_level_v, solution.integrity_risk);
+             solution.protection_level_la, solution.protection_level_lo, solution.protection_level_v, solution.integrity_risk);
   for (q=(char *)buf+1,sum=0;*q;q++) sum^=*q; /* check-sum */
   p+=sprintf(p,"*%02X\r\n",sum);
   return p-(char *)buf;

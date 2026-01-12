@@ -513,8 +513,8 @@ struct Solution {
   
   // Integrity monitoring results
   double protection_level_h = std::numeric_limits<double>::quiet_NaN();
-  double protection_level_x = std::numeric_limits<double>::quiet_NaN();
-  double protection_level_y = std::numeric_limits<double>::quiet_NaN();
+  double protection_level_la = std::numeric_limits<double>::quiet_NaN();
+  double protection_level_lo = std::numeric_limits<double>::quiet_NaN();
   double protection_level_v = std::numeric_limits<double>::quiet_NaN();
   double integrity_risk = std::numeric_limits<double>::quiet_NaN();
 };

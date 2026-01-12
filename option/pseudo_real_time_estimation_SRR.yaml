@@ -6,46 +6,46 @@ stream:
         tag: str_gnss_rov
         output_tags: [fmt_gnss_rov]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/gnss_rover.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/gnss_rover.bin
     - streamer:
         tag: str_gnss_ref
         output_tags: [fmt_gnss_ref]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/gnss_reference.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/gnss_reference.bin
     - streamer:
         tag: str_gnss_eph
         output_tags: [fmt_gnss_eph]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/gnss_ephemeris.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/gnss_ephemeris.bin
     - streamer:
         tag: str_dcb_file
         output_tags: [fmt_dcb_file]
         type: file
-        path: /home/dell/sunyulong/GICI-IM/option/CAS0MGXRAP_20221580000_01D_01D_DCB.BSX
+        path: /home/syl/GICI-IM/option/CAS0MGXRAP_20221580000_01D_01D_DCB.BSX
         enable_time_tag: false
     - streamer:
         tag: str_imu
         output_tags: [fmt_imu]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/imu.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/imu.bin
         loop_duration: 0.001
     - streamer:
         tag: str_camera
         output_tags: [fmt_camera]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/camera.bin
+        path: /media/syl/longlong/GICI-Dataset/2.1/camera.bin
         buffer_length: 361472 # 752 * 480 + 512 
     - streamer:
         tag: str_rtk_solution_file
         input_tags: [fmt_rtk_solution_file]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/rtk_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/2.1/rtk_solution.txt
         enable_time_tag: false
     - streamer:
         tag: str_srr_solution_file
         input_tags: [fmt_srr_solution_file]
         type: file
-        path: /home/dell/sunyulong/GICI-Dataset/2.1/srr_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/2.1/srr_solution.txt
         enable_time_tag: false
     - streamer:
         tag: str_protection_level
@@ -140,7 +140,7 @@ stream:
 
   replay:
     enable: true
-    speed: 0.2
+    speed: 0.05
     start_offset: 0.0
 
 estimate:
@@ -262,7 +262,7 @@ estimate:
                 cols: 1
                 rows: 4
                 data: [-0.36472323465957157, 0.11530151924890532, 0.0006024586154990503, 0.0020184970860498133]
-            mask: /home/dell/sunyulong/GICI-IM/option/gici-mask.png
+            mask: /home/syl/GICI-IM/option/gici-mask.png
           T_B_C:
             cols: 4
             rows: 4
@@ -270,37 +270,20 @@ estimate:
                   0.999907681540912807,   0.0134460859659659704, -0.00195733688253543802,   0.0110786309679912626,
                   0.00201129251744842832, -0.00400038914436078377,     0.99998997574430859,    0.025008868367930974,
                                       0,                       0,                       0,                       1]
-      segmentation:    
-        segmentation_model: "MobileSAM" # Options: "MobileSAM", "FastSAM", "OpenCV"
-        use_segmentation_filter: false
-        mobilesam:
-          encoder_path: ""
-          decoder_path: ""
-          confidence_threshold: 0.4
-          iou_threshold: 0.5
-          use_gpu: false
+      segmentation: 
+        use_segmentation_filter: true   
+        segmentation_model: "FastSAM" # Options: "FastSAM", "SLIC"
         fastsam:
-          model_path: ""
-          confidence_threshold: 0.4
-          iou_threshold: 0.5
+          model_path: "/home/syl/GICI-IM/third_party/segmentation/FastSAM-s_320.onnx"
           use_gpu: false
-          enable_instance: true
-        opencv:
-          grabcut_iterations: 5
-          watershed_threshold: 0.3
-          morph_kernel_size: 3
-        performance:
-          max_batch_size: 1
-          enable_cache: true
-          warmup_enabled: true
 
 
 integrity:
-  visual_ism_gen:
+  visual_ism_gen: # used in gici_main
     ism_gen_flag: false
     save_ism_image: false
-    gt_file: /home/dell/sunyulong/GICI-Dataset/2.1/gici_tum/Ground-Truth.tum
-    pairwise_file: /home/dell/sunyulong/GICI-Dataset/2.1/pairwise_sd_errors.txt
+    gt_file: /media/syl/longlong/GICI-Dataset/2.1/gici_tum/Ground-Truth.tum
+    pairwise_file: /media/syl/longlong/GICI-Dataset/2.1/pairwise_sd_errors.txt
     pairwise_file_mode: trunc #app,trunc
     saved_folder: 
     saved_file: 
@@ -308,12 +291,13 @@ integrity:
   integrity_options:
     enable: true
     post_processing: true # save snapshot in gici_main, and process snapshot in integrity_main after estimation
-    snapshot_freq: 2 # 2Hz
-    snapshot_file: /home/dell/sunyulong/GICI-Dataset/2.1/integrity_snapshots.bin
+    snapshot_freq: 10 # 2Hz
+    snapshot_file: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_snapshots.bin
     yaml_options: true
     start_timestamp: 0
-    output_post_processing_csv: /home/dell/sunyulong/GICI-Dataset/2.1/test/integrity_results.csv
-    output_post_processing_nmea: /home/dell/sunyulong/GICI-Dataset/2.1/test/srr_solution.txt
+    output_post_processing_csv: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_results.csv
+    output_post_processing_nmea: /media/syl/longlong/GICI-Dataset/2.1/super/srr_solution.txt
+    use_segment: true
   integrity_support_message:
     sigma_pixel: 1.0
     overbounding_func: dual_exp #"dual_exp" f(i) = 1.49101568*exp(-0.28066870*i) + 0.40406420*exp(-0.00353658*i), or "none" to omit the tracking error
@@ -324,28 +308,28 @@ integrity:
     meas_dim: 2
   navigation_requirements:
     # PHMI: 2.77e-7
-    # PHMI_X: 1e-7
-    # PHMI_Y: 1e-7
+    # PHMI_La: 1e-7
+    # PHMI_Lo: 1e-7
     # PHMI_V: 0.77e-7
     # PFA: 1e-5
-    # PFA_X: 0.33e-5
-    # PFA_Y: 0.34e-5
+    # PFA_La: 0.33e-5
+    # PFA_Lo: 0.34e-5
     # PFA_V: 0.33e-5
     # HAL: 2.0
-    # XAL: 1.50
-    # YAL: 0.55
+    # LaAL: 1.50
+    # LoAL: 0.55
     # VAL: 1.40
     # P_THRES: 1e-9
     PHMI: 1.6667e-10
-    PHMI_X: 1.3333e-10   #lateral
-    PHMI_Y: 0.166667e-10 #longitudinal
+    PHMI_La: 1.3333e-10   #lateral
+    PHMI_Lo: 0.166667e-10 #longitudinal
     PHMI_V: 0.166667e-10 #vertical
     PFA: 1e-7
-    PFA_X: 0.2e-7
-    PFA_Y: 0.4e-7
+    PFA_La: 0.2e-7
+    PFA_Lo: 0.4e-7
     PFA_V: 0.4e-7
-    XAL: 0.4 #lateral
-    YAL: 1.4 #longitudinal
+    LaAL: 0.4 #lateral
+    LoAL: 1.4 #longitudinal
     VAL: 1.4 #vertical
     P_THRES: 1.67e-12
     Fc_THRES: 0.01
@@ -356,4 +340,4 @@ logging:
   enable: true
   min_log_level: 0
   log_to_stderr: true
-  file_directory: /home/dell/sunyulong/GICI-Dataset/2.1/test/
+  file_directory: /media/syl/longlong/GICI-Dataset/2.1/super/
