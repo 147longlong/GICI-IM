@@ -354,7 +354,6 @@ NodeOptionHandle::IntegrityNode::IntegrityNode(const YAML::Node& yaml_node)
     option_tools::safeGet(int_opt_node, "post_processing", &i_opts.post_processing);
     option_tools::safeGet(int_opt_node, "snapshot_freq", &i_opts.snapshot_freq);
     option_tools::safeGet(int_opt_node, "snapshot_file", &i_opts.snapshot_file);
-    option_tools::safeGet(int_opt_node, "start_timestamp", &i_opts.start_timestamp);
   }
 
   // integrity_support_message

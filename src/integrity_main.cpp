@@ -59,13 +59,14 @@ int main(int argc, char** argv) {
         if (opts["post_processing"]) {
             options.post_processing = opts["post_processing"].as<bool>();
         }
-        if (opts["start_timestamp"]) options.start_timestamp = opts["start_timestamp"].as<double>();
         if (opts["yaml_options"]) options.yaml_options = opts["yaml_options"].as<bool>();
+        if (opts["use_segment"]) options.use_segment = opts["use_segment"].as<bool>();
+        if (opts["start_timestamp"]) options.start_timestamp = opts["start_timestamp"].as<double>();
+        if (opts["end_timestamp"]) options.end_timestamp = opts["end_timestamp"].as<double>();
         if (opts["snapshot_freq"]) options.snapshot_freq = opts["snapshot_freq"].as<double>();
         if (opts["snapshot_file"]) snapshot_file = opts["snapshot_file"].as<std::string>();
         if (opts["output_post_processing_csv"]) csv_file = opts["output_post_processing_csv"].as<std::string>();
         if (opts["output_post_processing_nmea"]) nmea_file = opts["output_post_processing_nmea"].as<std::string>();
-        if (opts["use_segment"]) options.use_segment = opts["use_segment"].as<bool>();
     }
     if (options.yaml_options){
         LOG(INFO) << "Read options from yaml file";

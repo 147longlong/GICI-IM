@@ -70,6 +70,7 @@ struct VisualIntegrityOptions {
     // Integrity options
     bool post_processing = true;
     double start_timestamp = 0;
+    double end_timestamp = -1;
     bool yaml_options = true;
     double snapshot_freq = 1;
     std::string snapshot_file = "";

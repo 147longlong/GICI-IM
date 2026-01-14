@@ -160,6 +160,10 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
             LOG(WARNING) << std::fixed << std::setprecision(6)  << "Skipped Timestamp: " << timestamp_;
             continue;
         }
+        if (options_.end_timestamp > 0.0 && timestamp_ > options_.end_timestamp) {
+             LOG(WARNING) << std::fixed << std::setprecision(6)  << "Skipped Timestamp (end): " << timestamp_;
+             continue;
+        }
 
         VPL_ = std::numeric_limits<double>::quiet_NaN();
         LaPL_ = std::numeric_limits<double>::quiet_NaN();
@@ -273,18 +277,6 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
 
         if (LaPL_ > 1e4 || LoPL_ > 1e4 || VPL_ > 1e4 || std::isnan(VPL_) || std::isnan(LaPL_) || std::isnan(LoPL_)) {
             LOG(WARNING) << "Abnormally large VPL detected, at timestamp: "<< std::fixed << std::setprecision(6) << timestamp_;
-            LOG(WARNING) << "===========================================================================";
-            // LOG(WARNING) << "p_not_monitored_: " << p_not_monitored_;
-            // LOG(WARNING) << "sigma_.size(): " << sigma_.rows() << " x " << sigma_.cols();
-            // LOG(WARNING) << "Index\tSigma_1\tSigma_2\tSigma_3\tBias\tT_1\tT_2\tT_3\tP_fault";
-            // for (int i = 0; i < sigma_.rows(); ++i) {
-            //     LOG(WARNING) << i << "\t" 
-            //             << sigma_(i, 0) << "\t" << sigma_(i, 1) << "\t" << sigma_(i, 2) << "\t"
-            //             << bias_(i) << "\t" 
-            //             << T_(i, 0) << "\t" << T_(i, 1) << "\t" << T_(i, 2) << "\t"
-            //             << pap_subset_[i];
-            // }
-            // LOG(WARNING) << "===========================================================================";
         }
 
         // Free memory for the processed snapshot to avoid OOM
@@ -306,6 +298,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         
         double sod = ep[3] * 3600.0 + ep[4] * 60.0 + ep[5];
         results_list.push_back({sod, snapshot.timestamp, HPL_, VPL_, LaPL_, LoPL_, IR_});
+        LOG(INFO) << "===========================================================================";
     }
 
     if (csv_out.is_open()) csv_out.close();
@@ -390,16 +383,17 @@ namespace {
     void balanceObjectIds(std::vector<BalancePoint>& points) {
         if (points.empty()) return;
 
-        const double MAX_MERGE_DIST_SQ = 200.0 * 200.0;
+        const double MAX_MERGE_DIST_SQ = 100.0 * 100.0;
         const int SMALL_CLUSTER_THRESHOLD = 2;
         const int LARGE_CLUSTER_THRESHOLD = 4;
-        const int MIN_TOTAL_IDS_THRESHOLD = 18;
+        const int MIN_TOTAL_IDS_THRESHOLD = 20;
+        const int MIN_REQUIRED_IDS = 10;
+        const int MAX_PASSES = 6;
 
         // 1. Handling Large Clusters
         // Use a multi-pass approach to stabilize offloading
         bool unstable = true;
         int pass = 0;
-        const int MAX_PASSES = 5;
         
         while(unstable && pass < MAX_PASSES) {
             unstable = false;
@@ -461,36 +455,33 @@ namespace {
                     // Strategy 2: Split in two (New ID)
                     // No nearby small cluster found, so we must split.
                     
-                    // Calculate Centroid
-                    double sum_x = 0, sum_y = 0;
-                    for(size_t idx : members) { sum_x += points[idx].x; sum_y += points[idx].y; }
-                    double mean_x = sum_x / members.size();
-                    double mean_y = sum_y / members.size();
-                    
-                    // Find seed (farthest from mean)
-                    size_t seed_idx = members[0];
-                    double max_dummy_dist = -1.0;
-                    for(size_t idx : members) {
-                         double d = (points[idx].x - mean_x)*(points[idx].x - mean_x) + (points[idx].y - mean_y)*(points[idx].y - mean_y);
-                         if(d > max_dummy_dist) { max_dummy_dist = d; seed_idx = idx; }
+                    // Calculate bounds to find largest spread axis
+                    double min_x = std::numeric_limits<double>::max();
+                    double max_x = std::numeric_limits<double>::lowest();
+                    double min_y = std::numeric_limits<double>::max();
+                    double max_y = std::numeric_limits<double>::lowest();
+
+                    for(size_t idx : members) { 
+                        if(points[idx].x < min_x) min_x = points[idx].x;
+                        if(points[idx].x > max_x) max_x = points[idx].x;
+                        if(points[idx].y < min_y) min_y = points[idx].y;
+                        if(points[idx].y > max_y) max_y = points[idx].y;
                     }
+
+                    bool split_by_x = (max_x - min_x) > (max_y - min_y);
                     
-                    // Sort members by distance to seed
-                    std::vector<std::pair<double, size_t>> dists;
-                    for(size_t idx : members) {
-                        double d = (points[idx].x - points[seed_idx].x)*(points[idx].x - points[seed_idx].x) + 
-                                   (points[idx].y - points[seed_idx].y)*(points[idx].y - points[seed_idx].y);
-                        dists.push_back({d, idx});
-                    }
-                    std::sort(dists.begin(), dists.end());
+                    // Sort members by the axis with largest spread
+                    std::sort(members.begin(), members.end(), [&](size_t a, size_t b) {
+                        if (split_by_x) return points[a].x < points[b].x;
+                        return points[a].y < points[b].y;
+                    });
                     
-                    // Assign half (closest to seed) to NEW ID
+                    // Assign half to NEW ID (spatial split)
                     int new_id = ++max_id;
-                    size_t split_count = members.size() / 2; 
-                    // Ensure at least one point stays? yes members.size() > 8 implies split > 4
+                    size_t split_start_idx = members.size() / 2;
                     
-                    for(size_t k = 0; k < split_count; ++k) {
-                        points[dists[k].second].id = new_id;
+                    for(size_t k = split_start_idx; k < members.size(); ++k) {
+                        points[members[k]].id = new_id;
                     }
                     
                     unstable = true; 
@@ -501,10 +492,64 @@ namespace {
             }
         }
 
-        // 2. Handling Small Clusters
-        // Only if we have enough total IDs
+        // 2. Handling Small Clusters & Ensures Minimum ID Count
         std::map<int, int> counts;
-        for (const auto& p : points) if (p.id >= 0) counts[p.id]++;
+        int max_id_final = -1;
+        for (const auto& p : points) {
+            if (p.id >= 0) {
+                counts[p.id]++;
+                if (p.id > max_id_final) max_id_final = p.id;
+            }
+        }
+        
+        if (counts.size() < MIN_REQUIRED_IDS) {
+             while (counts.size() < MIN_REQUIRED_IDS) {
+                  int best_pid = -1;
+                  int max_size = 0;
+                  for(const auto& pair : counts) {
+                      if (pair.second > max_size) {
+                          max_size = pair.second;
+                          best_pid = pair.first;
+                      }
+                  }
+                  
+                  if (max_size < 2) break;
+                  
+                  std::vector<size_t> members;
+                  for(size_t i=0; i<points.size(); ++i) {
+                      if(points[i].id == best_pid) members.push_back(i);
+                  }
+                  
+                  double min_x = std::numeric_limits<double>::max();
+                  double max_x = std::numeric_limits<double>::lowest();
+                  double min_y = std::numeric_limits<double>::max();
+                  double max_y = std::numeric_limits<double>::lowest();
+
+                  for(size_t idx : members) { 
+                      if(points[idx].x < min_x) min_x = points[idx].x;
+                      if(points[idx].x > max_x) max_x = points[idx].x;
+                      if(points[idx].y < min_y) min_y = points[idx].y;
+                      if(points[idx].y > max_y) max_y = points[idx].y;
+                  }
+
+                  bool split_by_x = (max_x - min_x) > (max_y - min_y);
+                  
+                  std::sort(members.begin(), members.end(), [&](size_t a, size_t b) {
+                       if (split_by_x) return points[a].x < points[b].x;
+                       return points[a].y < points[b].y;
+                  });
+                  
+                  int new_id = ++max_id_final;
+                  size_t split_start = members.size() / 2;
+                  for(size_t k = split_start; k < members.size(); ++k) {
+                       points[members[k]].id = new_id;
+                  }
+                  
+                  counts[best_pid] = split_start;
+                  counts[new_id] = members.size() - split_start;
+             }
+             return;
+        }
         
         if (counts.size() < MIN_TOTAL_IDS_THRESHOLD) return;
 
@@ -542,7 +587,7 @@ namespace {
     }
 }
 
-void VisualIntegrity::saveDebugImage(const FramePtr& frame, const PointMap& landmarks_map, const std::string& identifier) 
+void VisualIntegrity::saveDebugImage(const FramePtr& frame, const PointMap& landmarks_map, const std::string& filename) 
 {
     // Ensure we have an image
     if (frame->img_pyr_.empty()) return;
@@ -647,9 +692,9 @@ void VisualIntegrity::saveDebugImage(const FramePtr& frame, const PointMap& land
     }
     
     static int debug_save_cnt = 0;
-    std::string save_path = "/home/syl/GICI-IM/results/debug/debug_" + identifier + ".png";
-    cv::imwrite(save_path, img_color);
-    LOG(INFO) << "Saved debug image to: " << save_path;
+    cv::imwrite(filename, img_color);
+    LOG(INFO) << "Saved debug image to: " << filename;
+    
 }
 
 bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame, 
@@ -681,8 +726,8 @@ bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame,
         LOG(ERROR) << "Failed to extract linear system.";
         return false;
     }
-    
-    saveDebugImage(frame, landmarks_map, std::to_string(state.timestamp));
+
+    saveDebugImage(frame, landmarks_map, "/media/syl/longlong/GICI-Dataset/2.1/super/segement_images/" + std::to_string(frame->getTimestampSec()) + "_ids.png");
     // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
     // saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/debug/sig2_acc_output" + std::to_string(state.timestamp)  + ".txt");
     // saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, "/home/syl/GICI-IM/results/factor_graph.dot");
@@ -2585,14 +2630,25 @@ int VisualIntegrity::nchoosek(int n, int k)
 
 // Helper function to read options from a stream
 void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::ifstream& in) {
+
+    // integrity options
     in.read(reinterpret_cast<char*>(&options.enable), sizeof(bool));
+    in.read(reinterpret_cast<char*>(&options.post_processing), sizeof(bool));
+    in.read(reinterpret_cast<char*>(&options.snapshot_freq), sizeof(double));
+    size_t len;
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));                  
+    if (len > 4096) {
+        LOG(ERROR) << "Invalid snapshot_file string length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.snapshot_file.resize(len);                                        
+    if (len > 0) in.read(&options.snapshot_file[0], len);    
+
+    // integrity_support_message
     in.read(reinterpret_cast<char*>(&options.sigma_pixel), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.prior_fault_probability), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.use_segment), sizeof(bool));
     in.read(reinterpret_cast<char*>(&options.meas_dim), sizeof(int));
-    
-    // overbounding_func string
-    size_t len;
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
     if (len > 1024) {
         LOG(ERROR) << "Invalid overbounding_func length: " << len;
@@ -2601,8 +2657,6 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     }
     options.overbounding_func.resize(len);
     if (len > 0) in.read(&options.overbounding_func[0], len);
-
-    // overbounding_parameters vector
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
     if (len > 10000) {
         LOG(ERROR) << "Invalid overbounding_parameters length: " << len;
@@ -2611,8 +2665,6 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     }
     options.overbounding_parameters.resize(len);
     if (len > 0) in.read(reinterpret_cast<char*>(options.overbounding_parameters.data()), len * sizeof(double));
-
-    // normal_func string
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
     if (len > 1024) {
         LOG(ERROR) << "Invalid normal_func length: " << len;
@@ -2621,8 +2673,6 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     }
     options.normal_func.resize(len);
     if (len > 0) in.read(&options.normal_func[0], len);
-
-    // normal_parameters vector
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
     if (len > 10000) {
         LOG(ERROR) << "Invalid normal_parameters length: " << len;
@@ -2632,7 +2682,7 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     options.normal_parameters.resize(len);
     if (len > 0) in.read(reinterpret_cast<char*>(options.normal_parameters.data()), len * sizeof(double));
 
-    // Other doubles
+    // navigation_requirements
     in.read(reinterpret_cast<char*>(&options.PHMI), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.PHMI_La), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.PHMI_Lo), sizeof(double));
@@ -2645,51 +2695,44 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     in.read(reinterpret_cast<char*>(&options.VAL), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.LaAL), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.LoAL), sizeof(double));
-    
-    // snapshot_file string
-    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
-    if (len > 4096) {
-        LOG(ERROR) << "Invalid snapshot_file string length: " << len;
-        in.setstate(std::ios::failbit);
-        return;
-    }
-    options.snapshot_file.resize(len);
-    if (len > 0) in.read(&options.snapshot_file[0], len);
+    in.read(reinterpret_cast<char*>(&options.P_THRES), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.Fc_THRES), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.PL_TOL), sizeof(double));
 }
 
 // Helper function to write options to a stream
 void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, std::ofstream& out) {
+    
+    // integrity options
     out.write(reinterpret_cast<const char*>(&options.enable), sizeof(bool));
+    out.write(reinterpret_cast<const char*>(&options.post_processing), sizeof(bool));
+    out.write(reinterpret_cast<const char*>(&options.snapshot_freq), sizeof(double));
+    size_t snap_file_len = options.snapshot_file.size();
+    out.write(reinterpret_cast<const char*>(&snap_file_len), sizeof(size_t));
+    out.write(options.snapshot_file.c_str(), snap_file_len); 
+
+    // integrity_support_message
     out.write(reinterpret_cast<const char*>(&options.sigma_pixel), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.prior_fault_probability), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.use_segment), sizeof(bool));
     out.write(reinterpret_cast<const char*>(&options.meas_dim), sizeof(int));
-    
-    // overbounding_func string
     size_t ob_func_len = options.overbounding_func.size();
     out.write(reinterpret_cast<const char*>(&ob_func_len), sizeof(size_t));
     out.write(options.overbounding_func.c_str(), ob_func_len);
-
-    // overbounding_parameters vector
     size_t ob_params_len = options.overbounding_parameters.size();
     out.write(reinterpret_cast<const char*>(&ob_params_len), sizeof(size_t));
     if (ob_params_len > 0) {
         out.write(reinterpret_cast<const char*>(options.overbounding_parameters.data()), ob_params_len * sizeof(double));
     }
-
-    // normal_func string
     size_t norm_func_len = options.normal_func.size();
     out.write(reinterpret_cast<const char*>(&norm_func_len), sizeof(size_t));
     out.write(options.normal_func.c_str(), norm_func_len);
-
-    // normal_parameters vector
     size_t norm_params_len = options.normal_parameters.size();
     out.write(reinterpret_cast<const char*>(&norm_params_len), sizeof(size_t));
     if (norm_params_len > 0) {
         out.write(reinterpret_cast<const char*>(options.normal_parameters.data()), norm_params_len * sizeof(double));
     }
 
-    // Other doubles
+    // navigation_requirements
     out.write(reinterpret_cast<const char*>(&options.PHMI), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.PHMI_La), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.PHMI_Lo), sizeof(double));
@@ -2702,11 +2745,9 @@ void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, st
     out.write(reinterpret_cast<const char*>(&options.VAL), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.LaAL), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.LoAL), sizeof(double));
-    
-    // snapshot_file string
-    size_t snap_file_len = options.snapshot_file.size();
-    out.write(reinterpret_cast<const char*>(&snap_file_len), sizeof(size_t));
-    out.write(options.snapshot_file.c_str(), snap_file_len);
+    out.write(reinterpret_cast<const char*>(&options.P_THRES), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.Fc_THRES), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.PL_TOL), sizeof(double));
 }
 
 void VisualIntegrity::serializeSnapshot(const IntegritySnapshot& snapshot, std::ofstream& out) {

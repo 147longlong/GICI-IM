@@ -41,7 +41,9 @@ bool PythonSegmentationBridge::initialize(const std::string& model_type,
 
     // Preload Conda's libstdc++ with DEEPBIND to force using its symbols
     // This attempts to expose the GLIBCXX_3.4.30 symbols to the global scope
-    const char* conda_libstd = "/home/syl/miniconda3/envs/gici/lib/libstdc++.so.6";
+    // Use macro from CMakeLists.txt
+    const std::string conda_libstd_str = std::string(CONDA_ENV_PATH) + "/lib/libstdc++.so.6";
+    const char* conda_libstd = conda_libstd_str.c_str();
     
     #ifndef RTLD_DEEPBIND
     #define RTLD_DEEPBIND 0x8
@@ -51,7 +53,8 @@ bool PythonSegmentationBridge::initialize(const std::string& model_type,
     // Conda Python 3.10. Setting LD_LIBRARY_PATH allows all python extensions (cv2, onnxruntime)
     // to find their dependencies (freetype, libffi, etc.) within the Conda environment.
     // This was dangerous when we were on System Python 3.8, but should be safe now.
-    const char* conda_lib_dir = "/home/syl/miniconda3/envs/gici/lib";
+    const std::string conda_lib_dir_str = std::string(CONDA_ENV_PATH) + "/lib";
+    const char* conda_lib_dir = conda_lib_dir_str.c_str();
     std::string new_ld_path = std::string(conda_lib_dir);
     if (const char* old_ld_path = getenv("LD_LIBRARY_PATH")) {
         new_ld_path += ":" + std::string(old_ld_path);
@@ -74,18 +77,21 @@ bool PythonSegmentationBridge::initialize(const std::string& model_type,
     PyObject* sysPath = PySys_GetObject("path");
     
     // Explicitly add conda environment site-packages to sys.path
-    // This allows using packages installed in conda (like ultralytics) even when linked against system python
-    PyList_Append(sysPath, PyUnicode_FromString("/home/syl/miniconda3/envs/gici/lib/python3.10/site-packages"));
-    PyList_Append(sysPath, PyUnicode_FromString("/home/syl/miniconda3/envs/gici/lib/python3.10/lib-dynload"));
+    std::string site_packages_path = std::string(CONDA_ENV_PATH) + "/lib/python3.10/site-packages";
+    std::string dynload_path = std::string(CONDA_ENV_PATH) + "/lib/python3.10/lib-dynload";
+
+    PyList_Append(sysPath, PyUnicode_FromString(site_packages_path.c_str()));
+    PyList_Append(sysPath, PyUnicode_FromString(dynload_path.c_str()));
 
     // Explicitly preload the conda libstdc++.so.6 using ctypes to avoid GLIBCXX version issues
-    const char* preload_script = 
+    // We construct the python script string dynamically
+    std::string preload_script = 
         "import ctypes\n"
         "import os\n"
         "import sys\n"
         "try:\n"
         "    # Preload libstdc++ (Redundant if C++ did it, but safe)\n"
-        "    conda_lib_path = '/home/syl/miniconda3/envs/gici/lib/libstdc++.so.6'\n"
+        "    conda_lib_path = '" + std::string(CONDA_ENV_PATH) + "/lib/libstdc++.so.6'\n"
         "    if os.path.exists(conda_lib_path):\n"
         "        ctypes.CDLL(conda_lib_path, mode=ctypes.RTLD_GLOBAL)\n"
         // "        print(f'[DEBUG] Successfully preloaded {conda_lib_path}')\n"
@@ -93,7 +99,7 @@ bool PythonSegmentationBridge::initialize(const std::string& model_type,
         // "    print('Python search path:', sys.path)\n"
         "except Exception as e:\n"
         "    print(f'Failed to run preload script: {e}')\n";
-    PyRun_SimpleString(preload_script);
+    PyRun_SimpleString(preload_script.c_str());
 
     
     // Assuming the script is in /home/syl/GICI-IM/third_party/segmentation

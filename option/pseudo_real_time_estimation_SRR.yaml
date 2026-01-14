@@ -291,13 +291,15 @@ integrity:
   integrity_options:
     enable: true
     post_processing: true # save snapshot in gici_main, and process snapshot in integrity_main after estimation
-    snapshot_freq: 10 # 2Hz
+    snapshot_freq: 2 # 10Hz
     snapshot_file: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_snapshots.bin
+    # below integrity_options are used in integrity_main
     yaml_options: true
+    use_segment: true
     start_timestamp: 0
+    end_timestamp: 1679304709.000
     output_post_processing_csv: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_results.csv
     output_post_processing_nmea: /media/syl/longlong/GICI-Dataset/2.1/super/srr_solution.txt
-    use_segment: true
   integrity_support_message:
     sigma_pixel: 1.0
     overbounding_func: dual_exp #"dual_exp" f(i) = 1.49101568*exp(-0.28066870*i) + 0.40406420*exp(-0.00353658*i), or "none" to omit the tracking error
@@ -339,5 +341,5 @@ integrity:
 logging:
   enable: true
   min_log_level: 0
-  log_to_stderr: true
+  log_to_stderr: false
   file_directory: /media/syl/longlong/GICI-Dataset/2.1/super/

@@ -679,7 +679,7 @@ bool FeatureHandler::processFrame()
   // Detect features in new frame
   detectFeatures(getCurrent(frame_bundles_)->at(0));
 
-  #if 0
+  #if 1
   // Visualization if segmentation executed
   if (options_.use_segmentation_filter && !current_segmentation_mask_.empty() && segmentator_) {
        static int vis_cnt = 0;
@@ -695,7 +695,7 @@ bool FeatureHandler::processFrame()
                          cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
           }
        }
-       std::string save_path = "/home/syl/GICI-IM/results/debug/mask_vis_" + std::to_string(vis_cnt) + ".png";
+       std::string save_path = "/media/syl/longlong/GICI-Dataset/2.1/super/segement_images/" + std::to_string(frame->getTimestampSec()) + "_mask_feat.png";
        LOG(INFO) << "Saving to " << save_path;
        cv::imwrite(save_path, mask_vis);
        vis_cnt++;

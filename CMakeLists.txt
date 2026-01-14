@@ -55,6 +55,8 @@ add_definitions(-DENAGLO -DENACMP -DENAGAL -DNFREQ=3 -DNEXOBS=3 -DDLL)
 add_subdirectory(third_party/rtklib)
 # Find Python
 set(Python3_EXECUTABLE "${CONDA_ENV_PATH}/bin/python3")
+# Force find_package to look in Conda environment first
+set(CMAKE_PREFIX_PATH "${CONDA_ENV_PATH}" ${CMAKE_PREFIX_PATH})
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
 
@@ -84,6 +86,7 @@ list(APPEND DIR_ALL ${DIR_utility}
 
 # library
 add_library(${PROJECT_NAME} SHARED ${DIR_ALL})
+target_compile_definitions(${PROJECT_NAME} PRIVATE CONDA_ENV_PATH="${CONDA_ENV_PATH}")
 target_link_libraries(${PROJECT_NAME} 
                       rtklib
                       vikit_common
@@ -101,7 +104,6 @@ target_include_directories(${PROJECT_NAME}
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-set(CMAKE_INSTALL_RPATH "${CONDA_ENV_PATH}/lib")
 
 # executable
 add_executable(gici_main src/gici_main.cpp)

@@ -1,5 +1,6 @@
 import sys
 import os
+import ctypes
 import numpy as np
 
 # Workaround for Qt6/OpenCV freetype symbol issue
@@ -9,14 +10,14 @@ import os
 # Force matplotlib to use non-interactive backend to avoid GUI lib loading
 os.environ['MPLBACKEND'] = 'Agg'
 
-if os.path.exists('/home/syl/miniconda3/envs/gici/lib/libopenjp2.so.7'):
+conda_lib_path = os.path.join(sys.prefix, 'lib')
+libopenjp2_path = os.path.join(conda_lib_path, 'libopenjp2.so.7')
+if os.path.exists(libopenjp2_path):
     try:
-        import ctypes
-        # Preload libopenjp2 manually to ensure Pillow sees the correct version 
-        # (avoids 'undefined symbol: opj_encoder_set_extra_options' if system lib is loaded)
-        ctypes.CDLL('/home/syl/miniconda3/envs/gici/lib/libopenjp2.so.7', mode=ctypes.RTLD_GLOBAL)
+        ctypes.CDLL(libopenjp2_path, mode=ctypes.RTLD_GLOBAL)
     except Exception as e:
-        print(f"[PYTHON] Warning: Failed to preload libopenjp2: {e}")
+        print(f"[PYTHON] Warning: Failed to preload libopenjp2 from {libopenjp2_path}: {e}")
+
 
 import cv2
 import torch
@@ -143,10 +144,11 @@ class SegmentationWrapper:
         # ==================================================================================
         enable_postprocess = (postprocess_mode != 0)
 
-        MAX_MASKS_COUNTS = 200
-        RATIO_TO_MAX_MASKS = 0.6
+        MAX_MASKS_COUNTS = 200         # Maximum number of masks to output, if exceeded, smaller ones are dropped by RATIO_TO_MAX_MASKS
+        RATIO_TO_MAX_MASKS = 0.6       # Dynamic ratio to limit masks when too many candidates
+        MAX_SINGLE_MASK_RATIO = 0.015  # Maximum ratio of single mask area to image area before splitting
         
-        print(f"[PYTHON]  Segmenting image of shape {image.shape} with postprocess_mode={postprocess_mode}")
+        print(f"[PYTHON]  Segmenting image of shape {image.shape} with postprocess_mode = {postprocess_mode}")
         
         if self.model is None:
             print("[PYTHON] Model not initialized")
@@ -195,7 +197,7 @@ class SegmentationWrapper:
                 # Convert to RGB for skimage
                 img_rgb = cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB)
                 
-                masks_small = slic(img_rgb, n_segments=400, compactness=10, sigma=1, start_label=1)
+                masks_small = slic(img_rgb, n_segments=70, compactness=10, sigma=1, start_label=1)
                 
                 if scale < 1.0:
                     masks = cv2.resize(masks_small.astype(np.int32), (w, h), interpolation=cv2.INTER_NEAREST)
@@ -256,7 +258,7 @@ class SegmentationWrapper:
                     if postprocess_mode == 1:
                         min_area_threshold = 300 
                     else:
-                        min_area_threshold = 100 
+                        min_area_threshold = 150 
 
                     keep_indices = areas > min_area_threshold
                     
@@ -325,7 +327,7 @@ class SegmentationWrapper:
                     # -----------------------------------------------------------
                     # 5% of image area. Using a larger chunk size prevents creating too many fragments
                     # that would exceed MAX_MASKS_COUNTS and result in ID=0 holes.
-                    MAX_SINGLE_MASK_RATIO = 0.02
+                    
                     max_single_mask_pixels = image.shape[0] * image.shape[1] * MAX_SINGLE_MASK_RATIO
                     
                     final_split_candidates = []
@@ -432,7 +434,7 @@ class SegmentationWrapper:
                         obj_id = item['assigned_id']
                             
                         # Connectivity cleanup for small objects (IDs > 10)
-                        if enable_postprocess and obj_id > 10 and obj_id < 100:
+                        if enable_postprocess and obj_id > 0:
                             mask_cpu = current_mask.cpu().numpy().astype(np.uint8)
                             num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(mask_cpu, connectivity=8)
                             if num_labels > 2:
@@ -474,7 +476,7 @@ class SegmentationWrapper:
                         mask_np = item['mask'].cpu().numpy().astype(np.uint8)
                         obj_id = item['assigned_id']
                         
-                        if postprocess_mode == 2 and obj_id > 10: 
+                        if postprocess_mode == 2 and obj_id > 0: 
                              num_labels, labels_im, stats, _ = cv2.connectedComponentsWithStats(mask_np, connectivity=8)
                              if num_labels > 2:
                                  largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
@@ -486,10 +488,14 @@ class SegmentationWrapper:
                         cls_name = "unknown"
                         if cls_idx == -1:
                              cls_name = "background"
-                        else:
-                             names = self.model.names if hasattr(self.model, 'names') else {}
-                             if cls_idx in names:
-                                  cls_name = names[cls_idx]
+                        else: 
+                            if item.get('is_large_split', False):
+                                self.instance_map[obj_id] = f"{cls_name}_part"
+                            else:
+                                self.instance_map[obj_id] = cls_name
+                                names = self.model.names if hasattr(self.model, 'names') else {}
+                                if cls_idx in names:
+                                    cls_name = names[cls_idx]
                         
                         if item.get('is_large_split', False):
                              self.instance_map[obj_id] = f"{cls_name}_part"
