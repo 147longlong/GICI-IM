@@ -204,37 +204,37 @@ def plot_final_result(q_i, envelope_result, normal_result, output_file):
     
     # 1. 上包络拟合
     ax1 = axes[0, 0]
-    ax1.plot(x, q_i, 'o-', linewidth=2, markersize=3, color='blue', label='Original q_i', alpha=0.7)
+    ax1.plot(x, q_i, 'o-', linewidth=2, markersize=3, color='blue', label='Original $q_i$', alpha=0.7)
     ax1.plot(x, envelope_result['fitted'], 'r-', linewidth=2.5, label=f"Envelope: {envelope_result['type']}")
     ax1.fill_between(x, q_i, envelope_result['fitted'], alpha=0.3, color='red', label='Gap')
-    ax1.set_xlabel('Index i', fontsize=12)
-    ax1.set_ylabel('q_i', fontsize=12)
-    ax1.set_title(f'Envelope Fit (RMSE={envelope_result["rmse"]:.6f})', fontsize=13, fontweight='bold')
+    ax1.set_xlabel('Index $i$', fontsize=18) 
+    ax1.set_ylabel('$q_i$', fontsize=18)
+    ax1.set_title(f'RMSE={envelope_result["rmse"]:.6f}', fontsize=18)
     ax1.grid(True, linestyle='--', alpha=0.5)
-    ax1.legend(fontsize=8)
+    ax1.legend(fontsize=16)
     
     # 2. 正常拟合
     ax2 = axes[0, 1]
-    ax2.plot(x, q_i, 'o-', linewidth=2, markersize=3, color='blue', label='Original q_i', alpha=0.7)
+    ax2.plot(x, q_i, 'o-', linewidth=2, markersize=3, color='blue', label='Original $q_i$', alpha=0.7)
     ax2.plot(x, normal_result['fitted'], 'g-', linewidth=2.5, label=f"Normal: {normal_result['type']}")
     ax2.fill_between(x, q_i, normal_result['fitted'], alpha=0.3, color='green', where=(normal_result['fitted']>=q_i), label='Above')
     ax2.fill_between(x, q_i, normal_result['fitted'], alpha=0.3, color='orange', where=(normal_result['fitted']<q_i), label='Below')
-    ax2.set_xlabel('Index i', fontsize=12)
-    ax2.set_ylabel('q_i', fontsize=12)
-    ax2.set_title(f'Normal Fit (RMSE={normal_result["rmse"]:.6f})', fontsize=13, fontweight='bold')
+    ax2.set_xlabel('Index $i$', fontsize=18) 
+    ax2.set_ylabel('$q_i$', fontsize=18)
+    ax2.set_title(f'RMSE={normal_result["rmse"]:.6f}', fontsize=18)
     ax2.grid(True, linestyle='--', alpha=0.5)
-    ax2.legend(fontsize=8)
+    ax2.legend(fontsize=16)
     
     # 3. 两者对比
     ax3 = axes[0, 2]
     ax3.plot(x, q_i, 'o-', linewidth=2, markersize=3, color='blue', label='Original', alpha=0.7)
     ax3.plot(x, envelope_result['fitted'], 'r-', linewidth=2, label=f"Envelope ({envelope_result['type']})")
     ax3.plot(x, normal_result['fitted'], 'g--', linewidth=2, label=f"Normal ({normal_result['type']})")
-    ax3.set_xlabel('Index i', fontsize=12)
-    ax3.set_ylabel('q_i', fontsize=12)
-    ax3.set_title('Comparison', fontsize=13, fontweight='bold')
+    ax3.set_xlabel('Index $i$', fontsize=18) 
+    ax3.set_ylabel('$q_i$', fontsize=18)
+    ax3.set_title('Comparison', fontsize=18, fontweight='bold')
     ax3.grid(True, linestyle='--', alpha=0.5)
-    ax3.legend(fontsize=8)
+    ax3.legend(fontsize=16)
     
     # 4. 上包络间隙
     ax4 = axes[1, 0]
@@ -242,9 +242,9 @@ def plot_final_result(q_i, envelope_result, normal_result, output_file):
     ax4.plot(x, gap_env, 'r-', linewidth=2)
     ax4.axhline(y=0, color='black', linestyle='--', linewidth=1)
     ax4.fill_between(x, 0, gap_env, alpha=0.3, color='red')
-    ax4.set_xlabel('Index i', fontsize=12)
-    ax4.set_ylabel('Gap', fontsize=12)
-    ax4.set_title(f'Envelope Gap\nMin: {np.min(gap_env):.6f}, Mean: {np.mean(gap_env):.6f}', fontsize=13, fontweight='bold')
+    ax4.set_xlabel('Index $i$', fontsize=18) 
+    ax4.set_ylabel('Gap', fontsize=18)
+    ax4.set_title(f'Min: {np.min(gap_env):.6f}, Mean: {np.mean(gap_env):.6f}', fontsize=18)
     ax4.grid(True, linestyle='--', alpha=0.5)
     
     # 5. 正常拟合误差
@@ -254,9 +254,9 @@ def plot_final_result(q_i, envelope_result, normal_result, output_file):
     ax5.axhline(y=0, color='black', linestyle='--', linewidth=1)
     ax5.fill_between(x, 0, gap_norm, where=(gap_norm>=0), alpha=0.3, color='green')
     ax5.fill_between(x, gap_norm, 0, where=(gap_norm<0), alpha=0.3, color='orange')
-    ax5.set_xlabel('Index i', fontsize=12)
-    ax5.set_ylabel('Error', fontsize=12)
-    ax5.set_title(f'Normal Fit Error\nMax: {np.max(np.abs(gap_norm)):.6f}', fontsize=13, fontweight='bold')
+    ax5.set_xlabel('Index $i$', fontsize=18) 
+    ax5.set_ylabel('Error', fontsize=18)
+    ax5.set_title(f'Max: {np.max(np.abs(gap_norm)):.6f}', fontsize=18)
     ax5.grid(True, linestyle='--', alpha=0.5)
     
     # 6. 对数坐标对比
@@ -264,12 +264,12 @@ def plot_final_result(q_i, envelope_result, normal_result, output_file):
     ax6.plot(x, q_i, 'o-', linewidth=2, markersize=3, color='blue', label='Original', alpha=0.7)
     ax6.plot(x, envelope_result['fitted'], 'r-', linewidth=2, label='Envelope')
     ax6.plot(x, normal_result['fitted'], 'g--', linewidth=2, label='Normal')
-    ax6.set_xlabel('Index i', fontsize=12)
-    ax6.set_ylabel('q_i', fontsize=12)
-    ax6.set_title('Log Scale', fontsize=13, fontweight='bold')
+    ax6.set_xlabel('Index i', fontsize=18)
+    ax6.set_ylabel('q_i', fontsize=18)
+    ax6.set_title('Log Scale', fontsize=18, fontweight='bold')
     ax6.set_yscale('log')
     ax6.grid(True, linestyle='--', alpha=0.5)
-    ax6.legend(fontsize=8)
+    ax6.legend(fontsize=16)
     
     plt.tight_layout()
     plt.savefig(output_file, dpi=300)
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     phi = 3  # 要拟合的phi值
     
     # 路径配置
-    results_file = '/home/syl/GICI-IM/visual_ism/qk_results.json'  # q_k结果文件
+    results_file = '/home/syl/GICI-IM/visual_ism/qk_results1e-3.json'  # q_k结果文件
     output_file = '/home/syl/GICI-IM/visual_ism/qk_fitting_comparison.png'  # 对比图文件
     params_file = '/home/syl/GICI-IM/visual_ism/qk_fitting_params.json'  # 参数文件
     # ==================================================

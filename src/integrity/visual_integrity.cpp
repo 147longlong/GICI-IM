@@ -1599,6 +1599,18 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
         Eigen::MatrixXd W_rem(n_max, n_max);
         Eigen::VectorXd r_rem(n_max);
         
+        // Hoist allocations to thread-local scope to avoid repeated mallocs
+        Eigen::MatrixXd JP; 
+        Eigen::MatrixXd W_rem_inv;
+        Eigen::MatrixXd Middle; 
+        Eigen::MatrixXd Kernel;
+        Eigen::MatrixXd UpdateBlock;
+        Eigen::VectorXd b_sub; 
+        Eigen::VectorXd x_curr_full;
+        Eigen::RowVectorXd P_sub_row;           
+        Eigen::VectorXd s_row;  
+        Eigen::VectorXd ds;
+
         #pragma omp for schedule(dynamic, 16)  // Dynamic scheduling for load balancing
         for (int i = 1; i < N_sets; ++i) {
             rows_to_remove.clear();
@@ -1641,28 +1653,27 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
             }
 
             // UpdateBlock = (P_all * J_rem^T) * (W_rem^-1 - J_rem * P_all * J_rem^T)^-1
-            Eigen::MatrixXd JP = J_rem * P_all; // n_rem x N_cols
-            Eigen::MatrixXd W_rem_inv;
+            JP = J_rem * P_all; // n_rem x N_cols
             if (W_is_diagonal) {
                 W_rem_inv = W_rem.diagonal().cwiseInverse().asDiagonal();
             } else {
                 W_rem_inv = robustInverse(W_rem);
             }
             
-            Eigen::MatrixXd Middle = W_rem_inv - (JP * J_rem.transpose());
-            Eigen::MatrixXd Kernel = robustInverse(Middle);
-            Eigen::MatrixXd UpdateBlock = JP.transpose() * Kernel;
-            Eigen::VectorXd b_sub = b_all - J_rem.transpose() * W_rem * r_rem;
-            Eigen::VectorXd x_curr_full = P_all * b_sub + UpdateBlock * (JP * b_sub);
+            Middle = W_rem_inv - (JP * J_rem.transpose());
+            Kernel = robustInverse(Middle);
+            UpdateBlock = JP.transpose() * Kernel;
+            b_sub = b_all - J_rem.transpose() * W_rem * r_rem;
+            x_curr_full = P_all * b_sub + UpdateBlock * (JP * b_sub);
 
             // Compute S vectors and Sigma for all 3 dimensions
             for (int k = 0; k < 3; ++k) {
                 int row_id = curr_pose_J_cols[k];
                 x(i, k) = x_curr_full(row_id);
                 // Compute specific row of P_sub: P_row + UpdateBlock_row * JP
-                Eigen::RowVectorXd P_sub_row = P_all.row(row_id) + UpdateBlock.row(row_id) * JP;
+                P_sub_row = P_all.row(row_id) + UpdateBlock.row(row_id) * JP;
                 // Compute S vector: S = P_sub_row * JtW_all
-                Eigen::VectorXd s_row = (P_sub_row * JtW_all).transpose();
+                s_row = (P_sub_row * JtW_all).transpose();
                 // Set S values for removed measurements to 0
                 for(size_t r=0; r<rows_to_remove.size(); ++r) {
                     s_row(rows_to_remove[r]) = 0.0;
@@ -1672,7 +1683,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                 if(k==0) s1vec.row(i) = s_row;
                 if(k==1) s2vec.row(i) = s_row;
                 if(k==2) s3vec.row(i) = s_row;
-                Eigen::VectorXd ds = s_row - s_base[k];
+                ds = s_row - s_base[k];
                 
                 // Compute Sigma and Sigma_ss with diagonal optimization
                 double var = is_sig2_int_diag ? 

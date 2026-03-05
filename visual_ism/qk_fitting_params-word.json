@@ -1,0 +1,29 @@
+{
+  "phi": 3,
+  "envelope_fit": {
+    "type": "dual_exp_envelope",
+    "params": [
+      1.4910156756786461,
+      0.28066869909455294,
+      0.4040641981860684,
+      0.0035365823002368284
+    ],
+    "rmse": 0.08307789839486102,
+    "max_violation": 0.0,
+    "envelope_margin": 0.07591150569317143,
+    "satisfies_envelope": true
+  },
+  "normal_fit": {
+    "type": "dual_exp",
+    "params": [
+      1.385775098159785,
+      0.24765216672270737,
+      0.34366019259851366,
+      0.005290720891676006
+    ],
+    "rmse": 0.031543642421784104,
+    "max_violation": 0.08090395858035099,
+    "envelope_margin": -9.26499745205242e-05,
+    "satisfies_envelope": false
+  }
+}

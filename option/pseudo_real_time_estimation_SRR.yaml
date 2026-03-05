@@ -309,19 +309,6 @@ integrity:
     prior_fault_probability: 1.0e-3
     meas_dim: 2
   navigation_requirements:
-    # PHMI: 2.77e-7
-    # PHMI_La: 1e-7
-    # PHMI_Lo: 1e-7
-    # PHMI_V: 0.77e-7
-    # PFA: 1e-5
-    # PFA_La: 0.33e-5
-    # PFA_Lo: 0.34e-5
-    # PFA_V: 0.33e-5
-    # HAL: 2.0
-    # LaAL: 1.50
-    # LoAL: 0.55
-    # VAL: 1.40
-    # P_THRES: 1e-9
     PHMI: 1.6667e-10
     PHMI_La: 1.3333e-10   #lateral
     PHMI_Lo: 0.166667e-10 #longitudinal

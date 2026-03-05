@@ -20,10 +20,15 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
   if (IS_ARM)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon -march=armv7-a")
   else ()
+    # Revert to SSE explicitly to avoid AVX 32-byte alignment issues (crash fix)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmmx -msse -msse -msse2 -msse3 -mssse3")
   endif ()
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-signed-zeros -fno-math-errno -funroll-loops")
 endif()
+
+# Disable Eigen's internal parallelization to prevent thread oversubscription with OpenMP
+add_definitions(-DEIGEN_DONT_PARALLELIZE)
+
 
 # Add third-party libraries
 # Eigen

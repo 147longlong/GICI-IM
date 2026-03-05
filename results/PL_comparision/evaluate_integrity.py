@@ -3,15 +3,31 @@ import matplotlib.pyplot as plt
 import os
 import math
 
-# Increase font sizes globally
+# --- 绘图参数设置 ---
+FONT_SIZE_GLOBAL = 26
+FONT_SIZE_TITLE = 26
+FONT_SIZE_LABEL = 26
+FONT_SIZE_TICK = 26
+FONT_SIZE_LEGEND = 18
+FONT_SIZE_LEGEND_TITLE = 26
+
+# --- 绘图设置 (白色背景，大字体) ---
+plt.style.use('default') # 使用默认样式（通常是白色背景）
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans'] # 确保兼容性
+plt.rcParams['axes.unicode_minus'] = False
 plt.rcParams.update({
-    'font.size': 14,
-    'axes.titlesize': 18,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 14,
-    'ytick.labelsize': 14,
-    'legend.fontsize': 14,
-    'figure.titlesize': 20
+    'font.size': FONT_SIZE_GLOBAL,              # 全局字体大小
+    'axes.titlesize': FONT_SIZE_TITLE,          # 标题字体大小
+    'axes.labelsize': FONT_SIZE_LABEL,          # 轴标签字体大小
+    'xtick.labelsize': FONT_SIZE_TICK,          # x轴刻度字体大小
+    'ytick.labelsize': FONT_SIZE_TICK,          # y轴刻度字体大小
+    'legend.fontsize': FONT_SIZE_LEGEND,        # 图例字体大小
+    'figure.facecolor': 'white',  # 图片背景色
+    'axes.facecolor': 'white',    # 坐标轴背景色
+    'axes.grid': True,            # 开启网格
+    'grid.alpha': 0.4,            # 网格透明度
+    'grid.linestyle': '--',       # 网格线型
+    'lines.linewidth': 2.5        # 线宽
 })
 
 def read_tum(file_path, with_pl=False):
@@ -88,8 +104,8 @@ def get_yaw_from_quat(q):
     return yaw
 
 def main():
-    gt_file = 'Ground-Truth.tum'
-    est_file = 'srr_solution.txt.tum'
+    gt_file = '/home/syl/GICI-IM/tools/evaluation/integrity/Ground-Truth.tum'
+    est_file = '/home/syl/GICI-IM/tools/evaluation/integrity/srr_solution.txt.tum'
     
     if not os.path.exists(gt_file) or not os.path.exists(est_file):
         print(f"Error: Files {gt_file} or {est_file} not found.")
@@ -153,25 +169,25 @@ def main():
     fig, axs = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
     
     # X Error and XPL
-    axs[0].plot(timestamps, errors_x, label='Error X', color='blue', linewidth=2)
-    axs[0].plot(timestamps, pl_x, label='XPL', color='red', linestyle='-', linewidth=3)
+    axs[0].plot(timestamps, errors_x, label='LoPE', color='blue', linewidth=2)
+    axs[0].plot(timestamps, pl_x, label='LoPL', color='red', linestyle='-', linewidth=3)
     axs[0].set_yscale('log')
     axs[0].set_ylabel('Error / PL (m)')
-    axs[0].set_title('X Position Error and Protection Level')
+    axs[0].set_title('Longitudinal Position Error and Protection Level')
     axs[0].legend(loc='upper right')
     axs[0].grid(True, which="both", ls="-")
     
     # Y Error and YPL
-    axs[1].plot(timestamps, errors_y, label='Error Y', color='green', linewidth=2)
-    axs[1].plot(timestamps, pl_y, label='YPL', color='orange', linestyle='-', linewidth=3)
+    axs[1].plot(timestamps, errors_y, label='LaPE', color='green', linewidth=2)
+    axs[1].plot(timestamps, pl_y, label='LaPL', color='orange', linestyle='-', linewidth=3)
     axs[1].set_yscale('log')
     axs[1].set_ylabel('Error / PL (m)')
-    axs[1].set_title('Y Position Error and Protection Level')
+    axs[1].set_title('Lateral Position Error and Protection Level')
     axs[1].legend(loc='upper right')
     axs[1].grid(True, which="both", ls="-")
     
     # Vertical Error and VPL
-    axs[2].plot(timestamps, vert_error, label='Vertical Error', color='purple', linewidth=2)
+    axs[2].plot(timestamps, vert_error, label='VPE', color='purple', linewidth=2)
     axs[2].plot(timestamps, pl_v, label='VPL', color='magenta', linestyle='-', linewidth=3)
     axs[2].set_yscale('log')
     axs[2].set_ylabel('Error / PL (m)')
@@ -187,8 +203,8 @@ def main():
     # Plot 2: Horizontal Error vs PLs
     plt.figure(figsize=(12, 8))
     plt.plot(timestamps, horiz_error, label='Horizontal Error', color='blue', linewidth=2)
-    plt.plot(timestamps, pl_x, label='XPL', color='red', linestyle='-', alpha=0.5, linewidth=3)
-    plt.plot(timestamps, pl_y, label='YPL', color='orange', linestyle='-', alpha=0.5, linewidth=3)
+    plt.plot(timestamps, pl_x, label='LoPL', color='red', linestyle='-', alpha=0.5, linewidth=3)
+    plt.plot(timestamps, pl_y, label='LaPL', color='orange', linestyle='-', alpha=0.5, linewidth=3)
     
     plt.yscale('log')
     plt.xlabel('Time (s)')
@@ -273,13 +289,15 @@ def main():
         # Define rectangle corners in local frame (centered at 0)
         # Assuming XPL is along local X, YPL along local Y
         # Corners: (xpl, ypl), (-xpl, ypl), (-xpl, -ypl), (xpl, -ypl)
+        lopl = ypl
+        lapl = xpl
         
         corners_local = np.array([
-            [xpl, ypl],
-            [-xpl, ypl],
-            [-xpl, -ypl],
-            [xpl, -ypl],
-            [xpl, ypl] # Close loop
+            [lopl, lapl],
+            [-lopl, lapl],
+            [-lopl, -lapl],
+            [lopl, -lapl],
+            [lopl, lapl] # Close loop
         ])
         
         # Rotation matrix
@@ -295,9 +313,9 @@ def main():
 
     plt.xlabel('X (m)')
     plt.ylabel('Y (m)')
-    plt.title('Trajectory and Protection Levels (XPL/YPL Boxes)')
+    plt.title('Trajectory and Protection Levels (LoPL/LaPL Boxes)')
     plt.axis('equal')
-    plt.legend(loc='upper right', fontsize=10)
+    plt.legend(loc='upper right')  # 这里保留原图例字体大小，因为原代码指定了14，可以不改或改为FONT_SIZE_LEGEND
     plt.grid(True)
     plt.savefig('integrity_evaluation_trajectory.png')
     print("Saved plot to integrity_evaluation_trajectory.png")
