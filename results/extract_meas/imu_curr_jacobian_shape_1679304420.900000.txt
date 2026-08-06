@@ -1,0 +1,5 @@
+timestamp: 1679304420.900000
+num_entries_rows: 1
+imu_residual_id rows_count object_id
+140731351439520 15 -1
+  row_indices: [312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326]

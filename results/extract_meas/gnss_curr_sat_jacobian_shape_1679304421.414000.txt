@@ -1,0 +1,3 @@
+timestamp: 0.000000
+num_entries_rows: 0
+PRN rows_count
