@@ -143,13 +143,15 @@ public:
   }
 
   // Get GNSS index
-  inline GnssMeasurementDDIndexPair getGnssMeasurementIndex() { 
+  inline GnssMeasurementDDIndexPair getGnssMeasurementIndex() const { 
     return GnssMeasurementDDIndexPair(
       GnssMeasurementIndex(satellite_rov_.prn, observation_rov_.raw_code),
       GnssMeasurementIndex(satellite_ref_.prn, observation_ref_.raw_code),
       GnssMeasurementIndex(satellite_rov_base_.prn, observation_rov_base_.raw_code),
       GnssMeasurementIndex(satellite_ref_base_.prn, observation_ref_base_.raw_code));
   }
+
+  inline covariance_t covarianceMatrix() const { return covariance_; }
 
 protected:
   GnssMeasurement measurement_rov_, measurement_ref_; 

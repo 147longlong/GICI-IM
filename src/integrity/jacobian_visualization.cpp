@@ -591,6 +591,7 @@ void printJacobianInfo(const Eigen::MatrixXd& J, const Eigen::VectorXd& r,
     out << "\n\n";
 
     out.close();
+    LOG(INFO) << "Jacobian info saved to " << filename;
 }
 
 
@@ -608,5 +609,107 @@ void saveEigenMatrixToFile(const Eigen::MatrixXd& Matrix_eigen, const std::strin
     }
 }
 
+namespace {
+template <typename KeyT>
+void saveMeasDebugFileImpl(const std::string& output_file,
+                           const double timestamp,
+                           const std::map<KeyT, std::vector<int>>& observation_rows,
+                           const std::string& key_name,
+                           const std::string& debug_name)
+{
+    std::ofstream out(output_file, std::ios::trunc);
+    if (!out.is_open()) {
+        LOG(WARNING) << "Failed to open " << debug_name << " debug file: " << output_file;
+        return;
+    }
+
+    out << std::fixed << std::setprecision(6);
+    out << "timestamp: " << timestamp << "\n";
+    out << "num_entries_rows: " << observation_rows.size() << "\n";
+    out << key_name << " rows_count\n";
+
+    for (const auto& kv : observation_rows) {
+        const KeyT& key = kv.first;
+        std::vector<int> rows = kv.second;
+        std::sort(rows.begin(), rows.end());
+
+        out << key << " " << rows.size() << "\n";
+
+        out << "  row_indices:";
+        if (rows.empty()) {
+            out << " []\n";
+        } else {
+            out << " [";
+            for (size_t i = 0; i < rows.size(); ++i) {
+                if (i > 0) out << ", ";
+                out << rows[i];
+            }
+            out << "]\n";
+        }
+    }
+    LOG(INFO) << "Current measurement debug info saved to " << output_file;
+}
+}  // namespace
+
+void saveMeasDebugFile(const std::string& output_file,
+                       double timestamp,
+                       const std::map<uint64_t, std::vector<int>>& observation_rows,
+                       const std::string& key_name,
+                       const std::string& debug_name,
+                       const std::map<uint64_t, int>* object_ids)
+{
+    std::ofstream out(output_file, std::ios::trunc);
+    if (!out.is_open()) {
+        LOG(WARNING) << "Failed to open " << debug_name << " debug file: " << output_file;
+        return;
+    }
+
+    out << std::fixed << std::setprecision(6);
+    out << "timestamp: " << timestamp << "\n";
+    out << "num_entries_rows: " << observation_rows.size() << "\n";
+    out << key_name << " rows_count object_id\n";
+
+    for (const auto& kv : observation_rows) {
+        const uint64_t key = kv.first;
+        std::vector<int> rows = kv.second;
+        std::sort(rows.begin(), rows.end());
+
+        int object_id = -1;
+        if (object_ids != nullptr) {
+            auto obj_it = object_ids->find(key);
+            if (obj_it != object_ids->end()) {
+                object_id = obj_it->second;
+            }
+        }
+
+        out << key << " " << rows.size() << " " << object_id << "\n";
+
+        out << "  row_indices:";
+        if (rows.empty()) {
+            out << " []\n";
+        } else {
+            out << " [";
+            for (size_t i = 0; i < rows.size(); ++i) {
+                if (i > 0) out << ", ";
+                out << rows[i];
+            }
+            out << "]\n";
+        }
+    }
+    LOG(INFO) << "Current measurement debug info saved to " << output_file;
+}
+
+void saveMeasDebugFile(const std::string& output_file,
+                       double timestamp,
+                       const std::map<std::string, std::vector<int>>& observation_rows,
+                       const std::string& key_name,
+                       const std::string& debug_name)
+{
+    saveMeasDebugFileImpl<std::string>(output_file,
+                                       timestamp,
+                                       observation_rows,
+                                       key_name,
+                                       debug_name);
+}
 
 } // namespace gici

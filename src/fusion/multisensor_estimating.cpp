@@ -343,6 +343,10 @@ MultiSensorEstimating::MultiSensorEstimating(
         camera_bundle->get_T_C_B(i).inverse(), imu_base_options_).inverse());
     }
 
+    if (nodes->integrity_node_) {
+      rtk_imu_camera_rrr_options_.integrity_options = nodes->integrity_node_->integrity_options;
+    }
+
     feature_handler_.reset(new FeatureHandler(feature_handler_options_, imu_base_options_));
     estimator_.reset(new RtkImuCameraRrrEstimator(rtk_imu_camera_rrr_options_, 
       gnss_imu_init_options_, rtk_options_, gnss_base_options_, gnss_loose_base_options_, 

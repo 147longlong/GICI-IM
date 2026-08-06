@@ -131,6 +131,30 @@ public:
   /// @brief Residual block type as string
   virtual ErrorType typeInfo() const = 0;
 
+  /// @brief Unified covariance extraction interface for all error terms.
+  /// @return True if covariance was extracted successfully.
+  virtual bool getCovarianceMatrix(Eigen::MatrixXd& covariance) const
+  {
+    const size_t dim = residualDim();
+    if (dim == 0) {
+      covariance = Eigen::MatrixXd();
+      return false;
+    }
+
+    Eigen::MatrixXd sqrt_information_inverse = Eigen::MatrixXd::Zero(static_cast<int>(dim), static_cast<int>(dim));
+
+    for (size_t i = 0; i < dim; ++i) {
+      Eigen::VectorXd unit_vec = Eigen::VectorXd::Zero(static_cast<int>(dim));
+      unit_vec(static_cast<int>(i)) = 1.0;
+      deNormalizeResidual(unit_vec.data());
+      sqrt_information_inverse.col(static_cast<int>(i)) = unit_vec;
+    }
+
+    covariance = sqrt_information_inverse * sqrt_information_inverse.transpose();
+    covariance = 0.5 * (covariance + covariance.transpose());
+    return covariance.allFinite();
+  }
+
   // Convert normalized residual to raw residual
   virtual void deNormalizeResidual(double *residuals) const = 0;
 };

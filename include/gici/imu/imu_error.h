@@ -279,6 +279,12 @@ public:
   // Convert normalized residual to raw residual
   virtual void deNormalizeResidual(double *residuals) const {}
 
+  // Get optimization information matrix used by this IMU residual
+  inline const information_t& informationMatrix() const { return information_; }
+
+  // Get optimization covariance matrix used by this IMU residual
+  inline covariance_t covarianceMatrix() const { return information_.inverse(); }
+
 protected:
   // parameters
   ImuParameters imu_parameters_; ///< The IMU parameters.

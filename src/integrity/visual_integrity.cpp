@@ -8,9 +8,91 @@
 **/
 
 #include "gici/integrity/visual_integrity.h"
+#include <algorithm>
+#include <cctype>
 #include <atomic>
+#include <boost/math/distributions/chi_squared.hpp>
+
+#include "gici/gnss/doppler_error.h"
+#include "gici/gnss/phaserange_error_dd.h"
+#include "gici/gnss/pseudorange_error_dd.h"
+#include "gici/imu/imu_error.h"
 
 namespace gici {
+
+namespace {
+double percentileValue(std::vector<double> values, const double percentile)
+{
+    if (values.empty()) return std::numeric_limits<double>::quiet_NaN();
+
+    const double p = std::min(100.0, std::max(0.0, percentile));
+    const double rank = (p / 100.0) * static_cast<double>(values.size() - 1);
+    const int lo = static_cast<int>(std::floor(rank));
+    const int hi = static_cast<int>(std::ceil(rank));
+
+    std::nth_element(values.begin(), values.begin() + lo, values.end());
+    const double vlo = values[lo];
+    if (lo == hi) return vlo;
+
+    std::nth_element(values.begin(), values.begin() + hi, values.end());
+    const double vhi = values[hi];
+    const double w = rank - static_cast<double>(lo);
+    return vlo + (vhi - vlo) * w;
+}
+
+void scaleSigmaSpikesInColumn(Eigen::MatrixXd& matrix,
+                              const int col,
+                              const double percentile,
+                              const double max_excess)
+{
+    if (matrix.rows() == 0 || col < 0 || col >= matrix.cols() || max_excess <= 0.0) return;
+
+    std::vector<double> finite_values;
+    finite_values.reserve(matrix.rows());
+    for (int i = 0; i < matrix.rows(); ++i) {
+        const double v = matrix(i, col);
+        if (std::isfinite(v)) finite_values.push_back(v);
+    }
+
+    const double threshold = percentileValue(std::move(finite_values), percentile);
+    if (!std::isfinite(threshold)) return;
+
+    for (int i = 0; i < matrix.rows(); ++i) {
+        const double v = matrix(i, col);
+        if (!std::isfinite(v) || v <= threshold) continue;
+        const double excess = v - threshold;
+        matrix(i, col) = threshold + max_excess * std::tanh(excess / max_excess);
+    }
+}
+
+const GnssMeasurement* selectGnssMeasurementForTimestamp(
+    const double timestamp,
+    const std::deque<std::pair<GnssMeasurement, GnssMeasurement>>* gnss_measurement_pairs)
+{
+    if (gnss_measurement_pairs == nullptr || gnss_measurement_pairs->empty() || !std::isfinite(timestamp)) {
+        LOG(WARNING) << "No GNSS measurement pairs available or invalid timestamp: " << std::setprecision(12) << std::fixed << timestamp;
+        return nullptr;
+    }
+
+    const GnssMeasurement* best_measurement = nullptr;
+    double min_dt = std::numeric_limits<double>::infinity();
+    for (const auto& measurement_pair : *gnss_measurement_pairs) {
+        const double dt = std::fabs(measurement_pair.first.timestamp - timestamp);
+        if (dt < min_dt) {
+            min_dt = dt;
+            best_measurement = &measurement_pair.first;
+        }
+    }
+
+    if (min_dt > 0.05) {
+        // LOG(WARNING) << "No closely matched GNSS measurement found for timestamp: " << std::setprecision(12) << std::fixed << timestamp
+        //              << ", closest GNSS measurement timestamp: " << std::setprecision(12) << std::fixed << (best_measurement ? best_measurement->timestamp : 0.0)
+        //              << ", min_dt: " << std::setprecision(3) << std::fixed << min_dt;
+    }
+
+    return best_measurement;
+}
+}  // namespace
 
 
 VisualIntegrity::VisualIntegrity(const VisualIntegrityOptions& options)
@@ -26,7 +108,10 @@ VisualIntegrity::~VisualIntegrity()
 
 
 // The monitor function for real-time integrity monitoring
-bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index)
+bool VisualIntegrity::monitor(const std::deque<State>& states, size_t state_index, const Graph* graph,
+                    const FramePtr& frame, const PointMap& landmarks_map,
+                    const GnssMeasurement* measurement_rov,
+                    const std::deque<std::pair<GnssMeasurement, GnssMeasurement>>* gnss_measurement_pairs)
 {
     State state = states[state_index];
     timestamp_ = state.timestamp;
@@ -37,18 +122,32 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
     Eigen::MatrixXd sig2_int;
     Eigen::MatrixXd sig2_acc;
     std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows;
-    std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols;
-    std::map<uint64_t, std::vector<int>> curr_pose_to_J_cols;
+    std::map<uint64_t, std::vector<int>> lm_to_J_rows;
     std::map<uint64_t, int> curr_lm_to_object_ids;
+    std::map<uint64_t, int> lm_to_object_ids;
+    std::map<std::string, std::vector<int>> curr_sat_to_J_rows;
+    std::map<std::string, std::vector<int>> sat_to_J_rows;
+    std::map<uint64_t, std::vector<int>> curr_imu_to_J_rows;
+    std::map<uint64_t, std::vector<int>> imu_to_J_rows;
     std::vector<int> curr_pose_J_cols;
 
-    if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, 
-                             J_all, r_all, sig2_int, sig2_acc, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_to_object_ids, curr_pose_to_J_cols, curr_pose_J_cols)) {
+    if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, gnss_measurement_pairs,
+                             J_all, r_all, sig2_int, sig2_acc,
+                             curr_lm_to_J_rows, lm_to_J_rows, curr_lm_to_object_ids, lm_to_object_ids,
+                             curr_sat_to_J_rows,
+                             sat_to_J_rows,
+                             curr_imu_to_J_rows,
+                             imu_to_J_rows,
+                             curr_pose_J_cols)) {
         return false;
     }
     
 
-    computeIntegrityMetrics(J_all, r_all, sig2_int, sig2_acc, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_to_object_ids, curr_pose_J_cols);
+    computeIntegrityMetrics(J_all, r_all, sig2_int, sig2_acc, 
+                             curr_lm_to_J_rows, curr_lm_to_object_ids, 
+                             curr_sat_to_J_rows,
+                             curr_imu_to_J_rows,
+                             curr_pose_J_cols);
 
     // Log results
     LOG(INFO) << std::scientific << std::setprecision(4)
@@ -61,7 +160,10 @@ bool VisualIntegrity::monitor(const FramePtr& frame, const std::deque<State>& st
 }
 
 // Function to save integrity input information for post-processing
-void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State>& states, const Graph* graph, const PointMap& landmarks_map, size_t state_index)
+void VisualIntegrity::saveSnapshot(const std::deque<State>& states, size_t state_index, const Graph* graph,
+                    const FramePtr& frame, const PointMap& landmarks_map,
+                    const GnssMeasurement* measurement_rov,
+                    const std::deque<std::pair<GnssMeasurement, GnssMeasurement>>* gnss_measurement_pairs)
 {
     if (is_first_) {
         std::ofstream ofs(options_.snapshot_file, std::ios::binary | std::ios::trunc);
@@ -74,24 +176,42 @@ void VisualIntegrity::saveSnapshot(const FramePtr& frame, const std::deque<State
         }
     }
 
-    State state = states[state_index];
-    if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return;
+    const State& state = states[state_index];
+    if (!const_cast<State&>(state).valid()) return;
+
+    CHECK(state.id.type() == IdType::cPose || state.id.type() == IdType::gPose)
+        << "State is not a pose type, state id type = " << static_cast<int>(state.id.type());
 
     timestamp_ = state.timestamp;
-    if (last_timestamp_ > 0 && (timestamp_ - last_timestamp_) < 1/options_.snapshot_freq) {
+    if (last_timestamp_ > 0 && (timestamp_ - last_timestamp_) < 1 / options_.snapshot_freq) {
         LOG(INFO) << "The save snapshot frequency: " << options_.snapshot_freq << ", skipped timestamp: " << std::setprecision(6) << std::fixed << timestamp_;
         return;
     }
-    last_timestamp_ = timestamp_;
 
+    // if (state.id.type() == IdType::gPose && consecutive_gpose_saved_ >= 3) {
+    //     LOG(INFO) << "Skipped gPose snapshot at timestamp: " << std::setprecision(6) << std::fixed << timestamp_
+    //               << ", waiting for cPose after " << consecutive_gpose_saved_ << " consecutive gPose snapshots.";
+    //     return;
+    // }
+
+    // last_timestamp_ = timestamp_;
+    // if (state.id.type() == IdType::gPose) {
+    //     ++consecutive_gpose_saved_;
+    // } else {
+    //     consecutive_gpose_saved_ = 0;
+    // }
 
     IntegritySnapshot snapshot;
     snapshot.timestamp = state.timestamp;
 
-    if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, 
+    if (!prepareLinearSystem(frame, states, state_index, graph, landmarks_map, gnss_measurement_pairs,
                              snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, 
-                             snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_lm_to_object_ids,
-                             snapshot.curr_pose_to_J_cols, snapshot.curr_pose_J_cols)) {
+                             snapshot.curr_lm_to_J_rows, snapshot.lm_to_J_rows, snapshot.curr_lm_to_object_ids, snapshot.lm_to_object_ids,
+                             snapshot.curr_sat_to_J_rows,
+                             snapshot.sat_to_J_rows,
+                             snapshot.curr_imu_to_J_rows,
+                             snapshot.imu_to_J_rows,
+                             snapshot.curr_pose_J_cols)) {
         return;
     }
 
@@ -118,13 +238,13 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         LOG(ERROR) << "Failed to open snapshot file: " << filename;
         return;
     }
+    VisualIntegrityOptions snapfile_opts;
     if (is_first_ && ifs.peek() != EOF && !options_.yaml_options) {
         deserializeOptions(options_, ifs);
         LOG(INFO) << "Read options from snapshot file: " << filename;
         is_first_ = false;
     } else{
-        VisualIntegrityOptions temp_opts;
-        deserializeOptions(temp_opts, ifs);
+        deserializeOptions(snapfile_opts, ifs);
         is_first_ = false;
     }
 
@@ -162,7 +282,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         }
         if (options_.end_timestamp > 0.0 && timestamp_ > options_.end_timestamp) {
              LOG(WARNING) << std::fixed << std::setprecision(6)  << "Skipped Timestamp (end): " << timestamp_;
-             continue;
+             break;
         }
 
         VPL_ = std::numeric_limits<double>::quiet_NaN();
@@ -172,7 +292,120 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         IR_ = 0;
 
         LOG(INFO) << std::fixed << std::setprecision(6) << "Timestamp: " << timestamp_;
-        computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_J_cols, snapshot.curr_lm_to_object_ids, snapshot.curr_pose_J_cols);
+
+        if (options_.yaml_options && (options_.use_complex_gnss_cov != snapfile_opts.use_complex_gnss_cov 
+                                    || options_.use_complex_imu_cov != snapfile_opts.use_complex_imu_cov 
+                                    || options_.use_complex_visual_cov != snapfile_opts.use_complex_visual_cov)) {
+            std::vector<int> gnss_rows;
+            for (const auto& kv : snapshot.sat_to_J_rows) {
+                gnss_rows.insert(gnss_rows.end(), kv.second.begin(), kv.second.end());
+            }
+            std::vector<int> imu_rows;
+            for (const auto& kv : snapshot.imu_to_J_rows) {
+                imu_rows.insert(imu_rows.end(), kv.second.begin(), kv.second.end());
+            }
+            std::vector<int> visual_rows;
+            for (const auto& kv : snapshot.lm_to_J_rows) {
+                visual_rows.insert(visual_rows.end(), kv.second.begin(), kv.second.end());
+            }
+            std::vector<int> others_rows;
+            for (int i = 0; i < snapshot.r_all.size(); ++i) {
+                if (std::find(gnss_rows.begin(), gnss_rows.end(), i) == gnss_rows.end() &&
+                    std::find(imu_rows.begin(), imu_rows.end(), i) == imu_rows.end() &&
+                    std::find(visual_rows.begin(), visual_rows.end(), i) == visual_rows.end()) {
+                    others_rows.push_back(i);
+                }
+            }
+            if (!options_.use_complex_gnss_cov && options_.use_complex_gnss_cov != snapfile_opts.use_complex_gnss_cov && !gnss_rows.empty()) {
+                LOG(INFO) << "Updating GNSS covariance complexity for post-processing analysis.";
+                for (int i = 0; i < snapshot.r_all.size(); ++i) {
+                    if (std::find(gnss_rows.begin(), gnss_rows.end(), i) != gnss_rows.end()) {
+                        snapshot.sig2_int(i, i) = std::pow(options_.simple_gnss_sigma, 2);
+                        snapshot.sig2_acc(i, i) = std::pow(options_.simple_gnss_sigma, 2);
+                        for (int j = 0; j < snapshot.r_all.size(); ++j) {
+                            if (j != i) {
+                                snapshot.sig2_int(i, j) = 0.0;
+                                snapshot.sig2_acc(i, j) = 0.0;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!options_.use_complex_imu_cov && options_.use_complex_imu_cov != snapfile_opts.use_complex_imu_cov && !imu_rows.empty()) {
+                LOG(INFO) << "Updating IMU covariance complexity for post-processing analysis.";
+                for (int i = 0; i < snapshot.r_all.size(); ++i) {
+                    if (std::find(imu_rows.begin(), imu_rows.end(), i) != imu_rows.end()) {
+                        snapshot.sig2_int(i, i) = std::pow(options_.simple_imu_sigma, 2);
+                        snapshot.sig2_acc(i, i) = std::pow(options_.simple_imu_sigma, 2);
+                        for (int j = 0; j < snapshot.r_all.size(); ++j) {
+                            if (j != i) {
+                                snapshot.sig2_int(i, j) = 0.0;
+                                snapshot.sig2_acc(i, j) = 0.0;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!options_.use_complex_visual_cov && options_.use_complex_visual_cov != snapfile_opts.use_complex_visual_cov && !visual_rows.empty()) {
+                LOG(INFO) << "Updating visual covariance complexity for post-processing analysis.";
+                for (int i = 0; i < snapshot.r_all.size(); ++i) {
+                    if (std::find(visual_rows.begin(), visual_rows.end(), i) != visual_rows.end()) {
+                        snapshot.sig2_int(i, i) = std::pow(options_.simple_visual_sigma, 2);
+                        snapshot.sig2_acc(i, i) = std::pow(options_.simple_visual_sigma, 2);
+                        for (int j = 0; j < snapshot.r_all.size(); ++j) {
+                            if (j != i) {
+                                snapshot.sig2_int(i, j) = 0.0;
+                                snapshot.sig2_acc(i, j) = 0.0;
+                            }
+                        }
+                    }
+                }
+            }
+             if (!options_.use_complex_others_cov && options_.use_complex_others_cov != snapfile_opts.use_complex_others_cov && !others_rows.empty()) {
+                LOG(INFO) << "Updating others covariance complexity for post-processing analysis.";
+                for (int i = 0; i < snapshot.r_all.size(); ++i) {
+                    if (std::find(others_rows.begin(), others_rows.end(), i) != others_rows.end()) {
+                        snapshot.sig2_int(i, i) = std::pow(options_.simple_others_sigma, 2);
+                        snapshot.sig2_acc(i, i) = std::pow(options_.simple_others_sigma, 2);
+                        for (int j = 0; j < snapshot.r_all.size(); ++j) {
+                            if (j != i) {
+                                snapshot.sig2_int(i, j) = 0.0;
+                                snapshot.sig2_acc(i, j) = 0.0;
+                            }
+                        }
+                    }
+                }
+             }
+        }
+
+        // You can select use "curr_*_to_J_rows" or the full "*_to_J_rows" based on your needs. Here we use curr_*_to_J_rows for a more real-time monitoring perspective.
+        computeIntegrityMetrics(snapshot.J_all, snapshot.r_all, snapshot.sig2_int, snapshot.sig2_acc, 
+                                snapshot.curr_lm_to_J_rows, snapshot.curr_lm_to_object_ids, 
+                                snapshot.curr_sat_to_J_rows,
+                                snapshot.curr_imu_to_J_rows,
+                                snapshot.curr_pose_J_cols);
+
+        // Debug input
+        #if 0
+        
+        saveEigenMatrixToFile(snapshot.J_all, debug_dir + "J_all_output" + std::to_string(timestamp_)  + ".txt");
+        // saveEigenMatrixToFile(snapshot.r_all, debug_dir + "r_all_output" + std::to_string(timestamp_)  + ".txt");
+        saveEigenMatrixToFile(snapshot.sig2_int, debug_dir + "sig2_int_output" + std::to_string(timestamp_)  + ".txt");
+        // saveEigenMatrixToFile(snapshot.sig2_acc, debug_dir + "sig2_acc_output" + std::to_string(timestamp_)  + ".txt");
+        saveMeasDebugFile(debug_dir + "landmark_curr_jacobian_shape_" + std::to_string(timestamp_) + ".txt",
+            timestamp_, snapshot.curr_lm_to_J_rows, "landmark_id", "landmark jacobian shape", &snapshot.curr_lm_to_object_ids);
+        saveMeasDebugFile(debug_dir + "landmark_jacobian_shape_" + std::to_string(timestamp_) + ".txt",
+            timestamp_, snapshot.lm_to_J_rows, "landmark_id", "landmark jacobian shape", &snapshot.lm_to_object_ids);
+        saveMeasDebugFile(debug_dir + "gnss_sat_jacobian_shape_" + std::to_string(timestamp_) + ".txt",
+            timestamp_, snapshot.sat_to_J_rows, "PRN", "GNSS sat jacobian shape");
+        saveMeasDebugFile(debug_dir + "gnss_curr_sat_jacobian_shape_" + std::to_string(timestamp_) + ".txt",
+            timestamp_, snapshot.curr_sat_to_J_rows, "PRN", "GNSS sat jacobian shape");
+        saveMeasDebugFile(debug_dir + "imu_jacobian_shape_" + std::to_string(timestamp_) + ".txt",
+            timestamp_, snapshot.imu_to_J_rows, "imu_residual_id", "IMU jacobian shape");
+        saveMeasDebugFile(debug_dir + "imu_curr_jacobian_shape_" + std::to_string(timestamp_) + ".txt",
+            timestamp_, snapshot.curr_imu_to_J_rows, "imu_residual_id", "IMU jacobian shape");
+        #endif
+
 
         #if 0
         int num_residual = snapshot.r_all.size();
@@ -206,12 +439,12 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         // Add probabilities for object groups: P = 1 - (1 - p)^n
         for (const auto& pair : object_counts) {
             int n_ms = pair.second;
-            double p_group = 1.0 - std::pow(1.0 - options_.prior_fault_probability, n_ms);
+            double p_group = 1.0 - std::pow(1.0 - options_.visual_prior_fault_probability, n_ms);
             p_prior_groups.push_back(p_group);
         }
         // Add probabilities for independent faults
         for (int i = 0; i < independent_faults; ++i) {
-            p_prior_groups.push_back(options_.prior_fault_probability);
+            p_prior_groups.push_back(options_.visual_prior_fault_probability);
         }
 
         int num_groups = p_prior_groups.size();
@@ -243,7 +476,7 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         int num_state_vars = snapshot.J_all.cols();
         int num_meas = snapshot.curr_lm_to_J_rows.size();
 
-        std::vector<double> p_prior(num_meas, options_.prior_fault_probability);
+        std::vector<double> p_prior(num_meas, options_.visual_prior_fault_probability);
         int N_fault_max = determineNfaultmax(p_prior, options_.P_THRES);
         LOG(INFO) << "The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << options_.P_THRES;
         int subsetsize = 0;
@@ -285,8 +518,13 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         snapshot.sig2_int.resize(0, 0);
         snapshot.sig2_acc.resize(0, 0);
         snapshot.curr_lm_to_J_rows.clear();
-        snapshot.curr_lm_to_J_cols.clear();
-        snapshot.curr_pose_to_J_cols.clear();
+        snapshot.lm_to_J_rows.clear();
+        snapshot.curr_sat_to_J_rows.clear();
+        snapshot.sat_to_J_rows.clear();
+        snapshot.curr_imu_to_J_rows.clear();
+        snapshot.imu_to_J_rows.clear();
+        snapshot.curr_lm_to_object_ids.clear();
+        snapshot.lm_to_object_ids.clear();
         snapshot.curr_pose_J_cols.clear();
 
         // Generate timestamp for NMEA matching
@@ -326,6 +564,9 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
         return;
     }
 
+    const double kImMatchToleranceSec = 0.1;
+    std::vector<bool> result_used(results_list.size(), false);
+
     for (auto& l : lines) {
         // Check if line is $..IM and contains timestamp
         if (l.size() > 6 && l.substr(3, 3) == "IM,") {
@@ -335,35 +576,42 @@ void VisualIntegrity::processSnapshotsFromFile(const std::string& filename)
             if (first_comma != std::string::npos && second_comma != std::string::npos) {
                 std::string ts_str = l.substr(first_comma + 1, second_comma - first_comma - 1);
                 
-                try {
-                    if (ts_str.size() >= 6) {
-                        double h = std::stod(ts_str.substr(0, 2));
-                        double m = std::stod(ts_str.substr(2, 2));
-                        double s = std::stod(ts_str.substr(4));
-                        double nmea_sod = h * 3600.0 + m * 60.0 + s;
+                if (ts_str.size() >= 6) {
+                    double h = std::stod(ts_str.substr(0, 2));
+                    double m = std::stod(ts_str.substr(2, 2));
+                    double s = std::stod(ts_str.substr(4));
+                    double nmea_sod = h * 3600.0 + m * 60.0 + s;
 
-                        for (const auto& item : results_list) {
-                            if (std::abs(item.sod - nmea_sod) < 0.1) {
-                                // Found match! Replace line
-                                std::string talker = l.substr(1, 2);
-                                char buf[256];
-                                char* p = buf;
-                                p += sprintf(p, "$%sIM,%s,%.4e,%.4e,%.4e,%.4e", 
-                                    talker.c_str(), ts_str.c_str(), item.xpl, item.ypl, item.vpl, item.ir);
-                                
-                                // Calculate checksum
-                                char sum = 0;
-                                for (char* q = buf + 1; *q; q++) sum ^= *q;
-                                sprintf(p, "*%02X", sum);
-                                
-                                l = std::string(buf);
-                                LOG(INFO) << "Updated NMEA line for timestamp " << ts_str;
-                                break; // Stop searching for this line
-                            }
+                    int best_idx = -1;
+                    double best_dt = kImMatchToleranceSec;
+                    for (size_t i = 0; i < results_list.size(); ++i) {
+                        if (result_used[i]) continue;
+                        const double dt = std::abs(results_list[i].sod - nmea_sod);
+                        if (dt < best_dt) {
+                            best_dt = dt;
+                            best_idx = static_cast<int>(i);
                         }
                     }
-                } catch (...) {
-                    // Ignore parsing errors
+
+                    if (best_idx >= 0) {
+                        const auto& item = results_list[best_idx];
+                        // Found nearest unmatched result within tolerance, replace this line.
+                        std::string talker = l.substr(1, 2);
+                        char buf[256];
+                        char* p = buf;
+                        p += sprintf(p, "$%sIM,%s,%.4e,%.4e,%.4e,%.4e",
+                            talker.c_str(), ts_str.c_str(), item.xpl, item.ypl, item.vpl, item.ir);
+
+                        // Calculate checksum
+                        char sum = 0;
+                        for (char* q = buf + 1; *q; q++) sum ^= *q;
+                        sprintf(p, "*%02X", sum);
+
+                        l = std::string(buf);
+                        result_used[best_idx] = true;
+                        LOG(INFO) << "Updated NMEA line for timestamp " << ts_str
+                                    << " (matched dt=" << std::fixed << std::setprecision(3) << best_dt << "s)";
+                    }
                 }
             }
         }
@@ -699,43 +947,92 @@ void VisualIntegrity::saveDebugImage(const FramePtr& frame, const PointMap& land
 
 bool VisualIntegrity::prepareLinearSystem(const FramePtr& frame, 
                              const std::deque<State>& states, 
-                             size_t state_index, 
+                             const size_t state_index, 
                              const Graph* graph, 
                              const PointMap& landmarks_map,
+                             const std::deque<std::pair<GnssMeasurement, GnssMeasurement>>* gnss_measurement_pairs,
                              Eigen::MatrixXd& J_all, 
                              Eigen::VectorXd& r_all, 
                              Eigen::MatrixXd&  sig2_int,
                              Eigen::MatrixXd&  sig2_acc,
                              std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
-                             std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
+                             std::map<uint64_t, std::vector<int>>& lm_to_J_rows,
                              std::map<uint64_t, int>& curr_lm_to_object_ids,
-                             std::map<uint64_t, std::vector<int>>& curr_pose_to_J_cols,
+                             std::map<uint64_t, int>& lm_to_object_ids,
+                             std::map<std::string, std::vector<int>>& curr_sat_to_J_rows,
+                             std::map<std::string, std::vector<int>>& sat_to_J_rows,
+                             std::map<uint64_t, std::vector<int>>& curr_imu_to_J_rows,
+                             std::map<uint64_t, std::vector<int>>& imu_to_J_rows,
                              std::vector<int>& curr_pose_J_cols)
 {
     State state = states[state_index];
-    if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return false;
 
-    std::vector<std::pair<uint64_t, std::string>> row_ids_all;
-    std::vector<std::pair<uint64_t, std::string>> col_ids_all;
-    std::vector<std::pair<uint64_t, double>> pose_timestamps;
-    std::vector<std::pair<uint64_t, int>> rows_curr;
-    std::vector<std::pair<uint64_t, int>> cols_curr;   
+    std::vector<std::pair<uint64_t, std::string>> row_ids_all;          // Pair of (ID, Type) for each row in J_all and r_all
+    std::vector<std::pair<uint64_t, std::string>> col_ids_all;          // Pair of (ID, Type) for each column in J_all
+    std::vector<std::pair<uint64_t, double>> pose_timestamps;           // Pair of (Pose ID, Timestamp) for all poses (cPose, gPose) in the graph
+    std::vector<std::pair<uint64_t, int>> rows_curr;                    // Pair of (ID, Type) for rows related to the current state
+    std::vector<std::pair<uint64_t, int>> cols_curr;                    // Pair of (ID, Type) for columns related to the current state
+    std::map<uint64_t, std::vector<std::string>> gnss_resid_to_prns;
+    std::map<uint64_t, std::vector<uint64_t>> gnss_resid_to_param_ids;
+    std::map<uint64_t, std::vector<uint64_t>> imu_resid_to_param_ids;
 
-    if (!extractFullLinearSystem(frame, states, state_index, graph, landmarks_map,
-                             J_all, r_all, sig2_int, sig2_acc, row_ids_all, col_ids_all, pose_timestamps, rows_curr, cols_curr)) {
+    if (!extractFullLinearSystem(states, state_index, graph, landmarks_map, gnss_measurement_pairs,
+                             J_all, r_all, sig2_int, sig2_acc, row_ids_all, col_ids_all, pose_timestamps, rows_curr, cols_curr,
+                             gnss_resid_to_prns, gnss_resid_to_param_ids,
+                             imu_resid_to_param_ids)) {
         LOG(ERROR) << "Failed to extract linear system.";
         return false;
     }
+    std::string debug_dir = "/home/syl/GICI-IM/results/jacobian/";
+    printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, debug_dir + "jacobian_visualization"  + std::to_string(state.timestamp) + ".txt");
+    // saveEigenMatrixToFile(sig2_int, debug_dir + "sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
 
-    saveDebugImage(frame, landmarks_map, "/media/syl/longlong/GICI-Dataset/2.1/super/segement_images/" + std::to_string(frame->getTimestampSec()) + "_ids.png");
-    // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
-    // saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/debug/sig2_acc_output" + std::to_string(state.timestamp)  + ".txt");
-    // saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, "/home/syl/GICI-IM/results/factor_graph.dot");
-    // printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, "/home/syl/GICI-IM/results/jacobian_visualization.txt");
-
-    extractLandmarkRelatedRowsCols(frame, landmarks_map, row_ids_all, cols_curr, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_to_object_ids);
-    extractPoseRelatedRowsCols(state.id.asInteger(), cols_curr, curr_pose_to_J_cols, curr_pose_J_cols); 
+    extractLandmarkRowsCols(frame, landmarks_map, row_ids_all, col_ids_all, cols_curr,
+                            curr_lm_to_J_rows, lm_to_J_rows, curr_lm_to_object_ids, lm_to_object_ids);
+    extractGnssRowsCols(row_ids_all, col_ids_all, cols_curr, gnss_resid_to_prns, gnss_resid_to_param_ids,
+                            curr_sat_to_J_rows, sat_to_J_rows);
+    extractImuRowsCols(row_ids_all, col_ids_all, cols_curr, imu_resid_to_param_ids,
+                       curr_imu_to_J_rows, imu_to_J_rows);
     
+    std::map<uint64_t, std::vector<int>> pose_J_cols_dumppy;
+    extractPoseRelatedRowsCols(state.id.asInteger(), state.id.type(), cols_curr, pose_J_cols_dumppy, curr_pose_J_cols);
+
+    // CHECK(curr_imu_to_J_rows.size() == 1 && curr_imu_to_J_rows.begin()->second.size() == 15)
+    //     << "Expected exactly one IMU residual with 15 columns, but found " << curr_imu_to_J_rows.size() << " residuals and " << (curr_imu_to_J_rows.empty() ? 0 : curr_imu_to_J_rows.begin()->second.size()) << " columns.";
+    CHECK(curr_lm_to_J_rows.size() + curr_sat_to_J_rows.size() > 0)
+        << "Expected at least one landmark or GNSS residual, but found none.";
+
+
+
+    // Debug output
+    #if 0
+    std::string debug_dir = "/home/syl/GICI-IM/results/debug/";
+    saveEigenMatrixToFile(J_all, debug_dir + "J_all_output" + std::to_string(state.timestamp)  + ".txt");
+    // saveEigenMatrixToFile(r_all, debug_dir + "r_all_output" + std::to_string(state.timestamp)  + ".txt");
+    saveEigenMatrixToFile(sig2_int, debug_dir + "sig2_int_output" + std::to_string(state.timestamp)  + ".txt");
+    // saveEigenMatrixToFile(sig2_acc, debug_dir + "sig2_acc_output" + std::to_string(state.timestamp)  + ".txt");
+    // saveFactorGraphDot(graph, state.id.asInteger(), pose_timestamps, debug_dir + "factor_graph"  + std::to_string(state.timestamp) + ".dot");
+    printJacobianInfo(J_all, r_all, row_ids_all, col_ids_all, rows_curr, cols_curr, pose_timestamps, debug_dir + "jacobian_visualization"  + std::to_string(state.timestamp) + ".txt");
+
+
+    if (frame != nullptr){
+        // saveDebugImage(frame, landmarks_map, "/media/syl/longlong/GICI-Dataset/2.1/super/segement_images/" + std::to_string(frame->getTimestampSec()) + "_ids.png");
+        saveMeasDebugFile(debug_dir + "landmark_curr_jacobian_shape_" + std::to_string(state.timestamp) + ".txt",
+            frame->timestamp_/1e9, curr_lm_to_J_rows, "landmark_id", "landmark jacobian shape", &curr_lm_to_object_ids);
+        saveMeasDebugFile(debug_dir + "landmark_jacobian_shape_" + std::to_string(state.timestamp) + ".txt",
+            frame->timestamp_/1e9, lm_to_J_rows, "landmark_id", "landmark jacobian shape", &lm_to_object_ids);
+    }
+
+    saveMeasDebugFile(debug_dir + "gnss_sat_jacobian_shape_" + std::to_string(state.timestamp) + ".txt",
+        gnss_measurement_pairs->back().first.timestamp, sat_to_J_rows, "PRN", "GNSS sat jacobian shape");
+    saveMeasDebugFile(debug_dir + "gnss_curr_sat_jacobian_shape_" + std::to_string(state.timestamp) + ".txt",
+        gnss_measurement_pairs->back().first.timestamp, curr_sat_to_J_rows, "PRN", "GNSS sat jacobian shape");
+    saveMeasDebugFile(debug_dir + "imu_jacobian_shape_" + std::to_string(state.timestamp) + ".txt",
+        state.timestamp, imu_to_J_rows, "imu_residual_id", "IMU jacobian shape");
+    saveMeasDebugFile(debug_dir + "imu_curr_jacobian_shape_" + std::to_string(state.timestamp) + ".txt",
+        state.timestamp, curr_imu_to_J_rows, "imu_residual_id", "IMU jacobian shape");
+    #endif
+
     return true;
 }
 
@@ -743,82 +1040,186 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
                                  const Eigen::VectorXd& r_all,
                                  const Eigen::MatrixXd& sig2_int,
                                  const Eigen::MatrixXd& sig2_acc,
-                                 const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_rows,
-                                 const std::map<uint64_t, std::vector<int>>& curr_lm_to_J_cols,
-                                 const std::map<uint64_t, int>& curr_lm_to_object_ids,
+                                 const std::map<uint64_t, std::vector<int>>& lm_to_J_rows, // all_lm or curr_lm
+                                 const std::map<uint64_t, int>& lm_to_object_ids,
+                                 const std::map<std::string, std::vector<int>>& sat_to_J_rows,
+                                 const std::map<uint64_t, std::vector<int>>& imu_to_J_rows,
                                  const std::vector<int>& curr_pose_J_cols)
 {
     subsets_.clear();
     pap_subset_.clear();
     p_not_monitored_ = 0;
 
-    std::vector<uint64_t> curr_lm_ids;
-
-    int N_meas = curr_lm_to_J_rows.size();
-    if (N_meas < 6) {
-        LOG(ERROR) << "Not enough measurements: " << N_meas;
+    if (J_all.rows() < 6 || curr_pose_J_cols.size() < 3) {
+        LOG(ERROR) << "Not enough data for integrity metrics. rows=" << J_all.rows() << ", pose cols=" << curr_pose_J_cols.size();
         return false;
     }
 
-    for (const auto& lm_rows : curr_lm_to_J_rows) {
+    // 1. Build fault groups over all sources; each group maps to rows removed by that fault.
+    std::vector<std::vector<int>> fault_group_rows;
+    std::vector<double> p_prior_groups;
+    fault_group_source_ids_.clear();
+
+    // 1.1 Visual fault groups.
+    std::vector<uint64_t> curr_lm_ids;
+    curr_lm_ids.reserve(lm_to_J_rows.size());
+    for (const auto& lm_rows : lm_to_J_rows) {
         curr_lm_ids.push_back(lm_rows.first);
     }
 
-    // 2. Define Prior Probabilities
-    // Assuming independent faults for each feature with a fixed probability
-    double p_feat_fault = options_.prior_fault_probability; 
-    
-    // Construct fault groups
-    std::vector<std::vector<uint64_t>> fault_groups;
-    std::vector<double> p_prior_groups;
-
-    if (options_.use_segment) {
+    if (options_.use_segment && curr_lm_ids.size() > 0) {
         std::map<int, std::vector<uint64_t>> object_groups;
         std::vector<uint64_t> independent_lms;
-
         for (uint64_t lm_id : curr_lm_ids) {
-             int obj_id = -1;
-             if (curr_lm_to_object_ids.count(lm_id)) {
-                 obj_id = curr_lm_to_object_ids.at(lm_id);
-             }
-             if (obj_id >= 0) {
-                 object_groups[obj_id].push_back(lm_id);
-             } else {
-                 independent_lms.push_back(lm_id);
-             }
+            int obj_id = -1;
+            auto obj_it = lm_to_object_ids.find(lm_id);
+            if (obj_it != lm_to_object_ids.end()) {
+                obj_id = obj_it->second;
+            }
+            if (obj_id >= 0) {
+                object_groups[obj_id].push_back(lm_id);
+            } else {
+                independent_lms.push_back(lm_id);
+            }
         }
 
-        // Add object groups
         for (const auto& pair : object_groups) {
-             fault_groups.push_back(pair.second);
-             double p = 1.0 - std::pow(1.0 - p_feat_fault, pair.second.size());
-             p_prior_groups.push_back(p);
+            std::vector<int> rows;
+            for (uint64_t lm_id : pair.second) {
+                auto it = lm_to_J_rows.find(lm_id);
+                if (it != lm_to_J_rows.end()) {
+                    rows.insert(rows.end(), it->second.begin(), it->second.end());
+                }
+            }
+            const double p_group = 1.0 - std::pow(1.0 - options_.visual_prior_fault_probability, static_cast<int>(pair.second.size()));
+            addFaultGroup(rows, p_group, "VIS_OBJ:" + std::to_string(pair.first),
+                          fault_group_rows, p_prior_groups, fault_group_source_ids_);
         }
-        // Add independent lms
-        for (uint64_t lm_id : independent_lms) {
-             fault_groups.push_back({lm_id});
-             p_prior_groups.push_back(p_feat_fault);
-        }
-        LOG(INFO) << "Defined " << object_groups.size() << " object groups and " << independent_lms.size() << " independent measurements.";
 
+        for (uint64_t lm_id : independent_lms) {
+            auto it = lm_to_J_rows.find(lm_id);
+            if (it != lm_to_J_rows.end()) {
+                addFaultGroup(it->second, options_.visual_prior_fault_probability,
+                              "VIS_LM:" + std::to_string(lm_id),
+                              fault_group_rows, p_prior_groups, fault_group_source_ids_);
+            }
+        }
     } else {
-         for (uint64_t lm_id : curr_lm_ids) {
-             fault_groups.push_back({lm_id});
-             p_prior_groups.push_back(p_feat_fault);
-         }
+        for (uint64_t lm_id : curr_lm_ids) {
+            auto it = lm_to_J_rows.find(lm_id);
+            if (it != lm_to_J_rows.end()) {
+                addFaultGroup(it->second, options_.visual_prior_fault_probability,
+                              "VIS_LM:" + std::to_string(lm_id),
+                              fault_group_rows, p_prior_groups, fault_group_source_ids_);
+            }
+        }
     }
 
+    // 1.2 GNSS fault groups: satellite fault, constellation common fault, baseline fault.
+    std::map<int, std::vector<int>> constellation_rows;
+    std::vector<int> gnss_all_rows;
+    for (const auto& sat_pair : sat_to_J_rows) {
+        const std::string& prn = sat_pair.first;
+        const std::vector<int>& rows = sat_pair.second;
+        if (rows.empty()) continue;
+        const int sys_idx = getGnssSystemIndex(prn);
+        const double p_sat = getBoundedProbabilityFromVector(options_.gnss_sat_prior_fault_probability, sys_idx, 1.0e-8);
+        addFaultGroup(rows, p_sat, "GNSS_SAT:" + prn,
+                  fault_group_rows, p_prior_groups, fault_group_source_ids_);
 
-    // 3. Determine Subsets
+        auto& sys_rows = constellation_rows[sys_idx];
+        sys_rows.insert(sys_rows.end(), rows.begin(), rows.end());
+        gnss_all_rows.insert(gnss_all_rows.end(), rows.begin(), rows.end());
+    }
+
+    for (const auto& sys_pair : constellation_rows) {
+        const int sys_idx = sys_pair.first;
+        std::vector<double> p_const_or_ref = options_.gnss_const_prior_fault_probability;
+        for (int i = 0; i < p_const_or_ref.size(); ++i) {
+            if (options_.gnss_sat_prior_fault_probability[i] > p_const_or_ref[i]) p_const_or_ref[i] = options_.gnss_sat_prior_fault_probability[i];
+        }
+        const double p_const = getBoundedProbabilityFromVector(p_const_or_ref, sys_idx, 1.0e-8);
+        addFaultGroup(sys_pair.second, p_const, "GNSS_CONST/REF_SAT:" + std::to_string(sys_idx),
+                      fault_group_rows, p_prior_groups, fault_group_source_ids_);
+    }
+
+    // // In order to decrease the computation, we think ref fault and constellation fault together, and use the same prior. 
+    // for (const auto& sys_pair : constellation_rows) {
+    //     const int sys_idx = sys_pair.first;
+    //     const std::vector<int>& sys_rows = sys_pair.second;
+    //     if (sys_rows.empty()) {
+    //         continue;
+    //     }
+
+    //     std::string ref_prn_for_group = "UNKNOWN";
+    //     size_t max_row_count = 0;
+    //     for (const auto& sat_pair : sat_to_J_rows) {
+    //         const std::string& prn = sat_pair.first;
+    //         if (getGnssSystemIndex(prn) != sys_idx) {
+    //             continue;
+    //         }
+    //         if (sat_pair.second.size() > max_row_count) {
+    //             max_row_count = sat_pair.second.size();
+    //             ref_prn_for_group = prn;
+    //         }
+    //     }
+
+    //     const double ref_p = getBoundedProbabilityFromVector(
+    //         options_.gnss_sat_prior_fault_probability, sys_idx, 1.0e-8);
+    //     addFaultGroup(sys_rows, ref_p,
+    //                   "GNSS_SAT_REF_SYS:" + std::to_string(sys_idx) + ":" + ref_prn_for_group,
+    //                   fault_group_rows, p_prior_groups, fault_group_source_ids_);
+    // }
+
+    // 1.3 INS fault groups: each IMU residual is an independent fault source.
+    for (const auto& imu_pair : imu_to_J_rows) {
+        addFaultGroup(imu_pair.second, options_.imu_prior_fault_probability,
+                      "IMU_RESID:" + std::to_string(imu_pair.first),
+                      fault_group_rows, p_prior_groups, fault_group_source_ids_);
+    }
+
+    if (fault_group_rows.empty()) {
+        LOG(ERROR) << "No fault groups were constructed for integrity monitoring.";
+        return false;
+    }
+    CHECK(fault_group_rows.size() == p_prior_groups.size() && fault_group_rows.size() == fault_group_source_ids_.size())
+        << "Mismatch in fault group data structures sizes.";
+
+    #if 1
+    // Debug output of fault groups
+    std::string debug_dir = "/home/syl/GICI-IM/results/debug/";
+    std::ofstream fg_out(debug_dir + "fault_groups_" + std::to_string(timestamp_) + ".txt");
+    if (fg_out.is_open()) {
+        for (size_t i = 0; i < fault_group_rows.size(); ++i) {
+            fg_out << "Group " << i << ", Source: " << fault_group_source_ids_[i] << ", Prior P: " << std::fixed << std::setprecision(9) << p_prior_groups[i] << ", Rows: ";
+            for (int row : fault_group_rows[i]) {
+                fg_out << row << " ";            
+            }
+            fg_out << "\n";
+        }
+        fg_out.close();
+        LOG(INFO) << "Saved fault group details to " << debug_dir + "fault_groups_" + std::to_string(timestamp_) + ".txt";
+    }
+    #endif
+
+    // 2. Determine subsets from expanded prior fault groups.
     determineSubsets(p_prior_groups, subsets_, pap_subset_, p_not_monitored_);
-    CHECK_EQ(fault_groups.size(), subsets_[0].size());
+    if (subsets_.empty()) {
+        LOG(ERROR) << "Failed to determine subsets from fault priors.";
+        return false;
+    }
+    CHECK_EQ(fault_group_rows.size(), subsets_[0].size());
+    CHECK_EQ(fault_group_rows.size(), fault_group_source_ids_.size());
 
-    LOG(INFO) << "Total subsets to monitor: " << subsets_.size();
+    LOG(INFO) << "Total fault groups: " << fault_group_rows.size()
+              << ", total subsets to monitor: " << subsets_.size();
 
-    // 4. Compute Subset Solutions
-    computeSubsetSolution(J_all, r_all, sig2_int, sig2_acc, subsets_, fault_groups, curr_lm_to_J_rows, curr_lm_to_J_cols, curr_lm_ids, curr_pose_J_cols, sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_);
+    // 3. Compute subset solutions for all monitored fault hypotheses.
+    computeSubsetSolution(J_all, r_all, sig2_int, sig2_acc,
+                          subsets_, fault_group_rows, curr_pose_J_cols,
+                          sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_);
 
-    // 5. Filter out unmonitorable subsets
+    // 4. Filter unmonitorable subsets and continue legacy threshold/PL logic.
     filteroutSubsets(sigma_, bias_, sigma_ss_, bias_ss_, s1vec_, s2vec_, s3vec_, x_, chi2_, subsets_, pap_subset_, p_not_monitored_);
 
     // 6. Compute Test Thresholds
@@ -838,40 +1239,180 @@ bool VisualIntegrity::computeIntegrityMetrics(const Eigen::MatrixXd& J_all,
             }
         }
     }
+
+    // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_" + std::to_string(timestamp_) + ".txt");
+    // saveEigenMatrixToFile(sigma_, "/home/syl/GICI-IM/results/debug/sigma_" + std::to_string(timestamp_) + ".txt");
+    // saveEigenMatrixToFile(sigma_ss_, "/home/syl/GICI-IM/results/debug/sigma_ss_" + std::to_string(timestamp_) + ".txt");
+    // saveEigenMatrixToFile(T_, "/home/syl/GICI-IM/results/debug/T_" + std::to_string(timestamp_) + ".txt");
+    // saveEigenMatrixToFile(x_, "/home/syl/GICI-IM/results/debug/x_" + std::to_string(timestamp_) + ".txt");
     if (fault_detected) LOG(WARNING) << std::fixed << std::setprecision(6)<< "Fault detected num: " << fault_detected_num << ", for timestamp: " << timestamp_;
     if (!fault_detected)  LOG(INFO) << std::fixed << std::setprecision(6)<< "No fault detected for timestamp: " << timestamp_;
 
     // 8. Compute PL and IR
-    computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, HPL_, LaPL_, LoPL_);
+    computePL(sigma_, bias_, T_, pap_subset_, p_not_monitored_, VPL_, LaPL_, LoPL_, HPL_);
+
     IR_ = computeIR(sigma_, bias_, T_, pap_subset_, p_not_monitored_);
 
-    return fault_detected;
+    // return fault_detected;
+    return true;
+}
+
+int VisualIntegrity::getGnssSystemIndex(const std::string& prn) const
+{
+    if (prn.empty()) return 0;
+    const char sys = static_cast<char>(std::toupper(static_cast<unsigned char>(prn.front())));
+    switch (sys) { // [GPS, GLO, BDS, GAL]
+        case 'G': return 0;
+        case 'R': return 1;
+        case 'C': return 2;
+        case 'E': return 3;
+        default: return 0;
+    }
+}
+
+double VisualIntegrity::getBoundedProbabilityFromVector(const std::vector<double>& probs, int idx, double fallback) const
+{
+    double p = fallback;
+    if (idx >= 0 && idx < static_cast<int>(probs.size())) {
+        p = probs[idx];
+    } else if (!probs.empty()) {
+        p = probs.front();
+    }
+    return std::min(1.0 - 1.0e-12, std::max(1.0e-12, p));
 }
 
 
-bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::deque<State>& states, size_t state_index, const Graph* graph, const PointMap& landmarks_map,
+void VisualIntegrity::addFaultGroup(const std::vector<int>& rows_in, const double p_in, const std::string& source_id,
+                                    std::vector<std::vector<int>>& rows_groups, std::vector<double>& p_groups,
+                                    std::vector<std::string>& source_ids) const
+{
+    std::vector<int> rows = rows_in;
+    if (rows.empty()) return;
+    std::sort(rows.begin(), rows.end());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    if (rows.empty()) return;
+    rows_groups.push_back(rows);
+    p_groups.push_back(std::min(1.0 - 1.0e-12, std::max(1.0e-12, p_in)));
+    source_ids.push_back(source_id);
+}
+
+
+double VisualIntegrity::getGnssSystemFactor(const std::string& prn) const
+{
+    auto get_factor = [&](size_t idx) -> double {
+        if (idx < options_.user_F.size()) {
+            return options_.user_F[idx];
+        }
+        if (!options_.user_F.empty()) {
+            return options_.user_F.front();
+        }
+        return 1.0;
+    };
+
+    if (prn.empty()) return get_factor(0);
+    const char sys = static_cast<char>(std::toupper(static_cast<unsigned char>(prn.front())));
+    switch (sys) {
+        case 'G': return get_factor(0);
+        case 'R': return get_factor(1);
+        case 'C': return get_factor(2);
+        case 'E': return get_factor(3);
+        default: return get_factor(0);
+    }
+}
+// F^s^2 R_r^2 (a_σ^2+(b_σ^2)/sin^2⁡(θ_r^s ) )
+double VisualIntegrity::computeGnssUserSigma(const double elevation, const std::string& prn) const
+{
+    const double user_F = getGnssSystemFactor(prn);
+    const double sin_el = std::max(1.0e-3, std::sin(std::max(1.0e-3, elevation)));
+    const double sigma_sq = user_F * user_F * options_.user_Rr * options_.user_Rr *
+                            (options_.user_a_sigma * options_.user_a_sigma +
+                             (options_.user_b_sigma * options_.user_b_sigma) / (sin_el * sin_el));
+    return std::sqrt(std::max(1.0e-12, sigma_sq));
+}
+
+double VisualIntegrity::computeGnssDopplerSigma(const std::string& prn) const
+{
+    const double user_F = getGnssSystemFactor(prn);
+    const double sigma_sq = user_F * user_F * options_.doppler_c_sigma * options_.doppler_c_sigma;
+    return std::sqrt(std::max(1.0e-12, sigma_sq));
+}
+
+
+double VisualIntegrity::computeGnssSpatialCorrelation(double az1, double el1, double az2, double el2) const
+{
+    const double cos_delta = std::sin(el1) * std::sin(el2) +
+                             std::cos(el1) * std::cos(el2) * std::cos(az1 - az2);
+    const double bounded = std::max(-1.0, std::min(1.0, cos_delta));
+    const double dpsi = std::acos(bounded);
+    return options_.rho_max * std::exp(-dpsi / std::max(1.0e-6, (options_.psi_user_deg * D2R)));
+}
+
+double VisualIntegrity::computeGnssCodeDdVariance(double sigma_user, double sigma_ref, double rho_sr) const
+{
+    return 2.0 * (sigma_user * sigma_user + sigma_ref * sigma_ref -
+                  2.0 * sigma_user * sigma_ref * rho_sr);
+}
+
+
+
+bool VisualIntegrity::updateGnssSatelliteInfo(const GnssMeasurement& measurement,
+                                              const std::string& prn,
+                                              const std::string& ref_prn,
+                                              std::string& out_prn,
+                                              std::string& out_ref_prn,
+                                              double& out_elevation,
+                                              double& out_azimuth,
+                                              double& out_ref_elevation,
+                                              double& out_ref_azimuth) const
+{
+    out_prn = prn;
+    out_ref_prn = ref_prn;
+
+    auto sat_it = measurement.satellites.find(prn);
+    if (sat_it == measurement.satellites.end()) {
+        return false;
+    }
+
+    const auto& sat = sat_it->second;
+    out_elevation = gnss_common::satelliteElevation(sat.sat_position, measurement.position);
+    out_azimuth = gnss_common::satelliteAzimuth(sat.sat_position, measurement.position);
+
+    if (!ref_prn.empty()) {
+        auto sat_ref_it = measurement.satellites.find(ref_prn);
+        if (sat_ref_it != measurement.satellites.end()) {
+            const auto& sat_ref = sat_ref_it->second;
+            out_ref_elevation = gnss_common::satelliteElevation(sat_ref.sat_position, measurement.position);
+            out_ref_azimuth = gnss_common::satelliteAzimuth(sat_ref.sat_position, measurement.position);
+            return true;
+        }
+    }
+
+    out_ref_prn.clear();
+    out_ref_elevation = out_elevation;
+    out_ref_azimuth = out_azimuth;
+    return true;
+}
+
+
+bool VisualIntegrity::extractFullLinearSystem(const std::deque<State>& states, const size_t state_index, const Graph* graph, const PointMap& landmarks_map,
+                                              const std::deque<std::pair<GnssMeasurement, GnssMeasurement>>* gnss_measurement_pairs,
                                               Eigen::MatrixXd& J_all, Eigen::VectorXd& r_all, Eigen::MatrixXd& sig2_int, Eigen::MatrixXd& sig2_acc,
                                               std::vector<std::pair<uint64_t, std::string>>& row_ids_all, std::vector<std::pair<uint64_t, std::string>>& col_ids_all, std::vector<std::pair<uint64_t, double>>& pose_timestamps,
-                                              std::vector<std::pair<uint64_t, int>>& rows_curr, std::vector<std::pair<uint64_t, int>>& cols_curr)
+                                              std::vector<std::pair<uint64_t, int>>& rows_curr, std::vector<std::pair<uint64_t, int>>& cols_curr,
+                                              std::map<uint64_t, std::vector<std::string>>& gnss_resid_to_prns,
+                                              std::map<uint64_t, std::vector<uint64_t>>& gnss_resid_to_param_ids,
+                                              std::map<uint64_t, std::vector<uint64_t>>& imu_resid_to_param_ids
+                                              )
 {
     
     
-    uint64_t current_pose_id = states[state_index].id.asInteger();
+    
+    const State& current_state = states[state_index];
+    const uint64_t current_pose_id = states[state_index].id.asInteger();
+    const IdType current_pose_type = states[state_index].id.type();
     if (!graph->parameterBlockExists(current_pose_id)) return false;
 
-    struct GenericResidualInfo {
-        double timestamp;
-        std::pair<uint64_t, std::string> row_id; 
-        Eigen::VectorXd residual;
-        double sig2_int;
-        double sig2_acc;
-        int cur_track;
-        bool is_current_frame;
-        uint64_t landmark_id;
-        std::vector<std::pair<uint64_t, Eigen::MatrixXd>> jacobians; // ParamID, Jacobian
-    };
     std::vector<GenericResidualInfo> all_residuals;
-
 
     ceres::Problem* problem = graph->problem().get();
     std::vector<ceres::ResidualBlockId> residual_blocks;
@@ -910,7 +1451,7 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
             }
             // Check for IMU states associated with current pose
             if (pb_id.type() == IdType::ImuStates) {
-                 BackendId pose_id = changeIdType(pb_id, IdType::cPose);
+                 BackendId pose_id = changeIdType(pb_id, current_pose_type);
                  if (pose_id.asInteger() == current_pose_id) {
                     is_current = true;
                  }
@@ -942,12 +1483,40 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
             continue;
         }
 
-        std::string row_id_type = "Unknown";
-        auto error_type = graph->errorInterfacePtr(residual_block_id)->typeInfo();
-        row_id_type = kErrorToStr.at(error_type);
+        const ErrorInterface* base_err = graph->errorInterfacePtr(residual_block_id).get();
+        if (base_err == nullptr) continue;
+
+        if (num_residuals > 0) {
+            Eigen::VectorXd residual_unweighted =
+                Eigen::Map<Eigen::VectorXd>(residuals_eval.data(), num_residuals);
+            base_err->deNormalizeResidual(residual_unweighted.data());
+            Eigen::Map<Eigen::VectorXd>(residuals_eval.data(), num_residuals) = residual_unweighted;
+
+            Eigen::MatrixXd sqrt_info_inv = Eigen::MatrixXd::Zero(num_residuals, num_residuals);
+            for (int col = 0; col < num_residuals; ++col) {
+                Eigen::VectorXd basis = Eigen::VectorXd::Zero(num_residuals);
+                basis(col) = 1.0;
+                base_err->deNormalizeResidual(basis.data());
+                sqrt_info_inv.col(col) = basis;
+            }
+
+            for (size_t i = 0; i < parameter_blocks.size(); ++i) {
+                if (jacobians[i] == nullptr) {
+                    continue;
+                }
+                int param_dim = parameter_blocks[i].second->minimalDimension();
+                Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>
+                    J_weighted(jacobians[i], num_residuals, param_dim);
+                const Eigen::MatrixXd J_unweighted = sqrt_info_inv * J_weighted;
+                J_weighted = J_unweighted;
+            }    
+        }
+
+        auto error_type = base_err->typeInfo();
         GenericResidualInfo info;
+        info.error_type_str = kErrorToStr.at(error_type);
         info.timestamp = timestamp;
-        info.row_id = {reinterpret_cast<uint64_t>(residual_block_id), row_id_type};
+        info.row_id = {reinterpret_cast<uint64_t>(residual_block_id), info.error_type_str};
         info.residual = Eigen::Map<Eigen::VectorXd>(residuals_eval.data(), num_residuals);
         info.is_current_frame = is_current;
 
@@ -959,29 +1528,195 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
             }
         }
 
-        info.sig2_int = options_.sigma_pixel * options_.sigma_pixel; // Default
-        info.sig2_acc = options_.sigma_pixel * options_.sigma_pixel; // Default
+        info.sig2_int = 1.0; // Default
+        info.sig2_acc = 1.0; // Default
         info.landmark_id = 0; // Default
         info.cur_track = -1;
-        if (error_type == ErrorType::kReprojectionError && options_.overbounding_func != "none") {
-            // Find landmark ID from parameter blocks
-            for (size_t i = 0; i < parameter_blocks.size(); ++i) {
-                BackendId pb_id(parameter_blocks[i].first);
-                if (pb_id.type() == IdType::cLandmark) {
-                    info.landmark_id = pb_id.asInteger();
-                    break;
+        info.prn = "";
+        if (error_type == ErrorType::kReprojectionError) {
+            if (options_.use_complex_visual_cov && (options_.overbounding_func != "none" || options_.normal_func != "none")) {
+                // Find landmark ID from parameter blocks
+                for (size_t i = 0; i < parameter_blocks.size(); ++i) {
+                    BackendId pb_id(parameter_blocks[i].first);
+                    if (pb_id.type() == IdType::cLandmark) {
+                        info.landmark_id = pb_id.asInteger();
+                        break;
+                    }
                 }
+                if (info.landmark_id != 0) {
+                    info.sig2_int = options_.sigma_pixel * options_.sigma_pixel;
+                    info.sig2_acc = info.sig2_int;
+                }
+            } else {
+                info.landmark_id = 0;
+                info.sig2_int = options_.simple_visual_sigma * options_.simple_visual_sigma;
+                info.sig2_acc = info.sig2_int;
+            }
+
+        }
+        else if (error_type == ErrorType::kPseudorangeErrorDD ||
+                 error_type == ErrorType::kPhaserangeErrorDD ||
+                 error_type == ErrorType::kDopplerError) {
+            const GnssMeasurement* gnss_measurement_for_residual = selectGnssMeasurementForTimestamp(info.timestamp, gnss_measurement_pairs);
+            bool valid_meta = false;
+            if (gnss_measurement_for_residual != nullptr) {
+                if (error_type == ErrorType::kPseudorangeErrorDD) {
+                    info.gnss_kind = GnssKind::CodeDD;
+                    GnssMeasurementDDIndexPair dd_index;
+                    bool found = false;
+                    if (auto e = dynamic_cast<const PseudorangeErrorDD<3>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const PseudorangeErrorDD<7,3>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const PseudorangeErrorDD<3,1,1,1,1>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const PseudorangeErrorDD<7,3,1,1,1,1>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    if (found) {
+                        valid_meta = updateGnssSatelliteInfo(*gnss_measurement_for_residual, dd_index.rov.prn, dd_index.rov_base.prn,
+                                                                info.prn, info.ref_prn,
+                                                                info.elevation, info.azimuth, info.ref_elevation,info.ref_azimuth);
+                        if (valid_meta) {
+                            info.sigma_user = computeGnssUserSigma(info.elevation, info.prn);
+                            if (!info.ref_prn.empty()) info.sigma_user_ref = computeGnssUserSigma(info.ref_elevation, info.ref_prn);
+                        }
+                    }
+                } else if (error_type == ErrorType::kPhaserangeErrorDD) {
+                    info.gnss_kind = GnssKind::PhaseDD;
+                    GnssMeasurementDDIndexPair dd_index;
+                    bool found = false;
+                    if (auto e = dynamic_cast<const PhaserangeErrorDD<3,1,1>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const PhaserangeErrorDD<7,3,1,1>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const PhaserangeErrorDD<3,1,1,1,1,1,1>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const PhaserangeErrorDD<7,3,1,1,1,1,1,1>*>(base_err)) { dd_index = e->getGnssMeasurementIndex(); found = true; }
+                    if (found) {
+                        valid_meta = updateGnssSatelliteInfo(*gnss_measurement_for_residual, dd_index.rov.prn, dd_index.rov_base.prn,
+                                                                info.prn, info.ref_prn,
+                                                                info.elevation, info.azimuth, info.ref_elevation,info.ref_azimuth);
+                        if (valid_meta) {
+                            info.sigma_user = computeGnssUserSigma(info.elevation, info.prn);
+                            if (!info.ref_prn.empty()) info.sigma_user_ref = computeGnssUserSigma(info.ref_elevation, info.ref_prn);
+                        }
+                    }
+                } else {
+                    info.gnss_kind = GnssKind::Doppler;
+                    GnssMeasurementIndex idx;
+                    bool found = false;
+                    if (auto e = dynamic_cast<const DopplerError<3,3,1>*>(base_err)) { idx = e->getGnssMeasurementIndex(); found = true; }
+                    else if (auto e = dynamic_cast<const DopplerError<7,9,3,1>*>(base_err)) { idx = e->getGnssMeasurementIndex(); found = true; }
+                    if (found) {
+                        valid_meta = updateGnssSatelliteInfo(*gnss_measurement_for_residual, idx.prn, "",
+                                                                info.prn, info.ref_prn,
+                                                                info.elevation, info.azimuth, info.ref_elevation,info.ref_azimuth);
+                        if (valid_meta) {
+                            info.sigma_user = computeGnssDopplerSigma(info.prn);
+                        }
+                    }
+                }
+            }
+
+            if (valid_meta && options_.use_complex_gnss_cov) {
+                double var_diag = 1.0;
+                if (info.gnss_kind == GnssKind::CodeDD) {
+                    const double rho_sr = computeGnssSpatialCorrelation(info.azimuth, info.elevation,
+                                                                        info.ref_azimuth, info.ref_elevation);
+                    var_diag = computeGnssCodeDdVariance(info.sigma_user, info.sigma_user_ref, rho_sr);
+                } else if (info.gnss_kind == GnssKind::PhaseDD) {
+                    const double rho_sr = computeGnssSpatialCorrelation(info.azimuth, info.elevation,
+                                                                        info.ref_azimuth, info.ref_elevation);
+                    var_diag = computeGnssCodeDdVariance(info.sigma_user, info.sigma_user_ref, rho_sr) /
+                                (options_.user_Rr * options_.user_Rr);
+                } else {
+                    var_diag = info.sigma_user;
+                }
+                info.sig2_int = std::max(1.0e-8, var_diag);
+                info.sig2_acc = info.sig2_int;
+            } else {
+                info.sig2_int = options_.simple_gnss_sigma * options_.simple_gnss_sigma;
+                info.sig2_acc = info.sig2_int;
+            }
+        }
+        else if (error_type == ErrorType::kIMUError) {
+            auto imu_err = dynamic_cast<const ImuError*>(base_err);
+            if (imu_err != nullptr && options_.use_complex_imu_cov) {
+                info.is_imu = true;
+                info.sig2_imu = imu_err->covarianceMatrix();
+                if (info.sig2_imu.rows() != num_residuals || info.sig2_imu.cols() != num_residuals) {
+                    LOG(WARNING) << "IMU covariance size mismatch for residual block ";
+                    info.sig2_imu = Eigen::MatrixXd::Identity(num_residuals, num_residuals) * options_.simple_imu_sigma * options_.simple_imu_sigma;
+                }
+            } else {
+                info.is_imu = true;
+                info.sig2_imu = Eigen::MatrixXd::Identity(num_residuals, num_residuals) * options_.simple_imu_sigma * options_.simple_imu_sigma;
+                info.sig2_int = options_.simple_imu_sigma * options_.simple_imu_sigma;
+                info.sig2_acc = info.sig2_int;
+            }
+        }
+        else { //other types of residuals
+            if (options_.use_complex_others_cov) {
+                info.sig2_others = Eigen::MatrixXd::Identity(num_residuals, num_residuals);
+                if (base_err == nullptr || !base_err->getCovarianceMatrix(info.sig2_others)) {
+                    LOG(WARNING) << "Failed to extract generic covariance for error type: " << info.error_type_str
+                                << ", fallback to identity.";
+                    info.sig2_others = Eigen::MatrixXd::Identity(num_residuals, num_residuals);
+                }
+
+                info.sig2_others = 0.5 * (info.sig2_others + info.sig2_others.transpose())
+                                    + 1.0e-10 * Eigen::MatrixXd::Identity(num_residuals, num_residuals);
+
+                if (info.sig2_others.hasNaN() || info.sig2_others.rows() != num_residuals || info.sig2_others.cols() != num_residuals) {
+                    LOG(WARNING) << "Invalid generic covariance for error type: " << info.error_type_str << ", fallback to identity.";
+                    info.sig2_others = Eigen::MatrixXd::Identity(num_residuals, num_residuals);
+                }
+
+                if (info.sig2_others.rows() == num_residuals && info.sig2_others.cols() == num_residuals) {
+                    const double avg_diag = std::max(1.0e-8, info.sig2_others.diagonal().mean());
+                    info.sig2_int = avg_diag;
+                    info.sig2_acc = avg_diag;
+                } 
+            }
+            else {
+                info.sig2_others = Eigen::MatrixXd::Identity(num_residuals, num_residuals);
+                info.sig2_int = options_.simple_others_sigma * options_.simple_others_sigma;
+                info.sig2_acc = info.sig2_int;
             }
         }
 
-        if (info.landmark_id != 0) {
-            info.sig2_int = options_.sigma_pixel * options_.sigma_pixel;
-            info.sig2_acc = options_.sigma_pixel * options_.sigma_pixel;
-        } else{
-            info.sig2_int = 1;
-            info.sig2_acc = 1;
-        }
         all_residuals.push_back(info);
+
+        if (info.gnss_kind != GnssKind::None && !info.prn.empty()) {
+            const uint64_t residual_id = info.row_id.first;
+            auto& prn_vec = gnss_resid_to_prns[residual_id];
+            prn_vec.push_back(info.prn);
+            if (!info.ref_prn.empty() && info.ref_prn != info.prn) {
+                prn_vec.push_back(info.ref_prn);
+            }
+
+            auto& param_vec = gnss_resid_to_param_ids[residual_id];
+            for (const auto& jac_pair : info.jacobians) {
+                param_vec.push_back(jac_pair.first);
+            }
+        }
+
+        if (info.is_imu) {
+            const uint64_t residual_id = info.row_id.first;
+            auto& param_vec = imu_resid_to_param_ids[residual_id];
+            for (const auto& jac_pair : info.jacobians) {
+                param_vec.push_back(jac_pair.first);
+            }
+        }
+    }
+
+    for (auto& pair : gnss_resid_to_prns) {
+        auto& prns = pair.second;
+        std::sort(prns.begin(), prns.end());
+        prns.erase(std::unique(prns.begin(), prns.end()), prns.end());
+    }
+    for (auto& pair : gnss_resid_to_param_ids) {
+        auto& params = pair.second;
+        std::sort(params.begin(), params.end());
+        params.erase(std::unique(params.begin(), params.end()), params.end());
+    }
+    for (auto& pair : imu_resid_to_param_ids) {
+        auto& params = pair.second;
+        std::sort(params.begin(), params.end());
+        params.erase(std::unique(params.begin(), params.end()), params.end());
     }
 
     std::sort(all_residuals.begin(), all_residuals.end(), [](const GenericResidualInfo& a, const GenericResidualInfo& b) {
@@ -998,7 +1733,7 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
     }
 
     // Optimization: Batch compute sig2 overbounding
-    if (options_.overbounding_func == "dual_exp"){
+    if (options_.use_complex_visual_cov && (options_.overbounding_func == "dual_exp" || options_.normal_func == "dual_exp")) {
         
         for(auto const& pair : lm_to_indices) {
             uint64_t lm_id = pair.first;
@@ -1006,20 +1741,42 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
             const auto& landmark = landmarks_map.at(BackendId(lm_id));
 
             std::map<uint64_t, int> res_to_frame;
-            for(const auto& obs : landmark.observations) res_to_frame[obs.second] = obs.first.frame_id;
-            
-            std::map<int, int> frame_to_track;
-            for(size_t k = 0; k < landmark.point->obs_.size(); ++k) frame_to_track[landmark.point->obs_[k].frame_id] = k;
+            for(const auto& obs : landmark.observations) {
+                res_to_frame[obs.second] = obs.first.frame_id;
+            }
+
+            std::unordered_map<int, int> frame_to_track_exact;
+            int min_frame_id = std::numeric_limits<int>::max();
+            for(size_t k = 0; k < landmark.point->obs_.size(); ++k) {
+                const int frame_id = landmark.point->obs_[k].frame_id;
+                frame_to_track_exact[frame_id] = static_cast<int>(k);
+                if (frame_id < min_frame_id) {
+                    min_frame_id = frame_id;
+                }
+            }
 
             for(size_t idx : pair.second) {
                 uint64_t res_id = all_residuals[idx].row_id.first;
                 if(res_to_frame.count(res_id)) {
                     int fid = res_to_frame[res_id];
-                    if(frame_to_track.count(fid)) {
-                        int cur_track = frame_to_track[fid];
-                        all_residuals[idx].cur_track = cur_track;
-                        all_residuals[idx].sig2_int += computeDualExpOverboundingSig2(options_.overbounding_parameters, 0, cur_track);
-                        if (options_.normal_func != "none")  all_residuals[idx].sig2_acc += computeDualExpOverboundingSig2(options_.normal_parameters, 0, cur_track);
+                    if (!frame_to_track_exact.empty()) {
+                        auto track_it = frame_to_track_exact.find(fid);
+                        int j = 0;
+                        while (track_it == frame_to_track_exact.end() && fid > min_frame_id) {
+                            --fid;
+                            track_it = frame_to_track_exact.find(fid);
+                            j++;
+                        }
+                        if (j > 0) {
+                            LOG(INFO) << "For residual block ID " << res_id << ", searched back " << j << " frames to find track for frame " << res_to_frame[res_id];
+                        }
+
+                        if (track_it != frame_to_track_exact.end()) {
+                            const int cur_track = track_it->second;
+                            all_residuals[idx].cur_track = cur_track;
+                            if (options_.overbounding_func != "none") all_residuals[idx].sig2_int += computeDualExpOverboundingSig2(options_.overbounding_parameters, 0, cur_track);
+                            if (options_.normal_func != "none")  all_residuals[idx].sig2_acc += computeDualExpOverboundingSig2(options_.normal_parameters, 0, cur_track);
+                        }
                     }
                 }
             }
@@ -1145,8 +1902,21 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
                 sig2_int(current_row_idx + k, current_row_idx + k) = info.sig2_int;
                 sig2_acc(current_row_idx + k, current_row_idx + k) = info.sig2_acc;
             }
+            if (info.is_imu && options_.use_complex_imu_cov) {
+                const int use_n = std::min<int>(num_res, std::min<int>(info.sig2_imu.rows(), info.sig2_imu.cols()));
+                if (use_n > 0) {
+                    sig2_int.block(current_row_idx, current_row_idx, use_n, use_n) = info.sig2_imu.topLeftCorner(use_n, use_n);
+                    sig2_acc.block(current_row_idx, current_row_idx, use_n, use_n) = info.sig2_imu.topLeftCorner(use_n, use_n);
+                }
+            } else if (info.sig2_others.rows() > 0 && info.sig2_others.cols() > 0 && options_.use_complex_others_cov) {
+                const int use_n = std::min<int>(num_res, std::min<int>(info.sig2_others.rows(), info.sig2_others.cols()));
+                if (use_n > 0) {
+                    sig2_int.block(current_row_idx, current_row_idx, use_n, use_n) = info.sig2_others.topLeftCorner(use_n, use_n);
+                    sig2_acc.block(current_row_idx, current_row_idx, use_n, use_n) = info.sig2_others.topLeftCorner(use_n, use_n);
+                }
+            }
 
-            for (const auto& pair : info.jacobians) { //cols_curr not include imu error to 上一帧
+            for (const auto& pair : info.jacobians) { //cols_curr not include imu error to last frame
                 int col = param_col_map[pair.first];
                 J_all.block(current_row_idx, col, num_res, pair.second.cols()) = pair.second;
                 if (info.is_current_frame) {
@@ -1155,9 +1925,9 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
                     bool add_curr = false;
                     BackendId parmid(pair.first);
                     if (parmid.type() == IdType::ImuStates) {
-                        parmid = changeIdType(parmid, IdType::cPose);
+                        parmid = changeIdType(parmid, current_pose_type);
                     }
-                    if (parmid.asInteger() == current_pose_id || parmid.type() != IdType::cPose) {
+                    if (parmid.asInteger() == current_pose_id || (parmid.type() != IdType::cPose && parmid.type() != IdType::gPose)) {
                         add_curr = true;
                     }
                     if (add_curr) {
@@ -1168,7 +1938,8 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
             current_row_idx += num_res;
         }
         
-        if (options_.overbounding_func != "none") {
+        // Second, set non-diagonal elements based on options
+        if (options_.use_complex_visual_cov && (options_.overbounding_func != "none" || options_.normal_func != "none")) {
             // Optimization: Set non-diagonal elements for observations of the same landmark using indexing
             std::vector<uint64_t> valid_lms;
             for(const auto& pair : lm_to_indices) {
@@ -1197,16 +1968,118 @@ bool VisualIntegrity::extractFullLinearSystem(const FramePtr& frame, const std::
                             min_sig2_acc = other_info.sig2_acc;
                         }
                         
-                        sig2_int.block(row1, row2, n1, n2) = min_sig2_int * Eigen::MatrixXd::Identity(n1, n2);
-                        sig2_int.block(row2, row1, n2, n1) = min_sig2_int * Eigen::MatrixXd::Identity(n2, n1);
+                        if (options_.overbounding_func != "none") {
+                            sig2_int.block(row1, row2, n1, n2) = min_sig2_int * Eigen::MatrixXd::Identity(n1, n2);
+                            sig2_int.block(row2, row1, n2, n1) = min_sig2_int * Eigen::MatrixXd::Identity(n2, n1);
+                        }
 
-                        if (options_.normal_func == "none") continue;
-                        sig2_acc.block(row1, row2, n1, n2) = min_sig2_acc * Eigen::MatrixXd::Identity(n1, n2);
-                        sig2_acc.block(row2, row1, n2, n1) = min_sig2_acc * Eigen::MatrixXd::Identity(n2, n1);
+                        if (options_.normal_func != "none") {
+                            sig2_acc.block(row1, row2, n1, n2) = min_sig2_acc * Eigen::MatrixXd::Identity(n1, n2);
+                            sig2_acc.block(row2, row1, n2, n1) = min_sig2_acc * Eigen::MatrixXd::Identity(n2, n1);
+                        }
                     }
                 }
             }
         }
+
+
+        if (options_.use_complex_gnss_cov && gnss_measurement_pairs != nullptr && !gnss_measurement_pairs->empty()) {
+            for (size_t i = 0; i < all_residuals.size(); ++i) {
+                for (size_t j = i + 1; j < all_residuals.size(); ++j) {
+                    const auto& ri = all_residuals[i];
+                    const auto& rj = all_residuals[j];
+
+                    if (ri.gnss_kind == GnssKind::None || rj.gnss_kind == GnssKind::None) {
+                        continue;
+                    }
+                    if (ri.residual.size() != 1 || rj.residual.size() != 1) {
+                        continue;
+                    }
+
+                    double cov = 0.0;
+                    const bool same_time = std::fabs(ri.timestamp - rj.timestamp) < 1.0e-3;
+                    const bool same_sat = (ri.prn == rj.prn);
+
+                    const double rho_ij = computeGnssSpatialCorrelation(ri.azimuth, ri.elevation, rj.azimuth, rj.elevation);
+                    const double rho_i_j_ref = computeGnssSpatialCorrelation(ri.azimuth, ri.elevation, rj.ref_azimuth, rj.ref_elevation);
+                    const double rho_j_i_ref = computeGnssSpatialCorrelation(rj.azimuth, rj.elevation, ri.ref_azimuth, ri.ref_elevation);
+                    const double rho_ref_ref = computeGnssSpatialCorrelation(ri.ref_azimuth, ri.ref_elevation, rj.ref_azimuth, rj.ref_elevation);
+
+                    if (same_time &&
+                        ri.gnss_kind == GnssKind::CodeDD &&
+                        rj.gnss_kind == GnssKind::CodeDD) {
+                        cov = 2.0 * (ri.sigma_user * rj.sigma_user * rho_ij + 
+                                     ri.sigma_user_ref * rj.sigma_user_ref * rho_ref_ref -
+                                     ri.sigma_user * rj.sigma_user_ref* rho_i_j_ref -
+                                     rj.sigma_user * ri.sigma_user_ref * rho_j_i_ref);
+                    } else if (same_time &&
+                               ri.gnss_kind == GnssKind::PhaseDD &&
+                               rj.gnss_kind == GnssKind::PhaseDD) {
+                        cov = (2.0 * (ri.sigma_user * rj.sigma_user * rho_ij + 
+                                     ri.sigma_user_ref * rj.sigma_user_ref * rho_ref_ref -
+                                     ri.sigma_user * rj.sigma_user_ref* rho_i_j_ref -
+                                     rj.sigma_user * ri.sigma_user_ref * rho_j_i_ref)) / (options_.user_Rr * options_.user_Rr);
+                    } else if (!same_time && same_sat &&
+                               ri.gnss_kind == GnssKind::CodeDD &&
+                               rj.gnss_kind == GnssKind::CodeDD) {
+                        const double dt = std::fabs(ri.timestamp - rj.timestamp);
+                        const double decay = std::exp(-dt / std::max(1.0e-6, options_.tau_mp));
+                        cov = 2.0 * options_.k_mp *
+                              (ri.sigma_user * rj.sigma_user +
+                               ri.sigma_user_ref * rj.sigma_user_ref -
+                               ri.sigma_user * rj.sigma_user_ref * rho_i_j_ref -
+                               rj.sigma_user * ri.sigma_user_ref * rho_j_i_ref) *
+                              decay;
+                    } else if (!same_time && same_sat &&
+                               ri.gnss_kind == GnssKind::PhaseDD &&
+                               rj.gnss_kind == GnssKind::PhaseDD) {
+                        const double dt = std::fabs(ri.timestamp - rj.timestamp);
+                        const double decay = std::exp(-dt / std::max(1.0e-6, options_.tau_mp));
+                        cov = (2.0 * options_.k_mp *
+                               (ri.sigma_user * rj.sigma_user +
+                                ri.sigma_user_ref * rj.sigma_user_ref -
+                                ri.sigma_user * rj.sigma_user_ref * rho_i_j_ref -
+                                rj.sigma_user * ri.sigma_user_ref * rho_j_i_ref) *
+                               decay) / (options_.user_Rr * options_.user_Rr);
+                    // } else if (!same_time && !same_sat &&
+                    //            ri.gnss_kind == GnssKind::CodeDD &&
+                    //            rj.gnss_kind == GnssKind::CodeDD) {
+                    //     const double dt = std::fabs(ri.timestamp - rj.timestamp);
+                    //     const double decay = std::exp(-dt / std::max(1.0e-6, options_.tau_mp));
+                    //     cov = 2.0 * options_.k_mp *
+                    //           (ri.sigma_user * rj.sigma_user * rho_ij + 
+                    //            ri.sigma_user_ref * rj.sigma_user_ref * rho_ref_ref -
+                    //            ri.sigma_user * rj.sigma_user_ref* rho_i_j_ref -
+                    //            rj.sigma_user * ri.sigma_user_ref * rho_j_i_ref) *
+                    //           decay;
+                    // } else if (!same_time && !same_sat &&
+                    //            ri.gnss_kind == GnssKind::PhaseDD &&
+                    //            rj.gnss_kind == GnssKind::PhaseDD) {
+                    //     const double dt = std::fabs(ri.timestamp - rj.timestamp);
+                    //     const double decay = std::exp(-dt / std::max(1.0e-6, options_.tau_mp));
+                    //     cov = (2.0 * options_.k_mp *
+                    //            (ri.sigma_user * rj.sigma_user * rho_ij + 
+                    //             ri.sigma_user_ref * rj.sigma_user_ref * rho_ref_ref -
+                    //             ri.sigma_user * rj.sigma_user_ref* rho_i_j_ref -
+                    //             rj.sigma_user * ri.sigma_user_ref * rho_j_i_ref) *
+                    //            decay) / (options_.user_Rr * options_.user_Rr);
+                    }
+
+
+                    if (std::fabs(cov) > 0.0) {
+                        const int ri_row = res_row_starts[i];
+                        const int rj_row = res_row_starts[j];
+                        sig2_int(ri_row, rj_row) = cov;
+                        sig2_int(rj_row, ri_row) = cov;
+                        sig2_acc(ri_row, rj_row) = cov;
+                        sig2_acc(rj_row, ri_row) = cov;
+                    }
+                }
+            }
+        }
+
+        sig2_int += 1.0e-10 * Eigen::MatrixXd::Identity(sig2_int.rows(), sig2_int.cols());
+        sig2_acc += 1.0e-10 * Eigen::MatrixXd::Identity(sig2_acc.rows(), sig2_acc.cols());
     }
 
     CHECK_EQ(J_all.rows(), r_all.size());
@@ -1239,78 +2112,318 @@ double VisualIntegrity::computeDualExpOverboundingSig2(std::vector<double> prm, 
     return sig_overbound;
 }
 
-void VisualIntegrity::extractLandmarkRelatedRowsCols(const FramePtr& frame, const PointMap& landmarks_map,
-                                                  const std::vector<std::pair<uint64_t, std::string>>& row_ids_all,
-                                                  std::vector<std::pair<uint64_t, int>>& cols_curr,
-                                                  std::map<uint64_t, std::vector<int>>& landmark_observation_rows,
-                                                  std::map<uint64_t, std::vector<int>>& landmark_observation_cols,
-                                                  std::map<uint64_t, int>& landmark_object_ids)
+void VisualIntegrity::extractLandmarkRowsCols(
+    const FramePtr& frame,
+    const PointMap& landmarks_map,
+    const std::vector<std::pair<uint64_t, std::string>>& row_ids_all,
+    const std::vector<std::pair<uint64_t, std::string>>& col_ids_all,
+    const std::vector<std::pair<uint64_t, int>>& cols_curr,
+    std::map<uint64_t, std::vector<int>>& curr_landmark_observation_rows,
+    std::map<uint64_t, std::vector<int>>& all_landmark_observation_rows,
+    std::map<uint64_t, int>& curr_landmark_object_ids,
+    std::map<uint64_t, int>& all_landmark_object_ids)
 {
+    curr_landmark_observation_rows.clear();
+    all_landmark_observation_rows.clear();
+    curr_landmark_object_ids.clear();
+    all_landmark_object_ids.clear();
 
-    // Pre-build lookup maps for O(1) access
+    if (frame == nullptr || landmarks_map.empty()) {
+        return;
+    }
+
     std::unordered_map<uint64_t, std::vector<int>> resid_to_rows_map;
+    std::unordered_map<uint64_t, std::string> resid_to_type_map;
     for (size_t i = 0; i < row_ids_all.size(); ++i) {
         resid_to_rows_map[row_ids_all[i].first].push_back(static_cast<int>(i));
+        resid_to_type_map[row_ids_all[i].first] = row_ids_all[i].second;
     }
 
-    std::unordered_map<uint64_t, std::vector<int>> lm_to_cols_map;
+    std::unordered_map<uint64_t, std::vector<int>> lm_to_cols_all_map;
+    for (size_t i = 0; i < col_ids_all.size(); ++i) {
+        lm_to_cols_all_map[col_ids_all[i].first].push_back(static_cast<int>(i));
+    }
+
+    std::unordered_map<uint64_t, std::vector<int>> lm_to_cols_curr_map;
     for (const auto& pair : cols_curr) {
-        lm_to_cols_map[pair.first].push_back(pair.second);
+        lm_to_cols_curr_map[pair.first].push_back(pair.second);
     }
 
-    std::vector<BalancePoint> current_frame_points;
-    std::vector<uint64_t> current_frame_lm_ids;
-
-    // Iterate through landmarks map once
+    const int latest_frame_id = frame->id();
+    std::vector<BalancePoint> latest_frame_points;
+    std::vector<size_t> latest_frame_feat_indices;
+    std::set<size_t> latest_frame_seen_feats;
     for (const auto& lm_pair : landmarks_map) {
-        uint64_t lm_id = lm_pair.first.asInteger();
+        const uint64_t lm_id = lm_pair.first.asInteger();
+        if (lm_to_cols_all_map.find(lm_id) == lm_to_cols_all_map.end() &&
+            lm_to_cols_curr_map.find(lm_id) == lm_to_cols_curr_map.end()) {
+            continue;
+        }
+        for (const auto& obs_pair : lm_pair.second.observations) {
+            if (obs_pair.first.frame_id != latest_frame_id) {
+                continue;
+            }
+            const size_t feat_idx = obs_pair.first.keypoint_index_;
+            if (!latest_frame_seen_feats.insert(feat_idx).second) {
+                continue;
+            }
 
-        // Check if this landmark is in our current columns of interest
-        auto col_it = lm_to_cols_map.find(lm_id);
-        if (col_it != lm_to_cols_map.end()) {
-            // Store Column Indices
-            landmark_observation_cols[lm_id] = col_it->second;
-            CHECK_EQ(landmark_observation_cols[lm_id].size(), 3);
+            int obj_id = -1;
+            if (feat_idx < frame->object_id_vec_.size()) {
+                obj_id = frame->object_id_vec_[feat_idx];
+            }
+            latest_frame_points.push_back({frame->px_vec_(0, feat_idx), frame->px_vec_(1, feat_idx), obj_id});
+            latest_frame_feat_indices.push_back(feat_idx);
+        }
+    }
 
-            // Store Row Indices for all observations of this landmark
-            std::vector<int>& rows_vec = landmark_observation_rows[lm_id];
-            for (const auto& obs_pair : lm_pair.second.observations) {
-                uint64_t res_id = obs_pair.second;
-                
-                auto row_it = resid_to_rows_map.find(res_id);
-                if (row_it != resid_to_rows_map.end()) {
-                    rows_vec.insert(rows_vec.end(), row_it->second.begin(), row_it->second.end());
+    balanceObjectIds(latest_frame_points);
+
+    std::map<size_t, int> latest_frame_balanced_ids;
+    for (size_t i = 0; i < latest_frame_points.size(); ++i) {
+        latest_frame_balanced_ids[latest_frame_feat_indices[i]] = latest_frame_points[i].id;
+    }
+
+    int random_id = 10000;
+    for (const auto& lm_pair : landmarks_map) {
+        const uint64_t lm_id = lm_pair.first.asInteger();
+        const bool in_curr = lm_to_cols_curr_map.find(lm_id) != lm_to_cols_curr_map.end();
+        const bool in_all = lm_to_cols_all_map.find(lm_id) != lm_to_cols_all_map.end();
+        if (!in_curr && !in_all) {
+            continue;
+        }
+
+        int curr_selected_object_id = -1;
+        int all_selected_object_id = -1;
+        int fallback_frame_id = std::numeric_limits<int>::min();
+
+        for (const auto& obs_pair : lm_pair.second.observations) {
+            const uint64_t residual_id = obs_pair.second;
+            if (resid_to_type_map[residual_id] != "ReprojectionError") {
+                // LOG(WARNING) << "Residual ID " << residual_id << " associated with landmark " << lm_id << " is not a ReprojectionError, the type is " << resid_to_type_map[residual_id];
+                continue;
+            }
+
+            const auto row_it = resid_to_rows_map.find(residual_id);
+            if (row_it != resid_to_rows_map.end()) {
+                if (in_curr) {
+                    auto& curr_rows = curr_landmark_observation_rows[lm_id];
+                    curr_rows.insert(curr_rows.end(), row_it->second.begin(), row_it->second.end());
                 }
+                if (in_all) {
+                    auto& all_rows = all_landmark_observation_rows[lm_id];
+                    all_rows.insert(all_rows.end(), row_it->second.begin(), row_it->second.end());
+                }
+            }
 
-                if (obs_pair.first.frame_id == frame->id()) {
-                    size_t feat_idx_curr = obs_pair.first.keypoint_index_;
-                    int obj_id_curr = -1;
-                    if (feat_idx_curr < frame->object_id_vec_.size()) {
-                        obj_id_curr = frame->object_id_vec_[feat_idx_curr];
-                    }
-                    current_frame_points.push_back({frame->px_vec_(0, feat_idx_curr), frame->px_vec_(1, feat_idx_curr), obj_id_curr});
-                    current_frame_lm_ids.push_back(lm_id);
-                    
-                }else{
-                    landmark_object_ids[lm_id] = -1;
+            const int frame_id = obs_pair.first.frame_id;
+            const size_t feat_idx = obs_pair.first.keypoint_index_;
+            if (frame_id == latest_frame_id) {
+                auto balanced_it = latest_frame_balanced_ids.find(feat_idx);
+                if (balanced_it != latest_frame_balanced_ids.end() && balanced_it->second >= 0) {
+                    if (in_curr) curr_selected_object_id = balanced_it->second;
+                    if (in_all) all_selected_object_id = balanced_it->second;
+                }
+            }
+
+            const auto frame_ptr = obs_pair.first.frame.lock();
+            if (frame_ptr && feat_idx < frame_ptr->object_id_vec_.size()) {
+                const int raw_object_id = frame_ptr->object_id_vec_[feat_idx];
+                if (raw_object_id >= 0 && all_selected_object_id < 0 && frame_id > fallback_frame_id) {
+                    fallback_frame_id = frame_id;
+                    all_selected_object_id = raw_object_id;
                 }
             }
         }
-    }
-    
-    // Balance IDs
-    balanceObjectIds(current_frame_points);
 
-    // Apply balanced IDs
-    for (size_t i = 0; i < current_frame_points.size(); ++i) {
-        landmark_object_ids[current_frame_lm_ids[i]] = current_frame_points[i].id;
+        if (in_all) {
+            all_landmark_object_ids[lm_id] = all_selected_object_id;
+        }
+
+        if (in_curr) {
+            if (curr_selected_object_id < 0 && all_selected_object_id >= 0) {
+                curr_selected_object_id = all_selected_object_id;
+            }
+            curr_landmark_object_ids[lm_id] =
+                (curr_selected_object_id < 0) ? random_id++ : curr_selected_object_id;
+        }
     }
 
-    CHECK_EQ(landmark_observation_rows.size(), landmark_observation_cols.size());
+    for (auto& pair : curr_landmark_observation_rows) {
+        auto& rows = pair.second;
+        std::sort(rows.begin(), rows.end());
+        rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    }
+    for (auto& pair : all_landmark_observation_rows) {
+        auto& rows = pair.second;
+        std::sort(rows.begin(), rows.end());
+        rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    }
+}
+
+void VisualIntegrity::extractGnssRowsCols(
+    const std::vector<std::pair<uint64_t, std::string>>& row_ids_all,
+    const std::vector<std::pair<uint64_t, std::string>>& col_ids_all,
+    const std::vector<std::pair<uint64_t, int>>& cols_curr,
+    const std::map<uint64_t, std::vector<std::string>>& gnss_resid_to_prns,
+    const std::map<uint64_t, std::vector<uint64_t>>& gnss_resid_to_param_ids,
+    std::map<std::string, std::vector<int>>& curr_sat_observation_rows,
+    std::map<std::string, std::vector<int>>& all_sat_observation_rows)
+{
+    curr_sat_observation_rows.clear();
+    all_sat_observation_rows.clear();
+
+    std::unordered_map<uint64_t, std::vector<int>> resid_to_rows_map;
+    std::unordered_map<uint64_t, std::string> resid_to_type_map;
+    for (size_t i = 0; i < row_ids_all.size(); ++i) {
+        resid_to_rows_map[row_ids_all[i].first].push_back(static_cast<int>(i));
+        resid_to_type_map[row_ids_all[i].first] = row_ids_all[i].second;
+    }
+
+    std::unordered_map<uint64_t, std::vector<int>> param_to_curr_cols_map;
+    for (const auto& pair : cols_curr) {
+        param_to_curr_cols_map[pair.first].push_back(pair.second);
+    }
+
+    auto is_supported_gnss_type = [](const std::string& type) {
+        return type == "PseudorangeError" || type == "PseudorangeErrorSD" || type == "PseudorangeErrorDD" ||
+               type == "PhaserangeError" || type == "PhaserangeErrorSD" || type == "PhaserangeErrorDD" ||
+               type == "DopplerError";
+    };
+
+    std::set<std::string> curr_prns;
+    for (const auto& prn_pair : gnss_resid_to_prns) {
+        const uint64_t residual_id = prn_pair.first;
+        const auto type_it = resid_to_type_map.find(residual_id);
+        if (type_it == resid_to_type_map.end() || !is_supported_gnss_type(type_it->second)) {
+            continue;
+        }
+
+        const auto params_it = gnss_resid_to_param_ids.find(residual_id);
+        if (params_it == gnss_resid_to_param_ids.end()) {
+            continue;
+        }
+
+        bool is_curr_residual = false;
+        for (uint64_t param_id : params_it->second) {
+            if (param_to_curr_cols_map.find(param_id) != param_to_curr_cols_map.end()) {
+                is_curr_residual = true;
+                break;
+            }
+        }
+        if (!is_curr_residual) {
+            continue;
+        }
+
+        for (const std::string& prn : prn_pair.second) {
+            curr_prns.insert(prn);
+        }
+    }
+
+    for (const auto& prn_pair : gnss_resid_to_prns) {
+        const uint64_t residual_id = prn_pair.first;
+        const auto rows_it = resid_to_rows_map.find(residual_id);
+        if (rows_it == resid_to_rows_map.end()) {
+            continue;
+        }
+
+        const auto type_it = resid_to_type_map.find(residual_id);
+        if (type_it == resid_to_type_map.end() || !is_supported_gnss_type(type_it->second)) {
+            if (!prn_pair.second.empty()) {
+                // LOG(WARNING) << "Residual ID " << residual_id << " associated with GNSS satellite " << prn_pair.second.front() << " is not a supported GNSS error type, the type is " << type_it->second;
+            }
+            continue;
+        }
+
+        for (const std::string& prn : prn_pair.second) {
+            auto& all_rows = all_sat_observation_rows[prn];
+            all_rows.insert(all_rows.end(), rows_it->second.begin(), rows_it->second.end());
+
+            if (curr_prns.count(prn) > 0) {
+                auto& curr_rows = curr_sat_observation_rows[prn];
+                curr_rows.insert(curr_rows.end(), rows_it->second.begin(), rows_it->second.end());
+            }
+        }
+    }
+
+    for (auto& pair : curr_sat_observation_rows) {
+        auto& rows = pair.second;
+        std::sort(rows.begin(), rows.end());
+        rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    }
+    for (auto& pair : all_sat_observation_rows) {
+        auto& rows = pair.second;
+        std::sort(rows.begin(), rows.end());
+        rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    }
+}
+
+void VisualIntegrity::extractImuRowsCols(
+    const std::vector<std::pair<uint64_t, std::string>>& row_ids_all,
+    const std::vector<std::pair<uint64_t, std::string>>& col_ids_all,
+    const std::vector<std::pair<uint64_t, int>>& cols_curr,
+    const std::map<uint64_t, std::vector<uint64_t>>& imu_resid_to_param_ids,
+    std::map<uint64_t, std::vector<int>>& curr_imu_observation_rows,
+    std::map<uint64_t, std::vector<int>>& all_imu_observation_rows)
+{
+    curr_imu_observation_rows.clear();
+    all_imu_observation_rows.clear();
+
+    std::unordered_map<uint64_t, std::vector<int>> resid_to_rows_map;
+    std::unordered_map<uint64_t, std::string> resid_to_type_map;
+    for (size_t i = 0; i < row_ids_all.size(); ++i) {
+        resid_to_rows_map[row_ids_all[i].first].push_back(static_cast<int>(i));
+        resid_to_type_map[row_ids_all[i].first] = row_ids_all[i].second;
+    }
+
+    std::unordered_map<uint64_t, std::vector<int>> param_to_curr_cols_map;
+    for (const auto& pair : cols_curr) {
+        param_to_curr_cols_map[pair.first].push_back(pair.second);
+    }
+
+    for (const auto& pair : imu_resid_to_param_ids) {
+        const uint64_t residual_id = pair.first;
+        const auto rows_it = resid_to_rows_map.find(residual_id);
+        if (rows_it == resid_to_rows_map.end()) {
+            continue;
+        }
+        if (resid_to_type_map[residual_id] != "IMUError") {
+            // LOG(WARNING) << "Residual ID " << residual_id << " associated with IMU is not an IMUError, the type is " << resid_to_type_map[residual_id];
+            continue;
+        }
+
+        auto& all_rows = all_imu_observation_rows[residual_id];
+        all_rows.insert(all_rows.end(), rows_it->second.begin(), rows_it->second.end());
+
+        bool connected_to_curr = false;
+        for (uint64_t imu_state_id : pair.second) {
+            if (param_to_curr_cols_map.find(imu_state_id) != param_to_curr_cols_map.end()) {
+                connected_to_curr = true;
+                break;
+            }
+        }
+
+        if (connected_to_curr) {
+            auto& curr_rows = curr_imu_observation_rows[residual_id];
+            curr_rows.insert(curr_rows.end(), rows_it->second.begin(), rows_it->second.end());
+        }
+    }
+
+    for (auto& pair : curr_imu_observation_rows) {
+        auto& rows = pair.second;
+        std::sort(rows.begin(), rows.end());
+        rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    }
+    for (auto& pair : all_imu_observation_rows) {
+        auto& rows = pair.second;
+        std::sort(rows.begin(), rows.end());
+        rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    }
 }
 
 
 void VisualIntegrity::extractPoseRelatedRowsCols(uint64_t current_pose_id,
+                                                  IdType current_pose_type,
                                                   std::vector<std::pair<uint64_t, int>>& cols_curr,
                                                   std::map<uint64_t, std::vector<int>>& pose_related_cols,
                                                   std::vector<int>& curr_pose_J_cols)
@@ -1319,10 +2432,10 @@ void VisualIntegrity::extractPoseRelatedRowsCols(uint64_t current_pose_id,
 
     for (size_t i = 0; i < cols_curr.size(); ++i) {
         BackendId pb_id(cols_curr[i].first);
-        if (pb_id.type() == IdType::cPose && pb_id.asInteger() == current_pose_id) {
+        if ((pb_id.type() == current_pose_type) && pb_id.asInteger() == current_pose_id) {
             curr_pose_J_cols.push_back(cols_curr[i].second);
             pose_related_cols[cols_curr[i].first].push_back(cols_curr[i].second);
-            if (curr_pose_J_cols.size() == 6) break; // Early exit if all expected columns are found
+            if (curr_pose_J_cols.size() == 6) break;
             
         }
     }
@@ -1330,17 +2443,23 @@ void VisualIntegrity::extractPoseRelatedRowsCols(uint64_t current_pose_id,
     for (size_t i = 0; i < cols_curr.size(); ++i) {
         BackendId pb_id(cols_curr[i].first);
         if (pb_id.type() == IdType::ImuStates) {
-            pb_id = changeIdType(pb_id, IdType::cPose);
+            pb_id = changeIdType(pb_id, current_pose_type);
             if (pb_id.asInteger() == current_pose_id) {
                 curr_pose_J_cols.push_back(cols_curr[i].second);
                 pose_related_cols[cols_curr[i].first].push_back(cols_curr[i].second);
-                if (curr_pose_J_cols.size() == 15) break; // Early exit if all expected columns are found
+                if (curr_pose_J_cols.size() >= 9) break;
             }
         } 
     }
 
-    CHECK_EQ(pose_related_cols.size(), 2);
-    CHECK_EQ(curr_pose_J_cols.size(), 15);
+    if (curr_pose_J_cols.size() < 3) {
+        for (size_t i = 0; i < cols_curr.size() && curr_pose_J_cols.size() < 3; ++i) {
+            BackendId pb_id(cols_curr[i].first);
+            if (pb_id.type() == current_pose_type && pb_id.asInteger() == current_pose_id) {
+                curr_pose_J_cols.push_back(cols_curr[i].second);
+            }
+        }
+    }
 }
 
 // --- MHSS Implementation ---
@@ -1360,7 +2479,6 @@ void VisualIntegrity::determineSubsets(const std::vector<double>& p_prior,
     //Deterimine the maximum simultanous faults need to monitor.
     std::vector<double> p_sum = p_prior;
     int N_fault_max = determineNfaultmax(p_sum, P_THRES);
-    LOG(INFO) << "The maximum simultanous faults need to monitor = " << N_fault_max << ", in P_THRES = " << P_THRES;
 
     //Calculate the number of subsets.
     int N_used = N;
@@ -1368,6 +2486,7 @@ void VisualIntegrity::determineSubsets(const std::vector<double>& p_prior,
     for(int j = 0; j <= N_fault_max;++j){
         subsetsize = subsetsize + nchoosek((N_used),j);
     }
+    LOG(INFO) << "The maximum simultanous faults need to monitor = " << N_fault_max << ", with measurement number = " << N << ", subset size = " << subsetsize << ", in P_THRES = " << P_THRES;
 
     //Initialize the subsets_ex and pap_subset.
     std::vector<std::vector<int>> subsets_ex(subsetsize);
@@ -1477,10 +2596,7 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                                             const Eigen::MatrixXd& sig2_int,
                                             const Eigen::MatrixXd& sig2_acc,
                                             const std::vector<std::vector<int>>& subsets,
-                                            const std::vector<std::vector<uint64_t>>& fault_groups,
-                                            const std::map<uint64_t, std::vector<int>> curr_lm_to_J_rows,
-                                            const std::map<uint64_t, std::vector<int>> curr_lm_to_J_cols,
-                                            const std::vector<uint64_t>& curr_lm_ids,
+                                            const std::vector<std::vector<int>>& fault_group_rows,
                                             const std::vector<int>& curr_pose_J_cols,
                                             Eigen::MatrixXd& sigma_out,  
                                             Eigen::MatrixXd& bias_out,
@@ -1577,15 +2693,14 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
     // Progress tracking for subset computation
     std::atomic<int> subsets_processed{0};
     std::atomic<int> last_progress{0};
-    std::vector<std::vector<int>> lm_rows_cache(N_meas_curr);
+    std::vector<std::vector<int>> group_rows_cache(N_meas_curr);
 
-    // Pre-cache rows for each fault group
-    for(int j=0; j<N_meas_curr; ++j) {
-        for (uint64_t lm_id : fault_groups[j]) {
-            if (curr_lm_to_J_rows.count(lm_id)) {
-                 const auto& rows = curr_lm_to_J_rows.at(lm_id);
-                 lm_rows_cache[j].insert(lm_rows_cache[j].end(), rows.begin(), rows.end());
-            }
+    // Pre-cache rows for each fault group.
+    for (int j = 0; j < N_meas_curr; ++j) {
+        if (j < static_cast<int>(fault_group_rows.size())) {
+            group_rows_cache[j] = fault_group_rows[j];
+            std::sort(group_rows_cache[j].begin(), group_rows_cache[j].end());
+            group_rows_cache[j].erase(std::unique(group_rows_cache[j].begin(), group_rows_cache[j].end()), group_rows_cache[j].end());
         }
     }
     
@@ -1614,19 +2729,23 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
         #pragma omp for schedule(dynamic, 16)  // Dynamic scheduling for load balancing
         for (int i = 1; i < N_sets; ++i) {
             rows_to_remove.clear();
-            int lm_to_remove = 0;
+            int groups_to_remove = 0;
             // Identify rows to remove based on current subset
             for (int j = 0; j < N_meas_curr; ++j) {
                 if (subsets[i][j] == 0) { // 0 means fault/exclude
-                    ++lm_to_remove;
-                    const auto& rows = lm_rows_cache[j];
+                    ++groups_to_remove;
+                    const auto& rows = group_rows_cache[j];
                     rows_to_remove.insert(rows_to_remove.end(), rows.begin(), rows.end());
-                    // LOG(INFO) << "Subset " << i << ": Excluding landmark group " << j << " with " << rows.size() << " rows.";
+                    // LOG(INFO) << "Subset " << i << ": Excluding fault group " << j << " with " << rows.size() << " rows.";
                 }
             }
 
+            std::sort(rows_to_remove.begin(), rows_to_remove.end());
+            rows_to_remove.erase(std::unique(rows_to_remove.begin(), rows_to_remove.end()), rows_to_remove.end());
+
             // Check observability roughly
-            if (!rows_to_remove.empty() && (N_meas_curr - lm_to_remove < 6)) {
+            const int remaining_rows = N_J_rows - static_cast<int>(rows_to_remove.size());
+            if (!rows_to_remove.empty() && remaining_rows < 6) {
                 LOG(WARNING) << "Subset " << i << " skipped due to insufficient measurements for observability.";
                 continue;
             }
@@ -1789,23 +2908,22 @@ void VisualIntegrity::computeSubsetSolution(const Eigen::MatrixXd& J,
                     LOG(WARNING) << "Debug Info: s_row has NaN = " << s_row_has_nan << ", s_row has Inf = " << s_row_has_inf;
                     LOG(WARNING) << "Debug Info: ds has NaN = " << ds_has_nan << ", ds has Inf = " << ds_has_inf;
                     LOG(WARNING) << "Debug Info: sig2_int has issue = " << sig2_int_has_issue << ", sig2_acc has issue = " << sig2_acc_has_issue;
-                    LOG(WARNING) << "Debug Info: subset index = " << i << ", dimension = " << k << ", lm_to_remove = " << lm_to_remove;
+                    LOG(WARNING) << "Debug Info: subset index = " << i << ", dimension = " << k << ", groups_to_remove = " << groups_to_remove;
                     LOG(WARNING) << "Debug Info: rows_to_remove size = " << rows_to_remove.size() << ", N_meas_curr = " << N_meas_curr;
                     LOG(WARNING) << "Debug Info: P_all norm = " << P_all.norm() << ", JtW_all norm = " << JtW_all.norm();
                     LOG(WARNING) << "Debug Info: JP norm = " << JP.norm() << ", W_rem_inv norm = " << W_rem_inv.norm();
                     LOG(WARNING) << "Debug Info: Middle norm = " << Middle.norm() << ", Kernel norm = " << Kernel.norm();
                     LOG(WARNING) << "Debug Info: UpdateBlock norm = " << UpdateBlock.norm() << ", b_sub norm = " << b_sub.norm();
                     LOG(WARNING) << "Debug Info: x_curr_full norm = " << x_curr_full.norm() << ", P_sub_row norm = " << P_sub_row.norm();
-                    saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
-                    saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(sig2_int, "/home/syl/GICI-IM/results/debug/sig2_int_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
+                    // saveEigenMatrixToFile(sig2_acc, "/home/syl/GICI-IM/results/debug/sig2_acc_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                     // saveEigenMatrixToFile(s1vec_out, "/home/syl/GICI-IM/results/debug/s1vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                     // saveEigenMatrixToFile(s2vec_out, "/home/syl/GICI-IM/results/debug/s2vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                     // saveEigenMatrixToFile(s3vec_out, "/home/syl/GICI-IM/results/debug/s3vec_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                     saveEigenMatrixToFile(sigma_out, "/home/syl/GICI-IM/results/debug/sigma_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                     saveEigenMatrixToFile(sigma_ss_out, "/home/syl/GICI-IM/results/debug/sigma_ss_debug_" + std::to_string(timestamp_)  + "_" + std::to_string(i)+ ".txt");
                 }
-            }
-            
+            }  
             // Update progress
             int current_count = subsets_processed.fetch_add(1) + 1;
             int progress = static_cast<int>((static_cast<double>(current_count)/ (N_sets - 1)) * 100);
@@ -2173,22 +3291,24 @@ bool VisualIntegrity::computeRobustCholesky(const Eigen::MatrixXd& A, Eigen::LLT
     
     // Strategy 1: Try standard Cholesky with adaptive damping
     double max_diag = 0.0;
+    int max_index = 0;
     for (int i = 0; i < N_cols; ++i) {
+        if (std::abs(A(i, i)) > max_diag) max_index = i;
         max_diag = std::max(max_diag, std::abs(A(i, i)));
     }
     if (max_diag == 0.0) max_diag = 1.0;
     
     // Start with small damping and increase gradually until success
-    double base_damping = 1e-9;
+    double base_damping = 1e-12;
     double adaptive_damping = base_damping * N_cols; //base_damping * max_diag * N_cols
-    LOG(INFO) << "   - max_diag: " << max_diag << ", N_cols: " << N_cols;
+    LOG(INFO) << "   - max_diag: " << max_diag  << ", at " << max_index<< ", N_cols: " << N_cols;
     double start_damping = std::max(base_damping, adaptive_damping);
     
     // Try increasing damping factors: 1x, 10x, 100x, 1000x, 10000x
     std::vector<double> damping_factors = {1.0, 10.0, 100.0, 1000.0, 10000.0};
     
     for (double factor : damping_factors) {
-        double damping = start_damping * factor;
+        double damping = start_damping * factor * max_diag;
         Eigen::MatrixXd A_damped = A + damping * Eigen::MatrixXd::Identity(N_cols, N_cols);
         llt_out.compute(A_damped);
         
@@ -2317,6 +3437,14 @@ std::vector<int> VisualIntegrity::filteroutSubsets(Eigen::MatrixXd& sigma,
     p_not_monitored = p_not_monitored + std::accumulate(pap_subsets.begin(), pap_subsets.end(), 0.0)
                     - std::accumulate(pap_subsets_new.begin(), pap_subsets_new.end(), 0.0);
     pap_subsets = pap_subsets_new;
+
+    // // Smoothly compress sigma spikes with axis-specific limits.
+    // scaleSigmaSpikesInColumn(sigma, 0, 90.0, 0.02);
+    // scaleSigmaSpikesInColumn(sigma, 1, 95.0, 0.10);
+    // scaleSigmaSpikesInColumn(sigma, 2, 95.0, 0.10);
+    // scaleSigmaSpikesInColumn(sigma_ss, 0, 90.0, 0.02);
+    // scaleSigmaSpikesInColumn(sigma_ss, 1, 95.0, 0.10);
+    // scaleSigmaSpikesInColumn(sigma_ss, 2, 95.0, 0.10);
 
     return idx;
 }
@@ -2657,9 +3785,17 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     if (len > 0) in.read(&options.snapshot_file[0], len);    
 
     // integrity_support_message
+    in.read(reinterpret_cast<char*>(&options.use_complex_visual_cov), sizeof(bool));
+    in.read(reinterpret_cast<char*>(&options.use_complex_gnss_cov), sizeof(bool));
+    in.read(reinterpret_cast<char*>(&options.use_complex_imu_cov), sizeof(bool));
+    in.read(reinterpret_cast<char*>(&options.use_complex_others_cov), sizeof(bool));    
+    in.read(reinterpret_cast<char*>(&options.simple_visual_sigma), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.simple_gnss_sigma), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.simple_imu_sigma), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.simple_others_sigma), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.sigma_pixel), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.prior_fault_probability), sizeof(double));
-    in.read(reinterpret_cast<char*>(&options.meas_dim), sizeof(int));
+    in.read(reinterpret_cast<char*>(&options.visual_prior_fault_probability), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.visual_meas_dim), sizeof(int));
     in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
     if (len > 1024) {
         LOG(ERROR) << "Invalid overbounding_func length: " << len;
@@ -2693,6 +3829,73 @@ void VisualIntegrity::deserializeOptions(VisualIntegrityOptions& options, std::i
     options.normal_parameters.resize(len);
     if (len > 0) in.read(reinterpret_cast<char*>(options.normal_parameters.data()), len * sizeof(double));
 
+
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 32) {
+        LOG(ERROR) << "Invalid gnss_sigma_ura length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.gnss_sigma_ura.resize(len);
+    if (len > 0) in.read(reinterpret_cast<char*>(options.gnss_sigma_ura.data()), len * sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 32) {
+        LOG(ERROR) << "Invalid gnss_sigma_ure length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.gnss_sigma_ure.resize(len);
+    if (len > 0) in.read(reinterpret_cast<char*>(options.gnss_sigma_ure.data()), len * sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 32) {
+        LOG(ERROR) << "Invalid gnss_b_nom length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.gnss_b_nom.resize(len);
+    if (len > 0) in.read(reinterpret_cast<char*>(options.gnss_b_nom.data()), len * sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 32) {
+        LOG(ERROR) << "Invalid gnss_sat_prior_fault_probability length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.gnss_sat_prior_fault_probability.resize(len);
+    if (len > 0) in.read(reinterpret_cast<char*>(options.gnss_sat_prior_fault_probability.data()), len * sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 32) {
+        LOG(ERROR) << "Invalid gnss_const_prior_fault_probability length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.gnss_const_prior_fault_probability.resize(len);
+    if (len > 0) in.read(reinterpret_cast<char*>(options.gnss_const_prior_fault_probability.data()), len * sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&options.imu_prior_fault_probability), sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&len), sizeof(size_t));
+    if (len > 32) {
+        LOG(ERROR) << "Invalid user_F length: " << len;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    options.user_F.resize(len);
+    if (len > 0) in.read(reinterpret_cast<char*>(options.user_F.data()), len * sizeof(double));
+
+    in.read(reinterpret_cast<char*>(&options.user_Rr), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.user_a_sigma), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.user_b_sigma), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.doppler_c_sigma), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.rho_max), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.psi_user_deg), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.k_mp), sizeof(double));
+    in.read(reinterpret_cast<char*>(&options.tau_mp), sizeof(double));
+
+
     // navigation_requirements
     in.read(reinterpret_cast<char*>(&options.PHMI), sizeof(double));
     in.read(reinterpret_cast<char*>(&options.PHMI_La), sizeof(double));
@@ -2723,9 +3926,17 @@ void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, st
     out.write(options.snapshot_file.c_str(), snap_file_len); 
 
     // integrity_support_message
+    out.write(reinterpret_cast<const char*>(&options.use_complex_visual_cov), sizeof(bool));
+    out.write(reinterpret_cast<const char*>(&options.use_complex_gnss_cov), sizeof(bool));
+    out.write(reinterpret_cast<const char*>(&options.use_complex_imu_cov), sizeof(bool));
+    out.write(reinterpret_cast<const char*>(&options.use_complex_others_cov), sizeof(bool));
+    out.write(reinterpret_cast<const char*>(&options.simple_visual_sigma), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.simple_gnss_sigma), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.simple_imu_sigma), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.simple_others_sigma), sizeof(double));
     out.write(reinterpret_cast<const char*>(&options.sigma_pixel), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.prior_fault_probability), sizeof(double));
-    out.write(reinterpret_cast<const char*>(&options.meas_dim), sizeof(int));
+    out.write(reinterpret_cast<const char*>(&options.visual_prior_fault_probability), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.visual_meas_dim), sizeof(int));
     size_t ob_func_len = options.overbounding_func.size();
     out.write(reinterpret_cast<const char*>(&ob_func_len), sizeof(size_t));
     out.write(options.overbounding_func.c_str(), ob_func_len);
@@ -2742,6 +3953,54 @@ void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, st
     if (norm_params_len > 0) {
         out.write(reinterpret_cast<const char*>(options.normal_parameters.data()), norm_params_len * sizeof(double));
     }
+
+
+    size_t ura_size = options.gnss_sigma_ura.size();
+    out.write(reinterpret_cast<const char*>(&ura_size), sizeof(size_t));
+    if (ura_size > 0) {
+        out.write(reinterpret_cast<const char*>(options.gnss_sigma_ura.data()), ura_size * sizeof(double));
+    }
+
+    size_t ure_size = options.gnss_sigma_ure.size();
+    out.write(reinterpret_cast<const char*>(&ure_size), sizeof(size_t));
+    if (ure_size > 0) {
+        out.write(reinterpret_cast<const char*>(options.gnss_sigma_ure.data()), ure_size * sizeof(double));
+    }
+
+    size_t gnss_b_nom_size = options.gnss_b_nom.size();
+    out.write(reinterpret_cast<const char*>(&gnss_b_nom_size), sizeof(size_t));
+    if (gnss_b_nom_size > 0) {
+        out.write(reinterpret_cast<const char*>(options.gnss_b_nom.data()), gnss_b_nom_size * sizeof(double));
+    }
+
+    size_t gnss_sat_prior_size = options.gnss_sat_prior_fault_probability.size();
+    out.write(reinterpret_cast<const char*>(&gnss_sat_prior_size), sizeof(size_t));
+    if (gnss_sat_prior_size > 0) {
+        out.write(reinterpret_cast<const char*>(options.gnss_sat_prior_fault_probability.data()), gnss_sat_prior_size * sizeof(double));
+    }
+
+    size_t gnss_const_prior_size = options.gnss_const_prior_fault_probability.size();
+    out.write(reinterpret_cast<const char*>(&gnss_const_prior_size), sizeof(size_t));
+    if (gnss_const_prior_size > 0) {
+        out.write(reinterpret_cast<const char*>(options.gnss_const_prior_fault_probability.data()), gnss_const_prior_size * sizeof(double));
+    }
+
+    out.write(reinterpret_cast<const char*>(&options.imu_prior_fault_probability), sizeof(double));
+
+    size_t user_f_size = options.user_F.size();
+    out.write(reinterpret_cast<const char*>(&user_f_size), sizeof(size_t));
+    if (user_f_size > 0) {
+        out.write(reinterpret_cast<const char*>(options.user_F.data()), user_f_size * sizeof(double));
+    }
+
+    out.write(reinterpret_cast<const char*>(&options.user_Rr), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.user_a_sigma), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.user_b_sigma), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.doppler_c_sigma), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.rho_max), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.psi_user_deg), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.k_mp), sizeof(double));
+    out.write(reinterpret_cast<const char*>(&options.tau_mp), sizeof(double));
 
     // navigation_requirements
     out.write(reinterpret_cast<const char*>(&options.PHMI), sizeof(double));
@@ -2762,6 +4021,7 @@ void VisualIntegrity::serializeOptions(const VisualIntegrityOptions& options, st
 }
 
 void VisualIntegrity::serializeSnapshot(const IntegritySnapshot& snapshot, std::ofstream& out) {
+    // timestamp
     out.write(reinterpret_cast<const char*>(&snapshot.timestamp), sizeof(double));
     
     // J_all
@@ -2800,10 +4060,10 @@ void VisualIntegrity::serializeSnapshot(const IntegritySnapshot& snapshot, std::
         out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
     }
 
-    // curr_lm_to_J_cols
-    map_size = snapshot.curr_lm_to_J_cols.size();
+    // lm_to_J_rows
+    map_size = snapshot.lm_to_J_rows.size();
     out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
-    for (const auto& pair : snapshot.curr_lm_to_J_cols) {
+    for (const auto& pair : snapshot.lm_to_J_rows) {
         out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
         size_t vec_size = pair.second.size();
         out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
@@ -2819,10 +4079,53 @@ void VisualIntegrity::serializeSnapshot(const IntegritySnapshot& snapshot, std::
         out.write(reinterpret_cast<const char*>(&val), sizeof(int));
     }
 
-    // curr_pose_to_J_cols
-    map_size = snapshot.curr_pose_to_J_cols.size();
+    // lm_to_object_ids
+    map_size = snapshot.lm_to_object_ids.size();
     out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
-    for (const auto& pair : snapshot.curr_pose_to_J_cols) {
+    for (const auto& pair : snapshot.lm_to_object_ids) {
+        out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
+        int val = pair.second;
+        out.write(reinterpret_cast<const char*>(&val), sizeof(int));
+    }
+
+    // curr_sat_to_J_rows
+    map_size = snapshot.curr_sat_to_J_rows.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.curr_sat_to_J_rows) {
+        size_t key_len = pair.first.size();
+        out.write(reinterpret_cast<const char*>(&key_len), sizeof(size_t));
+        out.write(pair.first.data(), key_len);
+        size_t vec_size = pair.second.size();
+        out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+        out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
+    }
+
+    // sat_to_J_rows
+    map_size = snapshot.sat_to_J_rows.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.sat_to_J_rows) {
+        size_t key_len = pair.first.size();
+        out.write(reinterpret_cast<const char*>(&key_len), sizeof(size_t));
+        out.write(pair.first.data(), key_len);
+        size_t vec_size = pair.second.size();
+        out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+        out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
+    }
+
+    // curr_imu_to_J_rows
+    map_size = snapshot.curr_imu_to_J_rows.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.curr_imu_to_J_rows) {
+        out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
+        size_t vec_size = pair.second.size();
+        out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
+        out.write(reinterpret_cast<const char*>(pair.second.data()), vec_size * sizeof(int));
+    }
+
+    // imu_to_J_rows
+    map_size = snapshot.imu_to_J_rows.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(size_t));
+    for (const auto& pair : snapshot.imu_to_J_rows) {
         out.write(reinterpret_cast<const char*>(&pair.first), sizeof(uint64_t));
         size_t vec_size = pair.second.size();
         out.write(reinterpret_cast<const char*>(&vec_size), sizeof(size_t));
@@ -2843,6 +4146,7 @@ double VisualIntegrity::computeConditionNumber(const Eigen::MatrixXd& A) {
 }
 
 void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifstream& in) {
+    // timestamp
     in.read(reinterpret_cast<char*>(&snapshot.timestamp), sizeof(double));
     if (in.fail()) return;
 
@@ -2915,27 +4219,31 @@ void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifst
         snapshot.curr_lm_to_J_rows[key] = vec;
     }
 
-    // curr_lm_to_J_cols
+    // lm_to_J_rows
     in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (in.fail()) {
+        in.clear();
+        return;
+    }
     if (map_size > 1000000) {
-        LOG(ERROR) << "Invalid map_size for curr_lm_to_J_cols: " << map_size;
+        LOG(ERROR) << "Invalid map_size for lm_to_J_rows: " << map_size;
         in.setstate(std::ios::failbit);
         return;
     }
-    snapshot.curr_lm_to_J_cols.clear();
+    snapshot.lm_to_J_rows.clear();
     for (size_t i = 0; i < map_size; ++i) {
         uint64_t key;
         size_t vec_size;
         in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
         in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
         if (vec_size > 100000) {
-            LOG(ERROR) << "Invalid vec_size in curr_lm_to_J_cols: " << vec_size;
+            LOG(ERROR) << "Invalid vec_size in lm_to_J_rows: " << vec_size;
             in.setstate(std::ios::failbit);
             return;
         }
         std::vector<int> vec(vec_size);
         in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
-        snapshot.curr_lm_to_J_cols[key] = vec;
+        snapshot.lm_to_J_rows[key] = std::move(vec);
     }
 
     // curr_lm_to_object_ids
@@ -2949,17 +4257,138 @@ void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifst
         snapshot.curr_lm_to_object_ids[key] = val;
     }
 
-    // curr_pose_to_J_cols
+    // lm_to_object_ids
     in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
-    snapshot.curr_pose_to_J_cols.clear();
+    if (in.fail()) {
+        in.clear();
+        return;
+    }
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for lm_to_object_ids: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    snapshot.lm_to_object_ids.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint64_t key;
+        int val;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&val), sizeof(int));
+        snapshot.lm_to_object_ids[key] = val;
+    }
+
+    // curr_sat_to_J_rows
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for curr_sat_to_J_rows: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    snapshot.curr_sat_to_J_rows.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        size_t key_len;
+        size_t vec_size;
+        in.read(reinterpret_cast<char*>(&key_len), sizeof(size_t));
+        if (key_len == 0 || key_len > 64) {
+            LOG(ERROR) << "Invalid key_len in curr_sat_to_J_rows: " << key_len;
+            in.setstate(std::ios::failbit);
+            return;
+        }
+        std::string key(key_len, '\0');
+        in.read(&key[0], key_len);
+        in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        if (vec_size > 100000) {
+            LOG(ERROR) << "Invalid vec_size in curr_sat_to_J_rows: " << vec_size;
+            in.setstate(std::ios::failbit);
+            return;
+        }
+        std::vector<int> vec(vec_size);
+        in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
+        snapshot.curr_sat_to_J_rows[key] = std::move(vec);
+    }
+
+    // sat_to_J_rows
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (in.fail()) {
+        in.clear();
+        return;
+    }
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for sat_to_J_rows: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    snapshot.sat_to_J_rows.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        size_t key_len;
+        size_t vec_size;
+        in.read(reinterpret_cast<char*>(&key_len), sizeof(size_t));
+        if (key_len == 0 || key_len > 64) {
+            LOG(ERROR) << "Invalid key_len in sat_to_J_rows: " << key_len;
+            in.setstate(std::ios::failbit);
+            return;
+        }
+        std::string key(key_len, '\0');
+        in.read(&key[0], key_len);
+        in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        if (vec_size > 100000) {
+            LOG(ERROR) << "Invalid vec_size in sat_to_J_rows: " << vec_size;
+            in.setstate(std::ios::failbit);
+            return;
+        }
+        std::vector<int> vec(vec_size);
+        in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
+        snapshot.sat_to_J_rows[key] = std::move(vec);
+    }
+
+    // curr_imu_to_J_rows
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for curr_imu_to_J_rows: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    snapshot.curr_imu_to_J_rows.clear();
     for (size_t i = 0; i < map_size; ++i) {
         uint64_t key;
         size_t vec_size;
         in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
         in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        if (vec_size > 100000) {
+            LOG(ERROR) << "Invalid vec_size in curr_imu_to_J_rows: " << vec_size;
+            in.setstate(std::ios::failbit);
+            return;
+        }
         std::vector<int> vec(vec_size);
         in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
-        snapshot.curr_pose_to_J_cols[key] = vec;
+        snapshot.curr_imu_to_J_rows[key] = std::move(vec);
+    }
+
+    // imu_to_J_rows
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(size_t));
+    if (in.fail()) {
+        in.clear();
+        return;
+    }
+    if (map_size > 1000000) {
+        LOG(ERROR) << "Invalid map_size for imu_to_J_rows: " << map_size;
+        in.setstate(std::ios::failbit);
+        return;
+    }
+    snapshot.imu_to_J_rows.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint64_t key;
+        size_t vec_size;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&vec_size), sizeof(size_t));
+        if (vec_size > 100000) {
+            LOG(ERROR) << "Invalid vec_size in imu_to_J_rows: " << vec_size;
+            in.setstate(std::ios::failbit);
+            return;
+        }
+        std::vector<int> vec(vec_size);
+        in.read(reinterpret_cast<char*>(vec.data()), vec_size * sizeof(int));
+        snapshot.imu_to_J_rows[key] = std::move(vec);
     }
 
     // curr_pose_J_cols
@@ -2971,352 +4400,6 @@ void VisualIntegrity::deserializeSnapshot(IntegritySnapshot& snapshot, std::ifst
 }
 
 
-bool VisualIntegrity::extractLinearSystem(const FramePtr& frame, const State& state, const Graph* graph, const PointMap& landmarks_map,
-                                          Eigen::MatrixXd& J_all, Eigen::VectorXd& r_all, Eigen::MatrixXd& sig2_all,
-                                          std::vector<uint64_t>& row_ids_all, std::vector<uint64_t>& col_ids_all,
-                                          std::vector<std::pair<uint64_t, int>> rows_curr, std::vector<std::pair<uint64_t, int>> cols_curr)
-{
-    // Iterate over observations in the frame
-    // Find corresponding residual blocks in the graph
-    // Evaluate Jacobian w.r.t. the pose state
-
-        
-    // some examples in computeAndGetCovariance(states_[latest_state_index_]);
-    // std::vector<size_t> parameter_block_ids;
-    // BackendId id = state.id_in_graph;
-    // parameter_block_ids.push_back(id.asInteger());
-    // BackendId speed_and_bias_id = changeIdType(id, IdType::ImuStates);
-    // parameter_block_ids.push_back(speed_and_bias_id.asInteger());
-    // for (size_t i = 0; i < parameter_block_ids.size(); i++) {
-    //     auto it = graph->id_to_parameter_block_map_.find(parameter_block_ids[i]);
-    //     if (it == graph->id_to_parameter_block_map_.end()) {
-    //         LOG(ERROR) << "Parameter block does not exist!";
-    //         return false;
-    //     }
-    //     auto& parameter_block = it->second;
-    //     LOG(INFO) << "Parameter Block ID: " << it->first
-    //               << " Type: " << parameter_block->typeInfo()
-    //               << " Dimension: " << parameter_block->dimension();
-    // }
-
-    // Eigen::MatrixXd covariance;
-    // if (!const_cast<Graph*>(graph)->computeCovariance(parameter_block_ids, covariance)) {
-    //     return false;
-    // }
-    if (!const_cast<State&>(state).valid() || state.id.type() != IdType::cPose) return false;
-    
-    uint64_t current_pose_id = state.id.asInteger();
-    if (!graph->parameterBlockExists(current_pose_id)) return false;
-
-    struct ParamResidualInfo {
-        uint64_t landmark_id;
-        std::vector<uint64_t> pose_ids;
-        std::vector<uint64_t> speed_bias_ids;
-        Eigen::VectorXd residual;
-        std::vector<Eigen::MatrixXd> J_poses;
-        Eigen::MatrixXd J_landmark;
-        std::vector<Eigen::MatrixXd> J_speed_biases;
-        bool has_landmark_jacobian;
-        double sig2;
-        bool is_current_frame;
-    };
-    std::vector<ParamResidualInfo> all_residuals;
-    
-    // 1. Identify all involved poses (Current Pose + Poses observing landmarks in landmarks_map)
-    std::set<uint64_t> involved_poses;
-    involved_poses.insert(current_pose_id);
-
-    ceres::Problem* problem = graph->problem().get();
-
-    // Iterate landmarks_map to find involved poses
-    for(auto it = landmarks_map.begin(); it != landmarks_map.end(); ++it)
-    {
-        const MapPoint& map_point = it->second;
-        for (auto obs : map_point.observations) {
-            ceres::ResidualBlockId residual_block_id = ceres::ResidualBlockId(obs.second);
-            gici::Graph::ParameterBlockCollection parameter_blocks = graph->parameters(residual_block_id);
-            
-            for (const auto& pb : parameter_blocks) {
-                BackendId pb_id(pb.first);
-                if (pb_id.type() == IdType::cPose) {
-                    involved_poses.insert(pb.first);
-                    BackendId speed_and_bias_id = changeIdType(pb_id, IdType::ImuStates);
-                    involved_poses.insert(speed_and_bias_id.asInteger());
-                }
-            }
-        }
-    }
-
-    // 2. Collect all residuals for these poses
-    std::set<ceres::ResidualBlockId> processed_residuals;
-    
-    for (uint64_t pose_id : involved_poses) {
-        gici::Graph::ResidualBlockCollection residuals = graph->residuals(pose_id);
-        
-        // graph->printParameterBlockInfo(pose_id);
-        
-        for (const auto& res_spec : residuals) {
-            ceres::ResidualBlockId residual_block_id = res_spec.residual_block_id;
-
-            auto error_type = graph->errorInterfacePtr(residual_block_id)->typeInfo();
-            if (error_type != ErrorType::kReprojectionError && error_type != ErrorType::kIMUError) {
-                LOG(ERROR) << "Skipping non-visual residual block Type: " << kErrorToStr.at(error_type);
-                continue;
-            }
-            
-            if (processed_residuals.count(residual_block_id)) continue;
-            processed_residuals.insert(residual_block_id);
-
-            const ceres::CostFunction* cost_function = problem->GetCostFunctionForResidualBlock(residual_block_id);
-            if (cost_function == nullptr) continue; 
-            
-            int num_residuals = cost_function->num_residuals();
-
-            gici::Graph::ParameterBlockCollection parameter_blocks = graph->parameters(residual_block_id);
-            
-            // Identify Pose, Landmark, speed and bias parameter blocks
-            std::vector<int> pose_indices;
-            int landmark_idx = -1;
-            std::vector<int> speed_bias_indices;
-            
-            std::vector<uint64_t> obs_pose_ids;
-            uint64_t obs_landmark_id = 0;
-            std::vector<uint64_t> obs_speed_bias_ids;
-            
-            std::vector<double> residuals_eval(num_residuals);
-            std::vector<double*> jacobians(parameter_blocks.size());
-            
-            // Buffers for Jacobians
-            std::vector<std::vector<double>> jacobian_buffers(parameter_blocks.size());
-
-            std::vector<double*> parameter_blocks_ptrs;
-            problem->GetParameterBlocksForResidualBlock(residual_block_id, &parameter_blocks_ptrs);
-
-            for (size_t i = 0; i < parameter_blocks.size(); ++i) {
-                BackendId pb_id(parameter_blocks[i].first);
-                int param_dim = parameter_blocks[i].second->minimalDimension(); // Use minimal dimension (local parameterization)
-                
-                jacobian_buffers[i].resize(num_residuals * param_dim);
-                jacobians[i] = jacobian_buffers[i].data();
-
-                // parameter block type
-                if (pb_id.type() == IdType::cPose || pb_id.type() == IdType::gPose) {
-                    pose_indices.push_back(i);
-                    obs_pose_ids.push_back(pb_id.asInteger());
-                } else if (pb_id.type() == IdType::cLandmark) {
-                    landmark_idx = i;
-                    obs_landmark_id = pb_id.asInteger();
-                } else if (pb_id.type() == IdType::ImuStates) {
-                    speed_bias_indices.push_back(i);
-                    obs_speed_bias_ids.push_back(pb_id.asInteger());
-                    for (size_t i = 0; i < parameter_blocks.size(); ++i) {
-                        graph->printParameterBlockInfo(parameter_blocks[i].first); 
-                    }
-                } else {
-                    if (!problem->IsParameterBlockConstant(parameter_blocks_ptrs[i])){
-                        LOG(ERROR) << "Unexpected parameter block type in visual residual: " << idTypeToString(pb_id.type());
-                    }
-                    jacobians[i] = nullptr;     
-                }
-                
-                if (problem->IsParameterBlockConstant(parameter_blocks_ptrs[i])) {
-                    jacobians[i] = nullptr; 
-                }
-            }
-
-            // Must have at least Pose to be relevant (relaxed from Pose+Landmark to allow SpeedBias errors)
-            if (pose_indices.empty() && speed_bias_indices.empty()) continue;
-
-            if (!problem->EvaluateResidualBlock(residual_block_id, false, nullptr, residuals_eval.data(), jacobians.data())) {
-                continue;
-            }
-
-            ParamResidualInfo info;
-            info.residual = Eigen::Map<Eigen::VectorXd>(residuals_eval.data(), num_residuals);
-            info.landmark_id = obs_landmark_id; 
-            info.pose_ids = obs_pose_ids;
-            info.speed_bias_ids = obs_speed_bias_ids;
-            info.sig2 = 1.0; 
-            info.is_current_frame = false;
-            for(auto pid : obs_pose_ids) {
-                if(pid == current_pose_id) {
-                    info.is_current_frame = true;
-                    break;
-                }
-            }
-            info.has_landmark_jacobian = false;
-
-            for(size_t k=0; k<pose_indices.size(); ++k) {
-                int idx = pose_indices[k];
-                if (jacobians[idx] != nullptr) {
-                    int dim = parameter_blocks[idx].second->minimalDimension();
-                    info.J_poses.push_back(Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(jacobians[idx], num_residuals, dim));
-                } else {
-                    info.J_poses.push_back(Eigen::MatrixXd()); // Empty matrix placeholder
-                }
-            }
-
-            if (landmark_idx != -1 && jacobians[landmark_idx] != nullptr) {
-                int dim = parameter_blocks[landmark_idx].second->minimalDimension();
-                info.J_landmark = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(jacobians[landmark_idx], num_residuals, dim);
-                info.has_landmark_jacobian = true;
-            }
-
-            for(size_t k=0; k<speed_bias_indices.size(); ++k) {
-                int idx = speed_bias_indices[k];
-                if (jacobians[idx] != nullptr) {
-                    int dim = parameter_blocks[idx].second->minimalDimension();
-                    info.J_speed_biases.push_back(Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(jacobians[idx], num_residuals, dim));
-                } else {
-                    info.J_speed_biases.push_back(Eigen::MatrixXd()); // Empty matrix placeholder
-                }
-            }
-
-            if (obs_landmark_id == 0 && num_residuals != 2 && error_type == ErrorType::kIMUError){
-                info.landmark_id = reinterpret_cast<uint64_t>(residual_block_id);
-            }
-
-            all_residuals.push_back(info);
-            // // print info
-            // int num_param_blocks = cost_function->parameter_block_sizes().size();
-            // const std::vector<int32_t>& parameter_sizes = cost_function->parameter_block_sizes();
-            graph->printResidualBlockInfo(residual_block_id); // - type: ReprojectionError （46)
-            // for (size_t i = 0; i < parameter_blocks.size(); ++i) {
-            //     BackendId ext_id(parameter_blocks[i].first);
-            //     LOG(INFO) << "Parameter Block ID: " << ext_id.asInteger() 
-            //             << " Type: " << idTypeToString(ext_id.type()) << " Dim: " << parameter_sizes[i];
-            // //     graph->printParameterBlockInfo(parameter_blocks[i].first);
-            // }
-            // // Print calculated jacobians
-            // for (size_t i = 0; i < parameter_blocks.size(); ++i) {
-            //     if (jacobians[i] != nullptr) {
-            //         LOG(INFO) << "Jacobian[" << i << "] Shape: "<< num_residuals << "x" << parameter_blocks[i].second->minimalDimension();
-            //         Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> J_debug(jacobians[i], num_residuals, parameter_blocks[i].second->minimalDimension());
-            //         LOG(INFO) << "Values:\n" << J_debug;
-            //     }
-            //     if (problem->IsParameterBlockConstant(parameter_blocks_ptrs[i])) {
-            //         BackendId ext_id(parameter_blocks[i].first);
-            //         LOG(INFO) << "Parameter block " << i  << " of " << idTypeToString(ext_id.type())  << " is constant, skipping jacobian computation.";
-            //         continue;
-            //     }
-            // }
-        }
-    }
-
-    // Sort all_residuals by landmark_id
-    std::sort(all_residuals.begin(), all_residuals.end(), [](const ParamResidualInfo& a, const ParamResidualInfo& b) {
-        return a.landmark_id < b.landmark_id;
-    });
-    
-    // --- Build J_all ---
-    // Maps for J_all
-    std::map<uint64_t, int> all_pose_col_map;
-    std::map<uint64_t, int> all_landmark_col_map;
-    std::map<uint64_t, int> all_speed_bias_col_map;
-
-    int N_all_rows = 0;
-    for(const auto& res : all_residuals) {
-        N_all_rows += res.residual.size();
-        for(auto pid : res.pose_ids) if (pid != 0 && all_pose_col_map.find(pid) == all_pose_col_map.end()) all_pose_col_map[pid] = -1;
-        if (res.landmark_id != 0 && all_landmark_col_map.find(res.landmark_id) == all_landmark_col_map.end()) all_landmark_col_map[res.landmark_id] = -1;
-        for(auto sbid : res.speed_bias_ids) if (sbid != 0 && all_speed_bias_col_map.find(sbid) == all_speed_bias_col_map.end()) all_speed_bias_col_map[sbid] = -1;
-    }
-
-    // Assign columns
-    int current_col = 0;
-    for(auto& pair : all_pose_col_map) {
-        pair.second = current_col;
-        current_col += 6;
-
-        BackendId pose_bid(pair.first);
-        BackendId sb_bid = changeIdType(pose_bid, IdType::ImuStates);
-        uint64_t sb_id = sb_bid.asInteger();
-
-        if (all_speed_bias_col_map.find(sb_id) != all_speed_bias_col_map.end()) {
-            all_speed_bias_col_map[sb_id] = current_col;
-            current_col += 9;
-        }
-    }
-    for(auto& pair : all_speed_bias_col_map) {
-        if (pair.second == -1) {
-            pair.second = current_col;
-            current_col += 9;
-        }
-    }
-    for(auto& pair : all_landmark_col_map) {
-        pair.second = current_col;
-        current_col += 3;
-    }
-    
-    int N_all_cols = current_col;
-    
-    if (N_all_rows > 0) {
-        J_all = Eigen::MatrixXd::Zero(N_all_rows, N_all_cols);
-        r_all.resize(N_all_rows);
-        sig2_all.resize(N_all_rows, N_all_cols);
-        row_ids_all.resize(N_all_rows);
-        col_ids_all.resize(N_all_cols);
-        
-        // Fill Col IDs
-        for(auto const& pair : all_pose_col_map) {
-            for(int k=0; k<6; ++k) col_ids_all[pair.second + k] = pair.first;
-        }
-        for(auto const& pair : all_speed_bias_col_map) {
-            for(int k=0; k<9; ++k) col_ids_all[pair.second + k] = pair.first;
-        }
-        for(auto const& pair : all_landmark_col_map) {
-            for(int k=0; k<3; ++k) col_ids_all[pair.second + k] = pair.first;
-        }
-        
-        int current_row_idx = 0;
-        for(size_t i=0; i<all_residuals.size(); ++i) {
-            const auto& info = all_residuals[i];
-            int num_res = info.residual.size();
-
-            r_all.segment(current_row_idx, num_res) = info.residual;
-            for(int k=0; k<num_res; ++k) {
-                row_ids_all[current_row_idx + k] = info.landmark_id; 
-            }
-            sig2_all.block(current_row_idx, current_row_idx, num_res, num_res) = Eigen::MatrixXd::Identity(num_res, num_res) * info.sig2;
-            
-            for(size_t k=0; k<info.pose_ids.size(); ++k) {
-                uint64_t pid = info.pose_ids[k];
-                if(pid != 0 && info.J_poses[k].size() > 0) {
-                    int col = all_pose_col_map[pid];
-                    J_all.block(current_row_idx, col, num_res, 6) = info.J_poses[k];
-                    if (info.is_current_frame) {
-                        for(int r = 0; r < num_res; ++r) rows_curr.push_back(std::make_pair(info.landmark_id, current_row_idx + r));
-                        for(int c = 0; c < 6; ++c) cols_curr.push_back(std::make_pair(pid, col + c));
-                    }
-                }
-            }
-
-            for(size_t k=0; k<info.speed_bias_ids.size(); ++k) {
-                uint64_t sbid = info.speed_bias_ids[k];
-                if(sbid != 0 && info.J_speed_biases[k].size() > 0) {
-                    int col = all_speed_bias_col_map[sbid];
-                    J_all.block(current_row_idx, col, num_res, 9) = info.J_speed_biases[k];
-                    if (info.is_current_frame) {
-                        for(int r = 0; r < num_res; ++r) rows_curr.push_back(std::make_pair(info.landmark_id, current_row_idx + r));
-                        for(int c = 0; c < 9; ++c) cols_curr.push_back(std::make_pair(sbid, col + c));
-                    }
-                }
-            }
-
-            if(info.has_landmark_jacobian && info.landmark_id != 0) {
-                int col = all_landmark_col_map[info.landmark_id];
-                J_all.block(current_row_idx, col, num_res, 3) = info.J_landmark;
-                if (info.is_current_frame) {
-                    for(int k = 0; k < num_res; ++k) rows_curr.push_back(std::make_pair(info.landmark_id, current_row_idx + k));
-                    for(int k = 0; k < 3; ++k) cols_curr.push_back(std::make_pair(info.landmark_id, col + k));
-                }
-            }
-            current_row_idx += num_res;
-        }
-    }
-
-    return true;
-}
 
 
 } // namespace gici

@@ -271,7 +271,7 @@ estimate:
                   0.00201129251744842832, -0.00400038914436078377,     0.99998997574430859,    0.025008868367930974,
                                       0,                       0,                       0,                       1]
       segmentation: 
-        use_segmentation_filter: true   
+        use_segmentation_filter: false   
         segmentation_model: "FastSAM" # Options: "FastSAM", "SLIC"
         fastsam:
           model_path: "/home/syl/GICI-IM/third_party/segmentation/FastSAM-s_320.onnx"
@@ -295,19 +295,42 @@ integrity:
     snapshot_file: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_snapshots.bin
     # below integrity_options are used in integrity_main
     yaml_options: true
-    use_segment: true
+    use_segment: false
     start_timestamp: 0
     end_timestamp: 1679304709.000
     output_post_processing_csv: /media/syl/longlong/GICI-Dataset/2.1/super/integrity_results.csv
     output_post_processing_nmea: /media/syl/longlong/GICI-Dataset/2.1/super/srr_solution.txt
   integrity_support_message:
+    simple_visual_sigma: 1.0
+    simple_gnss_sigma: 1.0
+    simple_imu_sigma: 1.0
+    use_complex_visual_cov: true
+    use_complex_visual_cov: true
+    use_complex_gnss_cov: true
+    use_complex_imu_cov: true
+    use_complex_others_cov: true
     sigma_pixel: 1.0
+    visual_prior_fault_probability: 1.0e-3
+    visual_meas_dim: 2
     overbounding_func: dual_exp #"dual_exp" f(i) = 1.49101568*exp(-0.28066870*i) + 0.40406420*exp(-0.00353658*i), or "none" to omit the tracking error
     overbounding_parameters: [1.49101568, -0.28066870, 0.40406420, -0.00353658]
     normal_func: dual_exp #"dual_exp" f(i) = 1.38577510*exp(-0.24765217*i) + 0.34366019*exp(-0.00529072*i), or "none" to omit the tracking error
     normal_parameters: [1.38577510, -0.24765217, 0.34366019, -0.00529072]
-    prior_fault_probability: 1.0e-3
-    meas_dim: 2
+    gnss_sigma_ura: [2.4, 9.0, 3.0, 7.5] # [GPS, GLO, BDS, GAL]
+    gnss_sigma_ure: [1.6, 6.0, 2.0, 5.0] # [GPS, GLO, BDS, GAL]
+    gnss_b_nom: [0.0, 0.0, 0.0, 0.0] # [GPS, GLO, BDS, GAL]
+    gnss_sat_prior_fault_probability: [1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5] # [GPS, GLO, BDS, GAL]
+    gnss_const_prior_fault_probability: [1.0e-8, 1.0e-5, 1.0e-4, 1.0e-4] # [GPS, GLO, BDS, GAL]
+    imu_prior_fault_probability: 1.0e-4
+    user_F: [1.0, 5.0, 2.0, 1.5] # [GPS, GLO, BDS, GAL]
+    user_Rr: 100.0
+    user_a_sigma: 0.01
+    user_b_sigma: 0.03
+    doppler_c_sigma: 0.30
+    rho_max: 0.20
+    psi_user_deg: 25.0
+    k_mp: 1.0
+    tau_mp: 158.0
   navigation_requirements:
     PHMI: 1.6667e-10
     PHMI_La: 1.3333e-10   #lateral
@@ -328,5 +351,5 @@ integrity:
 logging:
   enable: true
   min_log_level: 0
-  log_to_stderr: false
-  file_directory: /media/syl/longlong/GICI-Dataset/2.1/super/
+  log_to_stderr: true
+  file_directory: /media/syl/longlong/GICI-Dataset/2.1/

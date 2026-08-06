@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy import sparse
 
 # 读取和解析矩阵
-with open('/home/dell/sunyulong/GICI-IM/results/debug/sig2_int_debug.txt', 'r') as f:
+with open('/home/syl/GICI-IM/results/jacobian/sig2_int_output1679304413.400000.txt', 'r') as f:
     content = f.read()
 
 lines = content.strip().split('\n')

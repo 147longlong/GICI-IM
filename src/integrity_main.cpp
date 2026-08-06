@@ -69,33 +69,62 @@ int main(int argc, char** argv) {
         if (opts["output_post_processing_nmea"]) nmea_file = opts["output_post_processing_nmea"].as<std::string>();
     }
     if (options.yaml_options){
-        LOG(INFO) << "Read options from yaml file";
+        LOG(INFO) << "Read integrity options from yaml file";
         // integrity_support_message
         if (config["integrity"] && config["integrity"]["integrity_support_message"].IsDefined()) {
             const YAML::Node& ism_msg_node = config["integrity"]["integrity_support_message"];
+
+            option_tools::safeGet(ism_msg_node, "use_complex_visual_cov", &options.use_complex_visual_cov);
+            option_tools::safeGet(ism_msg_node, "use_complex_gnss_cov", &options.use_complex_gnss_cov);
+            option_tools::safeGet(ism_msg_node, "use_complex_imu_cov", &options.use_complex_imu_cov);
+            option_tools::safeGet(ism_msg_node, "use_complex_others_cov", &options.use_complex_others_cov);
+            option_tools::safeGet(ism_msg_node, "simple_visual_sigma", &options.simple_visual_sigma);
+            option_tools::safeGet(ism_msg_node, "simple_gnss_sigma", &options.simple_gnss_sigma);
+            option_tools::safeGet(ism_msg_node, "simple_imu_sigma", &options.simple_imu_sigma);
+            option_tools::safeGet(ism_msg_node, "simple_others_sigma", &options.simple_others_sigma);
+
             option_tools::safeGet(ism_msg_node, "sigma_pixel", &options.sigma_pixel);
-            option_tools::safeGet(ism_msg_node, "prior_fault_probability", &options.prior_fault_probability);
-            option_tools::safeGet(ism_msg_node, "meas_dim", &options.meas_dim);
-            
+            if (!option_tools::safeGet(ism_msg_node, "visual_prior_fault_probability", &options.visual_prior_fault_probability)) {
+                // Backward compatibility for existing yaml files.
+                option_tools::safeGet(ism_msg_node, "prior_fault_probability", &options.visual_prior_fault_probability);
+            }
+            option_tools::safeGet(ism_msg_node, "visual_meas_dim", &options.visual_meas_dim);
+
             // Load overbounding function parameters
             option_tools::safeGet(ism_msg_node, "overbounding_func", &options.overbounding_func);
             if (ism_msg_node["overbounding_parameters"].IsDefined()) {
-            const YAML::Node& params_node = ism_msg_node["overbounding_parameters"];
-            options.overbounding_parameters.clear();
-            for (size_t i = 0; i < params_node.size(); i++) {
-                options.overbounding_parameters.push_back(params_node[i].as<double>());
+                const YAML::Node& params_node = ism_msg_node["overbounding_parameters"];
+                options.overbounding_parameters.clear();
+                for (size_t i = 0; i < params_node.size(); i++) {
+                    options.overbounding_parameters.push_back(params_node[i].as<double>());
+                }
             }
-            }
-            
+
             // Load normal fit function parameters
             option_tools::safeGet(ism_msg_node, "normal_func", &options.normal_func);
             if (ism_msg_node["normal_parameters"].IsDefined()) {
-            const YAML::Node& params_node = ism_msg_node["normal_parameters"];
-            options.normal_parameters.clear();
-            for (size_t i = 0; i < params_node.size(); i++) {
-                options.normal_parameters.push_back(params_node[i].as<double>());
+                const YAML::Node& params_node = ism_msg_node["normal_parameters"];
+                options.normal_parameters.clear();
+                for (size_t i = 0; i < params_node.size(); i++) {
+                    options.normal_parameters.push_back(params_node[i].as<double>());
+                }
             }
-            }
+
+            option_tools::safeGet(ism_msg_node, "gnss_sigma_ura", &options.gnss_sigma_ura);
+            option_tools::safeGet(ism_msg_node, "gnss_sigma_ure", &options.gnss_sigma_ure);
+            option_tools::safeGet(ism_msg_node, "gnss_b_nom", &options.gnss_b_nom);
+            option_tools::safeGet(ism_msg_node, "gnss_sat_prior_fault_probability", &options.gnss_sat_prior_fault_probability);
+            option_tools::safeGet(ism_msg_node, "gnss_const_prior_fault_probability", &options.gnss_const_prior_fault_probability);
+            option_tools::safeGet(ism_msg_node, "imu_prior_fault_probability", &options.imu_prior_fault_probability);
+            option_tools::safeGet(ism_msg_node, "user_F", &options.user_F);
+            option_tools::safeGet(ism_msg_node, "user_Rr", &options.user_Rr);
+            option_tools::safeGet(ism_msg_node, "user_a_sigma", &options.user_a_sigma);
+            option_tools::safeGet(ism_msg_node, "user_b_sigma", &options.user_b_sigma);
+            option_tools::safeGet(ism_msg_node, "doppler_c_sigma", &options.doppler_c_sigma);
+            option_tools::safeGet(ism_msg_node, "rho_max", &options.rho_max);
+            option_tools::safeGet(ism_msg_node, "psi_user_deg", &options.psi_user_deg);
+            option_tools::safeGet(ism_msg_node, "k_mp", &options.k_mp);
+            option_tools::safeGet(ism_msg_node, "tau_mp", &options.tau_mp);
         }
 
         // navigation_requirements

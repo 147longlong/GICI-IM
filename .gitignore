@@ -61,5 +61,8 @@ lib/
 factor_graph.dot
 jacobian_visualization.txt
 results/debug/*
+results/debug_raw/*
 results/mask_feat/*
+results/jacobian/*
 third_party/segmentation/*.pt
+*.cpython-310.pyc

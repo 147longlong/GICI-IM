@@ -7,6 +7,7 @@
 * Copyright (C) 2023 by Cheng Chi, All rights reserved.
 **/
 #include "gici/fusion/rtk_imu_camera_rrr_estimator.h"
+#include "gici/integrity/visual_integrity.h"
 
 #include "gici/gnss/position_error.h"
 
@@ -57,6 +58,8 @@ RtkImuCameraRrrEstimator::RtkImuCameraRrrEstimator(
   sub_gnss_base_options.use_outlier_rejection = false;
   ambiguity_covariance_estimator_.reset(new RtkEstimator(sub_rtk_options, 
     sub_gnss_base_options, sub_base_options, ambiguity_options));
+  
+  visual_integrity_ = std::make_unique<VisualIntegrity>(rrr_options_.integrity_options);
 }
 
 // The default destructor
@@ -335,6 +338,13 @@ bool RtkImuCameraRrrEstimator::visualInitialization(const FrameBundlePtr& frame_
 // Solve current graph
 bool RtkImuCameraRrrEstimator::estimate()
 {
+  // Reset integrity results to NaN
+  hpl_ = std::numeric_limits<double>::quiet_NaN();
+  lapl_ = std::numeric_limits<double>::quiet_NaN();
+  lopl_ = std::numeric_limits<double>::quiet_NaN();
+  vpl_ = std::numeric_limits<double>::quiet_NaN();
+  ir_ = std::numeric_limits<double>::quiet_NaN();
+
   status_ = EstimatorStatus::Converged;
 
   // Optimize
@@ -442,6 +452,13 @@ bool RtkImuCameraRrrEstimator::estimate()
     }
   }
 
+  // Run integrity once per optimization cycle (avoid duplicate analysis on same graph).
+  // if (new_state_type == IdType::cPose) {
+    runIntegrityMonitoring();
+    // LOG(INFO) << "Integrity monitoring results" ;
+  // }
+
+
   // Log information
   State& new_state = states_[latest_state_index_];
   if (base_options_.verbose_output) {
@@ -480,6 +497,39 @@ bool RtkImuCameraRrrEstimator::estimate()
   while (frame_bundles_.size() > 2) frame_bundles_.pop_front();
   
   return true;
+}
+
+void RtkImuCameraRrrEstimator::runIntegrityMonitoring()
+{
+  if (!rrr_options_.integrity_options.enable || !visual_integrity_) {
+    return;
+  }
+
+  FramePtr selected_frame;
+  for (auto it = frame_bundles_.rbegin(); it != frame_bundles_.rend(); ++it) {
+    if (*it == nullptr || (*it)->frames_.empty() || (*it)->frames_.front() == nullptr) {
+      continue;
+    }
+    selected_frame = (*it)->frames_.front();
+    break;
+  }
+
+
+  if (rrr_options_.integrity_options.post_processing) {
+    visual_integrity_->saveSnapshot(states_, latest_state_index_, graph_.get(), selected_frame,
+                                    landmarks_map_, &curGnssRov(), &gnss_measurement_pairs_);
+  } else {
+    visual_integrity_->monitor(states_, latest_state_index_, graph_.get(), selected_frame,
+                               landmarks_map_, &curGnssRov(), &gnss_measurement_pairs_);
+  }
+
+
+
+  hpl_ = visual_integrity_->getHPL();
+  lapl_ = visual_integrity_->getLaPL();
+  lopl_ = visual_integrity_->getLoPL();
+  vpl_ = visual_integrity_->getVPL();
+  ir_ = visual_integrity_->getIR();
 }
 
 // Set initializatin result

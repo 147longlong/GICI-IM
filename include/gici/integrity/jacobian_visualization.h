@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 #include <Eigen/Dense>
@@ -14,5 +16,18 @@ void printJacobianInfo(const Eigen::MatrixXd& J, const Eigen::VectorXd& r,
                        const std::string& filename);
 
 void saveEigenMatrixToFile(const Eigen::MatrixXd& Matrix_eigen, const std::string& filename);
+
+void saveMeasDebugFile(const std::string& output_file,
+                       double timestamp,
+                       const std::map<uint64_t, std::vector<int>>& observation_rows,
+                       const std::string& key_name,
+                       const std::string& debug_name,
+                       const std::map<uint64_t, int>* object_ids = nullptr);
+
+void saveMeasDebugFile(const std::string& output_file,
+                       double timestamp,
+                       const std::map<std::string, std::vector<int>>& observation_rows,
+                       const std::string& key_name,
+                       const std::string& debug_name);
 
 } // namespace gici

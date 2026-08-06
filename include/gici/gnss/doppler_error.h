@@ -146,9 +146,11 @@ public:
   }
 
   // Get GNSS index
-  inline GnssMeasurementIndex getGnssMeasurementIndex() { 
+  inline GnssMeasurementIndex getGnssMeasurementIndex() const { 
     return GnssMeasurementIndex(satellite_.prn, observation_.raw_code);
   }
+
+  inline covariance_t covarianceMatrix() const { return covariance_; }
 
 protected:
   GnssMeasurement measurement_; ///< The measurement.

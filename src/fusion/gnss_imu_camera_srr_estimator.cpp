@@ -270,13 +270,12 @@ bool GnssImuCameraSrrEstimator::estimate()
     updateLandmarks();
     // update states to frontend
     updateFrameStateToFrontend(states_[latest_state_index_], curFrame());
-
     // Visual Integrity Monitoring for post processing or real time.
     if (visual_integrity_ && srr_options_.integrity_options.enable) {
       if (srr_options_.integrity_options.post_processing) {
-        visual_integrity_->saveSnapshot(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
+        visual_integrity_->saveSnapshot(states_, latest_state_index_, graph_.get(), curFrame(), landmarks_map_);
       } else {
-        visual_integrity_->monitor(curFrame(), states_, graph_.get(), landmarks_map_, latest_state_index_);
+        visual_integrity_->monitor(states_, latest_state_index_, graph_.get(), curFrame(), landmarks_map_);
         hpl_ = visual_integrity_->getHPL();
         lapl_ = visual_integrity_->getLaPL();
         lopl_ = visual_integrity_->getLoPL();

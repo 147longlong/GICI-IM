@@ -13,6 +13,7 @@
 #include "gici/vision/visual_estimator_base.h"
 #include "gici/gnss/rtk_estimator.h"
 #include "gici/fusion/gnss_imu_initializer.h"
+#include "gici/integrity/visual_integrity.h"
 
 namespace gici {
 
@@ -31,6 +32,9 @@ struct RtkImuCameraRrrEstimatorOptions {
 
   // Maximum yaw STD to start visual initialization (deg)
   double min_yaw_std_init_visual = 0.5;
+
+  // Integrity options
+  VisualIntegrityOptions integrity_options;
 };
 
 // Estimator
@@ -89,6 +93,8 @@ protected:
 
   // Compute ambiguity covariance at current epoch
   bool estimateAmbiguityCovariance(const State& state, Eigen::MatrixXd& covariance);
+
+  void runIntegrityMonitoring();
   
   // Get latest state
   inline State& latestState() override { return states_[latest_state_index_]; }
@@ -116,6 +122,21 @@ protected:
   int num_continuous_unfix_ = 0;
   int num_cotinuous_reject_gnss_ = 0;
   int num_cotinuous_reject_visual_ = 0;
+
+  // Integrity results
+  double hpl_ = std::numeric_limits<double>::quiet_NaN();
+  double lapl_ = std::numeric_limits<double>::quiet_NaN();
+  double lopl_ = std::numeric_limits<double>::quiet_NaN();
+  double vpl_ = std::numeric_limits<double>::quiet_NaN();
+  double ir_ = std::numeric_limits<double>::quiet_NaN();
+  std::unique_ptr<VisualIntegrity> visual_integrity_;
+
+public:
+  double getHPL() const { return hpl_; }
+  double getLaPL() const { return lapl_; }
+  double getLoPL() const { return lopl_; }
+  double getVPL() const { return vpl_; }
+  double getIR() const { return ir_; }
 };
 
 }

@@ -6,17 +6,17 @@ stream:
         tag: str_gnss_rov
         output_tags: [fmt_gnss_rov]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/gnss_rover.bin
+        path: /media/syl/longlong/GICI-Dataset/5.1/gnss_rover.bin
     - streamer:
         tag: str_gnss_ref
         output_tags: [fmt_gnss_ref]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/gnss_reference.bin
+        path: /media/syl/longlong/GICI-Dataset/5.1/gnss_reference.bin
     - streamer:
         tag: str_gnss_eph
         output_tags: [fmt_gnss_eph]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/gnss_ephemeris.bin
+        path: /media/syl/longlong/GICI-Dataset/5.1/gnss_ephemeris.bin
     - streamer:
         tag: str_dcb_file
         output_tags: [fmt_dcb_file]
@@ -27,41 +27,27 @@ stream:
         tag: str_imu
         output_tags: [fmt_imu]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/imu.bin
+        path: /media/syl/longlong/GICI-Dataset/5.1/imu.bin
         loop_duration: 0.001
     - streamer:
         tag: str_camera
         output_tags: [fmt_camera]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/camera.bin
+        path: /media/syl/longlong/GICI-Dataset/5.1/camera.bin
         buffer_length: 361472 # 752 * 480 + 512 
     - streamer:
         tag: str_rrr_solution_file
         input_tags: [fmt_rrr_solution_file]
         type: file
-        path: /home/syl/GICI-Dataset/2.1/rtk_rrr_solution.txt
+        path: /media/syl/longlong/GICI-Dataset/5.1/rtk_rrr_solution.corr.txt
         enable_time_tag: false
     - streamer:
-        tag: str_solution_stream
-        input_tags: [fmt_solution_stream]
-        type: tcp-server
-        port: 9001
-    - streamer:
-        tag: str_ros_imu
-        input_tags: [fmt_imu]
+        tag: str_protection_level
         type: ros
-        topic_name: imu_raw
+        topic_name: protection_level
         queue_size: 10
-        io: log
-        format: imu
-    - streamer:
-        tag: str_ros_camera
-        input_tags: [fmt_camera]
-        type: ros
-        topic_name: image_raw
-        queue_size: 10
-        io: log
-        format: image
+        io: output
+        format: protection_level
     - streamer:
         tag: str_solution
         type: ros
@@ -99,7 +85,7 @@ stream:
         marker_scale: 0.2
         io: output
         format: marker
-    
+  
   formators:
     - formator:
         io: input
@@ -114,12 +100,12 @@ stream:
         io: input
         tag: fmt_gnss_ref
         type: gnss-rtcm-3
-        start_time: 2023.03.20
+        start_time: 2023.05.21
     - formator:
         io: input
         tag: fmt_gnss_eph
         type: gnss-rtcm-3
-        start_time: 2023.03.20
+        start_time: 2023.05.21
     - formator:
         io: input
         tag: fmt_imu
@@ -135,14 +121,9 @@ stream:
         tag: fmt_rrr_solution_file
         type: nmea 
         use_esa: true
+        use_im: true
         talker_id: GP
-    - formator:
-        io: output
-        tag: fmt_solution_stream
-        type: nmea 
-        use_esa: true
-        use_esd: true
-        talker_id: GP
+
 
   replay:
     enable: true
@@ -160,8 +141,8 @@ estimate:
     fmt_dcb_file_roles: [code_bias]
     fmt_camera_roles: [mono]
     fmt_imu_roles: [major]
-    # output_tags: [fmt_rrr_solution_file, fmt_solution_stream]
-    output_tags: [fmt_rrr_solution_file, fmt_solution_stream, str_solution, str_solution_odometry, str_solution_path, str_featured_image, str_landmarks]
+    # output_tags: [fmt_rrr_solution_file]
+    output_tags: [fmt_rrr_solution_file, str_solution, str_solution_odometry, str_solution_path, str_featured_image, str_landmarks, str_protection_level]
     output_align_tag: fmt_imu
     output_downsample_rate: 40
     compute_covariance: false        
@@ -185,8 +166,8 @@ estimate:
         min_SNR: [35.0, 30.0]
     gnss_loose_estimator_base_options:
     visual_estimator_base_options:
-      feature_error_std: 2.0
-      stable_feature_error_std: 2.0
+      feature_error_std: 10.0
+      stable_feature_error_std: 1.0
       min_observation_stable: 20
       landmark_outlier_rejection_threshold: 2.0
     imu_estimator_base_options:
@@ -261,9 +242,86 @@ estimate:
                   0.999907681540912807,   0.0134460859659659704, -0.00195733688253543802,   0.0110786309679912626,
                   0.00201129251744842832, -0.00400038914436078377,     0.99998997574430859,    0.025008868367930974,
                                       0,                       0,                       0,                       1]
+      segmentation: 
+        use_segmentation_filter: false   
+        segmentation_model: "FastSAM" # Options: "FastSAM", "SLIC"
+        fastsam:
+          model_path: "/home/syl/GICI-IM/third_party/segmentation/FastSAM-s_320.onnx"
+          use_gpu: false
+
+
+integrity:
+  visual_ism_gen: # used in gici_main
+    ism_gen_flag: false
+    save_ism_image: false
+    gt_file: /media/syl/longlong/GICI-Dataset/5.1/gici_tum/Ground-Truth.tum
+    pairwise_file: /media/syl/longlong/GICI-Dataset/5.1/pairwise_sd_errors.txt
+    pairwise_file_mode: trunc #app,trunc
+    saved_folder: 
+    saved_file: 
+    sd_errors_file: 
+  integrity_options:
+    enable: false
+    post_processing: true # save snapshot in gici_main, and process snapshot in integrity_main after estimation
+    snapshot_freq: 2  # 10Hz
+    snapshot_file: /media/syl/longlong/GICI-Dataset/5.1/rrr/integrity_snapshots.wo_corr.bin
+    # below integrity_options are used in integrity_main
+    yaml_options: true
+    use_segment: true
+    start_timestamp: 0
+    end_timestamp: 1679304520.000000
+    output_post_processing_csv: /media/syl/longlong/GICI-Dataset/5.1/rrr/integrity_results.wo_corr.csv
+    output_post_processing_nmea: /media/syl/longlong/GICI-Dataset/5.1/rrr/rtk_rrr_solution.wo_corr.txt
+  integrity_support_message:
+    simple_visual_sigma: 1.0
+    simple_gnss_sigma: 1.0
+    simple_imu_sigma: 1.0
+    simple_others_sigma: 1.0
+    use_complex_visual_cov: true
+    use_complex_gnss_cov: true
+    use_complex_imu_cov: false # if true, the sig for IMU is too small to W bigly, which may cause numerical issue in Cholesky decomposition. So we set it to false and use a simple covariance for IMU.
+    use_complex_others_cov: true # the reason is the same as use_complex_imu_cov
+    sigma_pixel: 1.4
+    visual_prior_fault_probability: 1.0e-3
+    visual_meas_dim: 2
+    overbounding_func: dual_exp #"dual_exp" f(i) = 1.49101568*exp(-0.28066870*i) + 0.40406420*exp(-0.00353658*i), or "none" to omit the tracking error
+    overbounding_parameters: [1.49101568, -0.28066870, 0.40406420, -0.00353658]
+    normal_func: dual_exp #"dual_exp" f(i) = 1.38577510*exp(-0.24765217*i) + 0.34366019*exp(-0.00529072*i), or "none" to omit the tracking error
+    normal_parameters: [1.38577510, -0.24765217, 0.34366019, -0.00529072]
+    gnss_sigma_ura: [2.4, 9.0, 3.0, 7.5] # [GPS, GLO, BDS, GAL]
+    gnss_sigma_ure: [1.6, 6.0, 2.0, 5.0] # [GPS, GLO, BDS, GAL]
+    gnss_b_nom: [0.0, 0.0, 0.0, 0.0] # [GPS, GLO, BDS, GAL]
+    gnss_sat_prior_fault_probability: [1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5] # [GPS, GLO, BDS, GAL]
+    gnss_const_prior_fault_probability: [1.0e-8, 1.0e-5, 1.0e-4, 1.0e-4] # [GPS, GLO, BDS, GAL]
+    imu_prior_fault_probability: 1.0e-4
+    user_F: [1.0, 5.0, 2.0, 1.5] # [GPS, GLO, BDS, GAL]
+    user_Rr: 100.0
+    user_a_sigma: 0.03
+    user_b_sigma: 0.03
+    doppler_c_sigma: 0.30
+    rho_max: 0.2
+    psi_user_deg: 25.0
+    k_mp: 0.2
+    tau_mp: 158.0
+  navigation_requirements:
+    PHMI: 1.6667e-10
+    PHMI_La: 1.3333e-10   #lateral
+    PHMI_Lo: 0.166667e-10 #longitudinal
+    PHMI_V: 0.166667e-10 #vertical
+    PFA: 1e-7
+    PFA_La: 0.2e-7
+    PFA_Lo: 0.4e-7
+    PFA_V: 0.4e-7
+    LaAL: 0.4 #lateral
+    LoAL: 1.4 #longitudinal
+    VAL: 1.4 #vertical
+    P_THRES: 1.67e-12
+    Fc_THRES: 0.01
+    PL_TOL: 1.0e-3
+
 
 logging:
   enable: true
   min_log_level: 0
-  log_to_stderr: true
-  file_directory: <log-directory>
+  log_to_stderr: false
+  file_directory: /media/syl/longlong/GICI-Dataset/5.1/gici_log

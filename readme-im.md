@@ -70,7 +70,7 @@ source ~/.bashrc
 
 # 方法 B：每次运行手动指定
 LD_LIBRARY_PATH="/home/syl/miniconda3/envs/gici/lib:$LD_LIBRARY_PATH" 
-./gici_main ../option/pseudo_real_time_estimation_SRR.yaml
+./gici_main ../option/pseudo_real_time_estimation_RTK_RRR.yaml
 ```
 
 !!注意，这个必须指定，否则主程序就会在运行时候找不到正确的 libstdc++.so.6，出现下面问题：

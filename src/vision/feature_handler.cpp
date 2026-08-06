@@ -679,7 +679,7 @@ bool FeatureHandler::processFrame()
   // Detect features in new frame
   detectFeatures(getCurrent(frame_bundles_)->at(0));
 
-  #if 1
+  #if 0
   // Visualization if segmentation executed
   if (options_.use_segmentation_filter && !current_segmentation_mask_.empty() && segmentator_) {
        static int vis_cnt = 0;

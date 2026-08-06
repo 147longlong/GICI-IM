@@ -134,10 +134,15 @@ void PseudorangeError<Ns ...>::setInformation(const GnssErrorParameter& error_pa
     troposphere_var = 0.0; 
   }
 
+  // //raw
+  // double covariance = (square(factor(0)) + square(factor(1) / sin(elevation))) * ratio + 
+  //   ephemeris_var + ionosphere_var + troposphere_var;
   double covariance = (square(factor(0)) + square(factor(1) / sin(elevation))) * ratio + 
-    ephemeris_var + ionosphere_var + troposphere_var;
+      ionosphere_var + troposphere_var;
   char system = satellite_.getSystem();
   covariance *= square(error_parameter_.system_error_ratio.at(system));
+  // added by SYL to same as phase error
+  covariance += ephemeris_var;
   // add IFCB residual error for GPS L5
   if (satellite_.getSystem() == 'G' && checkEqual(observation_.wavelength, 
       CLIGHT / gnss_common::phaseToFrequency('G', PHASE_L5))) {
